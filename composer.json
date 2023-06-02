@@ -1,0 +1,26 @@
+{
+    "name": "assegaiphp/console",
+    "description": "assegaiphp/console is a powerful PHP composer library designed to simplify the development of console and terminal applications with an interface reminiscent of ncurses. Leveraging ANSI escape sequences, this library offers programmers a comprehensive API to create interactive and portable console-based applications.",
+    "type": "library",
+    "require-dev": {
+        "pestphp/pest": "^2.6"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Assegaiphp\\Console\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Andrew Masiye",
+            "email": "amasiye313@gmail.com"
+        }
+    ],
+    "require": {},
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}
