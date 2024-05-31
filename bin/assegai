@@ -1,3 +1,5 @@
+#!/usr/bin/env php
+
 <?php
 
 use Assegai\Console\Commands\Update;
@@ -5,12 +7,17 @@ use Symfony\Component\Console\Application;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-function bootsrap(): void
+/**
+ * @return void
+ */
+function bootstrap(): void
 {
   $app = new Application('Assegai CLI');
   $app->addCommands([
     new Update()
   ]);
+
+  $app->run();
 }
 
-bootsrap();
+bootstrap();
