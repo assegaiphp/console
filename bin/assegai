@@ -2,22 +2,35 @@
 
 <?php
 
+use Assegai\Console\Commands\Info;
 use Assegai\Console\Commands\Update;
+use Assegai\Console\Commands\Version;
 use Symfony\Component\Console\Application;
 
 require __DIR__ . '/../vendor/autoload.php';
 
 /**
+ * Bootstrap the application
+ *
  * @return void
  */
 function bootstrap(): void
 {
-  $app = new Application('Assegai CLI');
-  $app->addCommands([
-    new Update()
-  ]);
+  try {
+    $app = new Application('Assegai CLI');
+    $app
+      ->addCommands([
+        new Info(),
+        new Update(),
+        new Version(),
+      ]);
+    $app->setDefaultCommand('info');
 
-  $app->run();
+    $app->run();
+  } catch (Exception $e) {
+    echo $e->getMessage();
+    exit(1);
+  }
 }
 
 bootstrap();
