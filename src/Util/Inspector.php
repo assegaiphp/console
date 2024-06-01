@@ -2,6 +2,8 @@
 
 namespace Assegai\Console\Util;
 
+use Composer\InstalledVersions;
+use OutOfBoundsException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -12,6 +14,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class Inspector
 {
+  protected InstalledVersions $installedVersions;
+
   /**
    *
    *
@@ -23,6 +27,18 @@ class Inspector
     protected OutputInterface $output
   )
   {
+    $this->installedVersions = new InstalledVersions();
+  }
+
+  /**
+   * Check if the given package is installed globally.
+   *
+   * @param string $packageName The package name.
+   * @return bool
+   */
+  public function packageIsInstalledGlobally(string $packageName): bool
+  {
+    return in_array($packageName, $this->installedVersions->getInstalledPackages());
   }
 
   /**
@@ -33,40 +49,93 @@ class Inspector
    */
   public function isValidWorkspace(string $workspaceDirectory): bool
   {
-    if (! is_dir($workspaceDirectory))
+    if (! is_dir($workspaceDirectory) )
     {
-      $this->output->writeln("Workspace $workspaceDirectory does not exist.");
+      $this->output->writeln("Workspace $workspaceDirectory does not exist.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
 
     // Check if the workspace is empty
     if (count(scandir($workspaceDirectory)) === 2)
     {
-      $this->output->writeln("Workspace $workspaceDirectory is empty.");
+      $this->output->writeln("Workspace $workspaceDirectory is empty.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
 
     // Check if the workspace has a valid composer.json file
     if (! file_exists(Path::join($workspaceDirectory, 'composer.json')))
     {
-      $this->output->writeln("Workspace $workspaceDirectory does not have a composer.json file.");
+      $this->output->writeln("Workspace $workspaceDirectory does not have a composer.json file.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
 
     // Check if the workspace has a valid assegai.json file
     if (! file_exists(Path::join($workspaceDirectory, 'assegai.json')))
     {
-      $this->output->writeln("Workspace $workspaceDirectory does not have an assegai.json file.");
+      $this->output->writeln("Workspace $workspaceDirectory does not have an assegai.json file.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
 
     // Check if the workspace has a valid assegai-router.php file
     if (! file_exists(Path::join($workspaceDirectory, 'assegai-router.php')) )
     {
-      $this->output->writeln("Workspace $workspaceDirectory does not have an assegai-router.php file.");
+      $this->output->writeln("Workspace $workspaceDirectory does not have an assegai-router.php file.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
 
     return true;
+  }
+
+  /**
+   * Get the version of the CLI package.
+   *
+   * @return string
+   */
+  public function getCLIVersion(): string
+  {
+    $packageName = PACKAGE_NAME_CLI;
+    return $this->getPackageVersion($packageName, null, true) ?: 'Not installed';
+  }
+
+  /**
+   * Get the version of the installed framework.
+   *
+   * @param string|null $workingDirectory The workspace directory.
+   * @return string
+   */
+  public function getInstalledFrameworkVersion(?string $workingDirectory = null): string
+  {
+    $workingDirectory = $workingDirectory ?? getcwd();
+    $packageName = PACKAGE_NAME_CORE;
+    return $this->getPackageVersion($packageName, $workingDirectory) ?: 'Not installed';
+  }
+
+  /**
+   * Get the version of the given package.
+   *
+   * @param string $packageName The package name.
+   * @param string|null $workspace The workspace directory.
+   * @param bool $isGlobal Whether the package is installed globally.
+   * @return false|string
+   */
+  public function getPackageVersion(
+    string $packageName,
+    ?string $workspace = null,
+    bool $isGlobal = false
+  ): false|string
+  {
+    if (! $this->packageIsInstalledGlobally($packageName) )
+    {
+      return false;
+    }
+
+    try
+    {
+      return $this->installedVersions->getVersion($packageName);
+    }
+    catch (OutOfBoundsException $e)
+    {
+      return $e->getMessage();
+    }
   }
 }
