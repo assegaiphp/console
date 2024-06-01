@@ -6,7 +6,10 @@
     "autoload": {
         "psr-4": {
             "Assegai\\Console\\": "src/"
-        }
+        },
+        "files": [
+            "src/Util/Constants.php"
+        ]
     },
     "authors": [
         {
@@ -25,5 +28,8 @@
     },
     "require-dev": {
         "pestphp/pest": "^2.34"
-    }
+    },
+    "bin": [
+        "bin/assegai"
+    ]
 }
