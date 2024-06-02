@@ -5,6 +5,7 @@
 use Assegai\Console\Commands\DumpAutoload;
 use Assegai\Console\Commands\Info;
 use Assegai\Console\Commands\NewProject;
+use Assegai\Console\Commands\Serve;
 use Assegai\Console\Commands\Update;
 use Assegai\Console\Commands\Version;
 use Symfony\Component\Console\Application;
@@ -25,6 +26,7 @@ function bootstrap(): void
         new DumpAutoload(),
         new NewProject(),
         new Info(),
+        new Serve(),
         new Update(),
         new Version(),
       ]);
