@@ -12,6 +12,7 @@ use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
@@ -24,7 +25,9 @@ class NewProject extends Command
   public function configure(): void
   {
     $this->addArgument('name', InputArgument::OPTIONAL, 'The name of the project');
-    $this->addOption('directory', 'd', InputArgument::OPTIONAL, 'The path to create the project in', getcwd());
+    $this
+      ->addOption('directory', 'd', InputArgument::OPTIONAL | InputOption::VALUE_REQUIRED, 'The path to create the project in', getcwd())
+      ->addOption('skip-git', 'g', InputOption::VALUE_NONE, 'Skip git repository initialization');
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
@@ -86,7 +89,7 @@ class NewProject extends Command
 
     $output->writeln([
       "✔️  Installation done! ☕\n",
-      "🚀  Successfully created project <info>$projectPath</info>",
+      "🚀  Successfully created the <info>$projectPath</info> project",
       "👉  Get started with the following commands:\n",
       "<fg=gray>$ cd $projectPath</>",
       "<fg=gray>$ assegai serve</>\n\n\n",

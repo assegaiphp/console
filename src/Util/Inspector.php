@@ -76,10 +76,10 @@ class Inspector
       return false;
     }
 
-    // Check if the workspace has a valid assegai-router.php file
-    if (! file_exists(Path::join($workspaceDirectory, 'assegai-router.php')) )
+    // Check if the workspace has a valid index.php file
+    if (! file_exists(Path::join($workspaceDirectory, 'index.php')) )
     {
-      $this->output->writeln("Workspace $workspaceDirectory does not have an assegai-router.php file.", OutputInterface::VERBOSITY_VERBOSE);
+      $this->output->writeln("Workspace $workspaceDirectory does not have an index.php file.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
 
