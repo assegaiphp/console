@@ -108,7 +108,7 @@ class WorkspaceManager
       "description" => $description ,
       "type" => $type,
       "scripts" => [
-        "start" => "php -S localhost:5000 assegai-router.php",
+        "start" => "php -S localhost:5000 public/index.php",
       ],
       "license" => "MIT",
       "autoload" => [
@@ -130,6 +130,40 @@ class WorkspaceManager
     {
       $this->output->writeln("<error>\nFailed to create composer.json file</error>");
       return Command::FAILURE;
+    }
+
+    $appFile = Path::join($projectDirectory, 'app.php');
+
+    if (! file_exists($appFile) )
+    {
+      $this->output->writeln("<error>\napp.php file not found</error>");
+      return Command::FAILURE;
+    }
+
+    $appFileContent = file_get_contents($appFile);
+    $appFileContent = str_replace('Assegai\App\\', $namespace, $appFileContent);
+
+    if (false === file_put_contents($appFile, $appFileContent) )
+    {
+      $this->output->writeln("<error>\nFailed to update app.php file</error>");
+      return Command::FAILURE;
+    }
+
+    # Initialize the git repository
+    if ( boolval($this->input->getOption('skip-git')) !== true )
+    {
+      $this->output->writeln('');
+      $this->output->writeln(
+        $this->formatter->formatBlock('Initializing git repository...', 'question', true),
+        OutputInterface::VERBOSITY_VERBOSE
+      );
+      $gitInit = `cd $projectDirectory && git init`;
+
+      if (! str_contains($gitInit, 'Initialized empty Git repository') )
+      {
+        $this->output->writeln("<error>\nFailed to initialize git repository</error>");
+        return Command::FAILURE;
+      }
     }
 
     $this->output->writeln('');
