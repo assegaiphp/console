@@ -10,10 +10,6 @@ class Path
    * @var string $workingDirectory The working directory.
    */
   private static string $workingDirectory = '';
-  /**
-   * @var string $gameFileDirectory The game file directory.
-   */
-  private static string $gameFileDirectory = '';
 
   /**
    * Path constructor.
@@ -54,6 +50,11 @@ class Path
     return self::join(self::getProjectRootPath(), 'res');
   }
 
+  public static function getServerRoot(): string
+  {
+    return $_SERVER['DOCUMENT_ROOT'];
+  }
+
   /**
    * Returns the path to the project's root directory.
    *
@@ -61,26 +62,21 @@ class Path
    */
   public static function getProjectRootPath(): string
   {
-    return dirname(__DIR__, 2);
-  }
+    $path = getcwd();
 
-  /**
-   * Sets the working directory and game file directory.
-   *
-   * @param false|string $currentWorkingDirectory The current working directory.
-   * @param string $gameFileDirectory The game file directory.
-   * @return void
-   * @throws UtilityException
-   */
-  public static function init(false|string $currentWorkingDirectory, string $gameFileDirectory): void
-  {
-    if ($currentWorkingDirectory === false)
+    while(strlen($path) > 1)
     {
-      throw new UtilityException('Unable to get current working directory.');
+      if (
+        file_exists(Path::join($path, 'composer.json')) &&
+        file_exists(Path::join($path, 'assegai.json'))
+      )
+      {
+        return $path;
+      }
+      $path = dirname($path);
     }
 
-    self::$workingDirectory = $currentWorkingDirectory;
-    self::$gameFileDirectory = $gameFileDirectory;
+    return $path;
   }
 
   /**
@@ -90,17 +86,7 @@ class Path
    */
   public static function getWorkingDirectory(): string
   {
-    return self::$workingDirectory;
-  }
-
-  /**
-   * Returns the game file directory.
-   *
-   * @return string The game file directory.
-   */
-  public static function getGameFileDirectory(): string
-  {
-    return self::$gameFileDirectory;
+    return getcwd();
   }
 
   /**
@@ -111,16 +97,6 @@ class Path
   public static function getAssetsDirectory(): string
   {
     return self::join(self::getProjectRootPath(), 'assets');
-  }
-
-  /**
-   * Returns the path to the working directory's assets.
-   *
-   * @return string The path to the working directory's assets.
-   */
-  public static function getWorkingDirectoryAssetsPath(): string
-  {
-    return self::join(getcwd(), 'assets');
   }
 
   /**
@@ -174,5 +150,15 @@ class Path
   public static function getTemplatesDirectory(): string
   {
     return Path::join(dirname(__DIR__, 2), 'templates');
+  }
+
+  /**
+   * Returns the path to the certificates' directory.
+   *
+   * @return string The path to the certificates' directory.
+   */
+  public static function getCertificatesDirectory(): string
+  {
+    return Path::join(dirname(__DIR__, 2), 'certs');
   }
 }

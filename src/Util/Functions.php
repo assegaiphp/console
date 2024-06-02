@@ -54,3 +54,29 @@ function array_to_string(array $array): false|string
   $output = str_replace('}', ']', $output);
   return str_replace('":', '" =>', $output);
 }
+
+/**
+ * Formats a block of text.
+ *
+ * @param string $message The message to format.
+ * @param string $style The style to apply.
+ * @return array The formatted block.
+ */
+function formatBlock(string $message, string $style): array
+{
+  $output = [];
+  $lines = explode("\n", $message);
+  $longestLine = strlen($message);
+
+  foreach ($lines as $line)
+  {
+    $longestLine = max(strlen($line), $longestLine);
+  }
+
+  foreach ($lines as $index => $line)
+  {
+    // TODO: Implement the rest of the function
+  }
+
+  return $output;
+}
