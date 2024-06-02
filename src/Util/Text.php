@@ -298,11 +298,11 @@ class Text implements Stringable
   }
 
   /**
-   * Returns the dasherized form of the word.
+   * Returns the kebab case of this text.
    *
-   * @return string The dasherized form of the word.
+   * @return string The kebab case of the text.
    */
-  public function dasherize(): string
+  public function kebabCase(): string
   {
     $tokens = preg_split('/[\W_]/', $this->value);
     $output = [];
@@ -320,7 +320,7 @@ class Text implements Stringable
    *
    * @return string The snake case of the word.
    */
-  public function snakerize(): string
+  public function snakeCase(): string
   {
     $tokens = preg_split('/\W/', $this->value);
     $output = [];
@@ -338,7 +338,7 @@ class Text implements Stringable
    *
    * @return string The pascal case of the word.
    */
-  public function pascalize(): string
+  public function pascalCase(): string
   {
     $tokens = preg_split('/[\W_]/', $this->value);
     $output = [];
