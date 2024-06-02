@@ -8,6 +8,7 @@ use Symfony\Component\Console\Question\ConfirmationQuestion;
 
 class DatabaseInstaller extends AbstractInstaller
 {
+  protected array $requiredExtensions = ['pdo_mysql', 'mysqli'];
 
   /**
    * @inheritDoc
@@ -15,15 +16,19 @@ class DatabaseInstaller extends AbstractInstaller
   public function install(): int
   {
     // TODO: Implement install() method.
-    if (! $this->questionHelper->ask($this->input, $this->output, new ConfirmationQuestion('Do you want to install the database? (y/n) ')))
+    if (! $this->questionHelper->ask($this->input, $this->output, new ConfirmationQuestion('<info>?</info> Do you want to install the database? (Y/n) ')))
     {
       $this->output->writeln('Skipping database installation...');
       return Command::SUCCESS;
     }
 
-    $this->output->writeln($this->formatter->formatBlock('Installing the database...', 'comment', true));
+    $this->output->writeln('');
+    $this->output->writeln(
+      $this->formatter->formatBlock("Installing the database...", 'question', true)
+    );
+    $this->output->writeln('');
 
-    if ($missingExtensions = $this->checkForMissingExtensions(['pdo_mysql', 'mysqli']))
+    if ($missingExtensions = $this->checkForMissingExtensions($this->requiredExtensions))
     {
       $this->output->writeln($this->formatter->formatBlock('The following extensions are missing: ' . implode(', ', $missingExtensions), 'error', true));
       return Command::FAILURE;
