@@ -31,8 +31,7 @@ class Version extends Command
       return Command::FAILURE;
     }
 
-    $version = `composer global show sendamaphp/console | grep 'versions'`;
-    $version = preg_replace('/versions\s*:\s*\*\s*(.*)/', '$1', $version);
+    $version = $inspector->getCLIVersion();
     $output->writeln("<info>$version</info>");
 
     return Command::SUCCESS;

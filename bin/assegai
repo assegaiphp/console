@@ -2,7 +2,9 @@
 
 <?php
 
+use Assegai\Console\Commands\DumpAutoload;
 use Assegai\Console\Commands\Info;
+use Assegai\Console\Commands\NewProject;
 use Assegai\Console\Commands\Update;
 use Assegai\Console\Commands\Version;
 use Symfony\Component\Console\Application;
@@ -20,6 +22,8 @@ function bootstrap(): void
     $app = new Application('Assegai CLI');
     $app
       ->addCommands([
+        new DumpAutoload(),
+        new NewProject(),
         new Info(),
         new Update(),
         new Version(),

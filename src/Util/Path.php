@@ -165,4 +165,14 @@ class Path
 
     return $normalizedPath;
   }
+
+  /**
+   * Returns the path to the templates' directory.
+   *
+   * @return string The path to the templates' directory.
+   */
+  public static function getTemplatesDirectory(): string
+  {
+    return Path::join(dirname(__DIR__, 2), 'templates');
+  }
 }
