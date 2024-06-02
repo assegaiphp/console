@@ -29,45 +29,50 @@ class WorkspaceManager
   {
   }
 
-  public function init(?string $projectName = null, ?string $workingDirectory = null): int
+  public function init(?string &$projectName = null, ?string $workingDirectory = null): int
   {
-    $progress = new ProgressIndicator($this->output);
     $workingDirectory = $directory ?? getcwd();
     $templatePath = Path::getTemplatesDirectory();
     $defaultProjectName = DEFAULT_PROJECT_NAME;
 
+    $this->output->writeln($this->formatter->formatBlock("Initializing the project...", 'question', true));
+    $this->output->writeln('');
+
     if (! $projectName )
     {
-      $projectNameQuestion = new Question("Project name?: ($defaultProjectName)", $defaultProjectName);
+      $projectNameQuestion = new Question("<info>?</info> Project name: ($defaultProjectName) ", $defaultProjectName);
       $projectName = $this->questionHelper->ask($this->input, $this->output, $projectNameQuestion);
     }
     $projectNameText = new Text($projectName);
     $projectDirectory = Path::join($workingDirectory, $projectNameText->kebabCase());
 
-    $progress->start("Creating project: $projectName\n");
+    if ( file_exists($projectDirectory) )
+    {
+      $this->output->writeln("<error>Project directory already exists: $projectDirectory</error>");
+      return Command::FAILURE;
+    }
 
     if (! mkdir($projectDirectory, 0777, true) )
     {
-      $progress->finish("\nFailed to create project directory: $projectDirectory\n");
+      $this->output->writeln("<error>\nFailed to create project directory: $projectDirectory</error>");
       return Command::FAILURE;
     }
-    $progress->advance();
 
     if (! copy_directory($templatePath, $projectDirectory) )
     {
-      $progress->finish("\nFailed to copy project template\n");
+      $this->output->writeln("<error>\nFailed to copy project template</error>");
       return Command::FAILURE;
     }
-    $progress->advance();
 
-    $description = $this->questionHelper->ask($this->input, $this->output, new Question("Description?: "));
-    $version = $this->questionHelper->ask($this->input, $this->output, new Question("Version?: ", '0.0.1'));
+    $description = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Description: ")) ?? "";
+    $defaultVersion = DEFAULT_PROJECT_VERSION ?? '0.0.1';
+    $version = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Version: ($defaultVersion) ", $defaultVersion));
     $version = $this->filterVersion($version);
     $type = 'project';
 
     $assegaiConfig = [
       "name" => $projectName,
-      "description" => $description ?? "",
+      "description" => $description ,
       "version" => $version,
       "projectType" => $type,
       "root" => "",
@@ -87,20 +92,20 @@ class WorkspaceManager
 
     if (! file_put_contents($targetAssegaiConfigPath, json_encode($assegaiConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) )
     {
-      $progress->finish("\nFailed to create assegai.json file\n");
+      $this->output->writeln("<error>\nFailed to create assegai.json file</error>");
       return Command::FAILURE;
     }
 
     $projectNameText = new Text($projectName);
     $defaultPackageName = 'assegaiphp/' . $projectNameText->snakeCase();
-    $packageName = $this->questionHelper->ask($this->input, $this->output, new Question("Package name?: ($defaultPackageName)", $defaultPackageName));
+    $packageName = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Package name: ($defaultPackageName) ", $defaultPackageName));
     [$vendor, $package] = explode('/', $packageName);
     $defaultNamespace = Text::snakeCaseToPascalCase($vendor) . '\\' . Text::snakeCaseToPascalCase($package) . '\\';
-    $namespace = $this->questionHelper->ask($this->input, $this->output, new Question("Namespace?: ($defaultNamespace)", $defaultNamespace));
+    $namespace = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Namespace: ($defaultNamespace) ", $defaultNamespace));
 
     $composerConfig = [
       "name" => $packageName,
-      "description" => $description,
+      "description" => $description ,
       "type" => $type,
       "scripts" => [
         "start" => "php -S localhost:5000 assegai-router.php",
@@ -123,11 +128,12 @@ class WorkspaceManager
 
     if (! file_put_contents($targetComposerConfigPath, json_encode($composerConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) )
     {
-      $progress->finish("\nFailed to create composer.json file\n");
+      $this->output->writeln("<error>\nFailed to create composer.json file</error>");
       return Command::FAILURE;
     }
 
-    $progress->finish("\nProject created: $projectName\n");
+    $this->output->writeln('');
+    $this->output->writeln("✔️  Project initialized: <info>$projectName</info>\n");
 
     return Command::SUCCESS;
   }
@@ -140,7 +146,7 @@ class WorkspaceManager
   public function install(): int
   {
     printf(
-      "%s%s▹▹▹▸▹%s Installation in progress... ☕%s\n",
+      "%s%s▹▹▹▹▹%s Installation in progress... ☕%s\n",
       ColorFX::BLINK->value, Color::FG_LIGHT_BLUE->value, Color::FG_WHITE->value, Color::RESET->value
     );
 
