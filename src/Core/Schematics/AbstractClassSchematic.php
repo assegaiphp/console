@@ -4,6 +4,7 @@ namespace Assegai\Console\Core\Schematics;
 
 use Assegai\Console\Core\Interfaces\SchematicInterface;
 use Assegai\Console\Util\Config\ComposerConfig;
+use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Command\Command;
@@ -47,9 +48,21 @@ abstract class AbstractClassSchematic implements SchematicInterface
     protected array $properties = [],
     protected string $constructor = '',
     protected array $methods = [],
+    protected bool $isFlat = false,
   )
   {
     $this->className = (new Text($this->name))->pascalCase();
+    $this->configure();
+  }
+
+  /**
+   * Configure the class schematic.
+   *
+   * @return void
+   */
+  public function configure(): void
+  {
+    // Do nothing
   }
 
   /**
@@ -77,6 +90,7 @@ PHP;
 
     $content = preg_replace('/class\s(.*)\n\{(\s*)}/', "class $1\n{}", $content);
     $content = preg_replace('/namespace (.*;)(\n*)(.+)/', "namespace $1\n\n$3", $content);
+    $content = preg_replace('/](\s+)class/', "]\nclass", $content);
 
     # Create the directory recursively if it doesn't exist
     $dir = dirname($this->getFilePath());
@@ -120,7 +134,14 @@ PHP;
       return Command::FAILURE;
     }
 
-    $this->output->writeln("<info>CREATED</info> {$this->getFileName()} ($bytes bytes)");
+    $this->output->writeln("<info>CREATED</info> {$this->getRelativeFilename()} ($bytes bytes)");
+
+    $inspector = new Inspector($this->input, $this->output);
+    if ($inspector->isValidWorkspace(getcwd() ?: ''))
+    {
+      $this->updateAppModule();
+    }
+
     return Command::SUCCESS;
   }
 
@@ -290,7 +311,7 @@ PHP;
    */
   protected function getFilePath(): string
   {
-    return Path::join($this->path, $this->getFileName());
+    return Path::join($this->path, $this->getRelativeFilename());
   }
 
   /**
@@ -301,5 +322,41 @@ PHP;
   protected function getFileName(): string
   {
     return $this->getClassName() . '.php';
+  }
+
+  /**
+   * Get the relative filename.
+   *
+   * @return string The relative filename
+   */
+  protected function getRelativeFilename(): string
+  {
+    $inspector = new Inspector($this->input, $this->output);
+    $tail = '';
+
+    if ($inspector->isValidWorkspace(getcwd() ?: ''))
+    {
+      $tail = 'src';
+    }
+
+    if (! $this->isFlat )
+    {
+      $tail = Path::join($tail, (new Text($this->name))->pascalCase());
+    }
+
+    return Path::join($tail, $this->getFileName());
+  }
+
+  /**
+   * Update the AppModule.php file.
+   *
+   * @return int The status of the update.
+   */
+  protected function updateAppModule(): int
+  {
+    // TODO: Implement updateAppModule() method.
+    $bytes = 0;
+    $this->output->writeln("<fg=bright-blue>UPDATED</> src/AppModule.php ($bytes)");
+    return Command::SUCCESS;
   }
 }
