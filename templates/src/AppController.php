@@ -6,6 +6,11 @@ use Assegai\Core\Attributes\Controller;
 use Assegai\Core\Attributes\Http\Get;
 use Assegai\Core\Rendering\View;
 
+/**
+ * The controller for the app.
+ *
+ * @package Assegai\App
+ */
 #[Controller(path: '')]
 class AppController
 {
@@ -13,7 +18,13 @@ class AppController
   {
   }
 
-  public function home()
+  /**
+   * The home page.
+   *
+   * @return View The home page view.
+   */
+  #[Get]
+  public function home(): View
   {
     return $this->appService->home();
   }
