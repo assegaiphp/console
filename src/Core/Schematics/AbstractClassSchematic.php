@@ -4,6 +4,7 @@ namespace Assegai\Console\Core\Schematics;
 
 use Assegai\Console\Core\Interfaces\SchematicInterface;
 use Assegai\Console\Util\Config\ComposerConfig;
+use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -17,16 +18,38 @@ abstract class AbstractClassSchematic implements SchematicInterface
    * @var string
    */
   protected string $namespace = 'Assegai\\App';
+  protected string $className = '';
 
+  /**
+   * AbstractClassSchematic constructor.
+   *
+   * @param InputInterface $input The input interface
+   * @param OutputInterface $output The output interface
+   * @param string $name The name of the schematic
+   * @param string $path The path to the file
+   * @param string $prefix The prefix of the class name
+   * @param string $suffix The suffix of the class name
+   * @param array $imports The imports of the class
+   * @param array $attributes The attributes of the class
+   * @param array $properties The properties of the class
+   * @param string $constructor The constructor of the class
+   * @param array $methods The methods of the class
+   */
   public function __construct(
     protected InputInterface $input,
     protected OutputInterface $output,
     protected string $name,
     protected string $path,
     protected string $prefix = '',
-    protected string $suffix = ''
+    protected string $suffix = '',
+    protected array $imports = [],
+    protected array $attributes = [],
+    protected array $properties = [],
+    protected string $constructor = '',
+    protected array $methods = [],
   )
   {
+    $this->className = (new Text($this->name))->pascalCase();
   }
 
   /**
@@ -42,21 +65,21 @@ abstract class AbstractClassSchematic implements SchematicInterface
 namespace $this->namespace;
 
 {$this->generateDeclaredImports()}
-
 {$this->getClassAttributes()}
 class {$this->getClassName()}
 {
   {$this->generateProperties()}
-
   {$this->generateConstructor()}
-
   {$this->generateMethods()}
 }
 
 PHP;
 
+    $content = preg_replace('/class\s(.*)\n\{(\s*)}/', "class $1\n{}", $content);
+    $content = preg_replace('/namespace (.*;)(\n*)(.+)/', "namespace $1\n\n$3", $content);
+
     # Create the directory recursively if it doesn't exist
-    $dir = dirname($this->path);
+    $dir = dirname($this->getFilePath());
     if (false === is_dir($dir) )
     {
       if (false === mkdir($dir, 0755, true) )
@@ -67,9 +90,9 @@ PHP;
     }
 
     # Create the file if it doesn't exist
-    if (false === file_exists($this->path) )
+    if (false === file_exists($this->getFilePath()) )
     {
-      if (false === touch($this->path) )
+      if (false === touch($this->getFilePath()) )
       {
         $this->output->writeln("<error>Failed to create the file: $this->path</error>");
         return Command::FAILURE;
@@ -77,12 +100,27 @@ PHP;
     }
 
     # Write to the file
-    if (false === file_put_contents($this->path, $content) )
+    if (! is_writable($this->getFilePath()) )
     {
-      $this->output->writeln("<error>Failed to write to the file: $this->path</error>");
+      $this->output->writeln("<error>File is not writable: {$this->getFileName()}</error>");
       return Command::FAILURE;
     }
 
+    if (! is_file($this->getFilePath()) )
+    {
+      $this->output->writeln("<error>File does not exist: {$this->getFileName()}</error>");
+      return Command::FAILURE;
+    }
+
+    $bytes = file_put_contents($this->getFilePath(), $content);
+
+    if (false === $bytes)
+    {
+      $this->output->writeln("<error>Failed to write to the file: {$this->getFileName()}</error>");
+      return Command::FAILURE;
+    }
+
+    $this->output->writeln("<info>CREATED</info> {$this->getFileName()} ($bytes bytes)");
     return Command::SUCCESS;
   }
 
@@ -113,35 +151,124 @@ PHP;
    *
    * @return string The declared imports
    */
-  public abstract function generateDeclaredImports(): string;
+  public function generateDeclaredImports(): string
+  {
+    $render = '';
+
+    foreach ($this->imports as $import)
+    {
+      $render .= "use $import;\n";
+    }
+
+    return $render;
+  }
 
   /**
    * Get the class attributes. This is the attributes that annotate the class.
    *
    * @return string The class attributes
    */
-  public abstract function getClassAttributes(): string;
+  public function getClassAttributes(): string
+  {
+    $render = '';
+
+    if ($this->attributes)
+    {
+      $render .= "#[";
+      $separator = ', ';
+
+      if (count($this->attributes) > 3)
+      {
+        $render .= "\n";
+        $separator = ",\n";
+      }
+
+      foreach ($this->attributes as $attribute)
+      {
+        $render .= $attribute . $separator;
+      }
+
+      $render = rtrim($render, $separator);
+      $render .= "]\n";
+    }
+
+    return $render;
+  }
 
   /**
    * Generate the properties of the class. This is the properties that the class has.
    *
    * @return string The properties of the class
    */
-  public abstract function generateProperties(): string;
+  public function generateProperties(): string
+  {
+    $render = '';
+
+    foreach ($this->properties as $property)
+    {
+      $render .= "  $property;\n";
+    }
+
+    if (! empty($render) )
+    {
+      $render .= "\n";
+    }
+
+    return $render;
+  }
 
   /**
    * Generate the constructor of the class.
    *
    * @return string The constructor of the class
    */
-  public abstract function generateConstructor(): string;
+  public function generateConstructor(): string
+  {
+    $render = '';
+
+    $lines = explode("\n", $this->constructor);
+    foreach ($lines as $line)
+    {
+      if (empty($line))
+      {
+        continue;
+      }
+      $render .= "  $line;\n";
+    }
+
+    if (! empty($render) )
+    {
+      $render .= "\n";
+    }
+
+    return $render;
+  }
 
   /**
    * Generate the methods of the class. This is the methods that the class has.
    *
    * @return string The methods of the class
    */
-  public abstract function generateMethods(): string;
+  public function generateMethods(): string
+  {
+    $render = '';
+
+    foreach ($this->methods as $method)
+    {
+      $lines = explode("\n", $method);
+      foreach ($lines as $line)
+      {
+        $render .= "  $line;\n";
+      }
+    }
+
+    if (! empty($render) )
+    {
+      $render .= "\n";
+    }
+
+    return $render;
+  }
 
   /**
    * Load the namespace from the configuration file.
@@ -154,5 +281,25 @@ PHP;
     $config->load();
 
     $this->namespace = $config->get('namespace') ?? $this->namespace;
+  }
+
+  /**
+   * Get the file path.
+   *
+   * @return string The file path
+   */
+  protected function getFilePath(): string
+  {
+    return Path::join($this->path, $this->getFileName());
+  }
+
+  /**
+   * Get the filename.
+   *
+   * @return string The filename
+   */
+  protected function getFileName(): string
+  {
+    return $this->getClassName() . '.php';
   }
 }
