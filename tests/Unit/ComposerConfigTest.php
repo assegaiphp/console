@@ -73,4 +73,17 @@ describe("ComposerConfigTest", function() {
       "output" => $output,
     ]
   ]);
+
+  it("can update a value from the composer.json file", function(InputInterface $input, OutputInterface $output) {
+    $composerConfig = new ComposerConfig($input, $output);
+    $composerConfig->load();
+    $composerConfig->set('name', "assegaiphp/console");
+    $composerConfig->commit();
+    expect($composerConfig->get("name"))->toBe("assegaiphp/console");
+  })->with([
+    [
+      "input" => $input,
+      "output" => $output,
+    ]
+  ]);
 });

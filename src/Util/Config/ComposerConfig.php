@@ -63,4 +63,46 @@ class ComposerConfig
 
     return $value;
   }
+
+  /**
+   * Set a value in the composer.json file
+   *
+   * @param string $path
+   * @param mixed $value
+   */
+  public function set(string $path, mixed $value): void
+  {
+    $tokens = explode('.', $path);
+
+    $target = &$this->composerJson;
+
+    foreach ($tokens as $token)
+    {
+      if (! array_key_exists($token, $target))
+      {
+        $target[$token] = [];
+      }
+
+      $target = &$target[$token];
+    }
+
+    $target = $value;
+  }
+
+  /**
+   * Commit the changes to the composer.json file
+   *
+   * @return int
+   */
+  public function commit(): int
+  {
+    $composerJsonPath = Path::join($this->workingDirectory, 'composer.json');
+    if (false === file_put_contents($composerJsonPath, json_encode($this->composerJson, JSON_PRETTY_PRINT)) )
+    {
+      $this->output->writeln('<error>Failed to write to composer.json</error>');
+      return Command::FAILURE;
+    }
+
+    return Command::SUCCESS;
+  }
 }
