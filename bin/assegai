@@ -3,6 +3,7 @@
 <?php
 
 use Assegai\Console\Commands\DumpAutoload;
+use Assegai\Console\Commands\Generate;
 use Assegai\Console\Commands\Info;
 use Assegai\Console\Commands\NewProject;
 use Assegai\Console\Commands\Serve;
@@ -24,6 +25,7 @@ function bootstrap(): void
     $app
       ->addCommands([
         new DumpAutoload(),
+        new Generate(),
         new NewProject(),
         new Info(),
         new Serve(),

@@ -5,7 +5,8 @@
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Assegai\\Console\\": "src/"
+            "Assegai\\Console\\": "src/",
+            "Assegai\\Console\\Tests\\": "tests/"
         },
         "files": [
             "src/Util/Constants.php",
