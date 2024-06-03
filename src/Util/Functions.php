@@ -62,7 +62,7 @@ function array_to_string(array $array): false|string
  * @param string $style The style to apply.
  * @return array The formatted block.
  */
-function formatBlock(string $message, string $style): array
+function format_block(string $message, string $style): array
 {
   $output = [];
   $lines = explode("\n", $message);
@@ -79,4 +79,15 @@ function formatBlock(string $message, string $style): array
   }
 
   return $output;
+}
+
+/**
+ * Checks if a program is installed.
+ *
+ * @param string $programName The name of the program.
+ * @return bool True if the program is installed, false otherwise.
+ */
+function is_installed(string $programName): bool
+{
+  return ! empty(`which $programName`);
 }

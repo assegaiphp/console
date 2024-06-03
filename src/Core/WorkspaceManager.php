@@ -13,6 +13,7 @@ use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Console\Question\Question;
 
 /**
@@ -151,37 +152,34 @@ class WorkspaceManager
       return Command::FAILURE;
     }
 
-    $appFile = Path::join($projectDirectory, 'app.php');
-
-    if (! file_exists($appFile) )
+    # Update namespace in project files
+    if (($statusCode = $this->updateNamespace($projectDirectory, $namespace)) > 0)
     {
-      $this->output->writeln("<error>\napp.php file not found</error>");
-      return Command::FAILURE;
-    }
-
-    $appFileContent = file_get_contents($appFile);
-    $appFileContent = str_replace('Assegai\App\\', $namespace, $appFileContent);
-
-    if (false === file_put_contents($appFile, $appFileContent) )
-    {
-      $this->output->writeln("<error>\nFailed to update app.php file</error>");
-      return Command::FAILURE;
+      $this->output->writeln("<error>\nFailed to update namespace in project files</error>");
+      return $statusCode;
     }
 
     # Initialize the git repository
-    if ( boolval($this->input->getOption('skip-git')) !== true )
+    $initGitQuestion = new ConfirmationQuestion("<info>?</info> Initialize git repository? (Y/n) ", true);
+    if (
+      is_installed('git') &&
+      $this->questionHelper->ask($this->input, $this->output, $initGitQuestion)
+    )
     {
-      $this->output->writeln('');
-      $this->output->writeln(
-        $this->formatter->formatBlock('Initializing git repository...', 'question', true),
-        OutputInterface::VERBOSITY_VERBOSE
-      );
-      $gitInit = `cd $projectDirectory && git init`;
-
-      if (! str_contains($gitInit, 'Initialized empty Git repository') )
+      if ( boolval($this->input->getOption('skip-git')) !== true )
       {
-        $this->output->writeln("<error>\nFailed to initialize git repository</error>");
-        return Command::FAILURE;
+        $this->output->writeln('');
+        $this->output->writeln(
+          $this->formatter->formatBlock('Initializing git repository...', 'question', true),
+          OutputInterface::VERBOSITY_VERBOSE
+        );
+        $gitInit = `cd $projectDirectory && git init`;
+
+        if (! str_contains($gitInit, 'Initialized empty Git repository') )
+        {
+          $this->output->writeln("<error>\nFailed to initialize git repository</error>");
+          return Command::FAILURE;
+        }
       }
     }
 
@@ -199,7 +197,7 @@ class WorkspaceManager
   public function install(): int
   {
     printf(
-      "%s%s▹▹▹▹▹%s Installation in progress... ☕%s\n",
+      "%s%s▹▹▹▹▹%s Installation in progress... ☕%s\n\n",
       ColorFX::BLINK->value, Color::FG_LIGHT_BLUE->value, Color::FG_WHITE->value, Color::RESET->value
     );
 
@@ -253,5 +251,46 @@ class WorkspaceManager
   public function setProjectPath(string $path): void
   {
     $this->projectPath = $path;
+  }
+
+  /**
+   * Update the namespace in the project files
+   *
+   * @param string $projectDirectory The project directory
+   * @param string $namespace The namespace
+   * @return int The command status
+   */
+  private function updateNamespace(string $projectDirectory, string $namespace): int
+  {
+    $filePaths = ['app.php', 'src/AppModule.php', 'src/AppController.php', 'src/AppService.php'];
+
+    if (str_ends_with($namespace, '\\'))
+    {
+      $namespace = substr($namespace, 0, -1);
+    }
+
+    foreach ($filePaths as $path)
+    {
+      $filePath = Path::join($projectDirectory, $path);
+
+      if (! file_exists($filePath) )
+      {
+        $this->output->writeln("<error>\n$path file not found</error>");
+        return Command::FAILURE;
+      }
+
+      $fileContent = file_get_contents($filePath);
+      $fileContent = str_replace('Assegai\App', $namespace, $fileContent);
+
+      if (false === file_put_contents($filePath, $fileContent) )
+      {
+        $this->output->writeln("<error>\nFailed to update $path file</error>");
+        return Command::FAILURE;
+      }
+
+      $this->output->writeln("<info>Updated namespace in $path file to $namespace</info>", OutputInterface::VERBOSITY_VERBOSE);
+    }
+
+    return Command::SUCCESS;
   }
 }

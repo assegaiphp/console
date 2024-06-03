@@ -30,7 +30,9 @@ class DatabaseInstaller extends AbstractInstaller
   {
     if (! $this->questionHelper->ask($this->input, $this->output, new ConfirmationQuestion('<info>?</info> Do you want to install the database? (Y/n) ')))
     {
-      $this->output->writeln('Skipping database installation...');
+      $this->output->writeln('');
+      $this->output->writeln('<comment>Skipping database installation...</comment>');
+      $this->output->writeln('');
       return Command::SUCCESS;
     }
 
