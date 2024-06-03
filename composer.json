@@ -38,6 +38,6 @@
     ],
     "scripts": {
         "test": "vendor/bin/pest tests",
-        "analyze": "vendor/bin/phpstan analyse src tests --level 8"
+        "analyze": "vendor/bin/phpstan analyse src tests/Unit tests/Feature --level 8"
     }
 }

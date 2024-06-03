@@ -58,11 +58,11 @@ class Text implements Stringable
   /**
    * Compares this text to another text.
    *
-   * @param Text $text The text to compare to.
+   * @param Text|string $text The text to compare to.
    * @param bool $ignoreCase Whether to ignore the case.
    * @return int
    */
-  public function compareTo(Text $text, bool $ignoreCase = false): int
+  public function compareTo(Text|string $text, bool $ignoreCase = false): int
   {
     if ($ignoreCase)
     {
@@ -124,9 +124,9 @@ class Text implements Stringable
    *
    * @param Text|string $text The text to find.
    * @param int $offset The offset. Default is 0.
-   * @return int The last index of the text.
+   * @return false|int The last index of the text. False if not found.
    */
-  public function lastIndexOf(Text|string $text, int $offset = 0): int
+  public function lastIndexOf(Text|string $text, int $offset = 0): false|int
   {
     return strripos($this->value, $text, $offset);
   }
@@ -305,6 +305,11 @@ class Text implements Stringable
   public function kebabCase(): string
   {
     $tokens = preg_split('/[\W_]/', $this->value);
+    if (false === $tokens)
+    {
+      return '';
+    }
+
     $output = [];
 
     foreach ($tokens as $token)
@@ -323,6 +328,11 @@ class Text implements Stringable
   public function snakeCase(): string
   {
     $tokens = preg_split('/\W/', $this->value);
+    if (false === $tokens)
+    {
+      return '';
+    }
+
     $output = [];
 
     foreach ($tokens as $token)
@@ -341,6 +351,11 @@ class Text implements Stringable
   public function pascalCase(): string
   {
     $tokens = preg_split('/[\W_]/', $this->value);
+    if (false === $tokens)
+    {
+      return '';
+    }
+
     $output = [];
     foreach ($tokens as $token)
     {
@@ -358,6 +373,11 @@ class Text implements Stringable
   public function titleCase(): string
   {
     $tokens = preg_split('/[\W_]/', $this->value);
+    if (false === $tokens)
+    {
+      return '';
+    }
+
     $output = [];
     foreach ($tokens as $token)
     {
@@ -375,6 +395,11 @@ class Text implements Stringable
   public function sentenceCase(): string
   {
     $tokens = preg_split('/[!.?]/', $this->value);
+    if (false === $tokens)
+    {
+      return '';
+    }
+
     $output = [];
     foreach ($tokens as $token)
     {
@@ -426,17 +451,12 @@ class Text implements Stringable
    */
   public function terminate(string $terminator = '.'): string
   {
-    if (is_null($this->value))
-    {
-      return '';
-    }
-
     if (!in_array($terminator, ['.', '!', '?']))
     {
       $terminator = '.';
     }
 
-    return self::endsWithPunctuation($this->value) ? $this->value : "$this->value$terminator";
+    return $this->endsWithPunctuation() ? $this->value : "$this->value$terminator";
   }
 
   /**
