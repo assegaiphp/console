@@ -34,8 +34,6 @@ class DatabaseInstaller extends AbstractInstaller
       return Command::SUCCESS;
     }
 
-    $projectPath = Path::getProjectRootPath();
-
     $this->output->writeln('');
     $this->output->writeln(
       $this->formatter->formatBlock("Installing the database...", 'question', true)
@@ -95,17 +93,25 @@ class DatabaseInstaller extends AbstractInstaller
     }
 
 
-    if (! file_exists( Path::join($projectPath, 'src', 'Users') ) )
+    if (! file_exists( Path::join($this->projectPath, 'src', 'Users') ) )
     {
       $userResourceQuestion = new Question("<info>?</info> What is the name of the users resource? (Users) ", 'Users');
       $userServiceName = $this->questionHelper->ask($this->input, $this->output, $userResourceQuestion);
-      $command = "cd $projectPath && assegai generate resource $userServiceName";
+      $command = "cd $this->projectPath && assegai generate resource $userServiceName";
 
       if ( false === passthru($command) )
       {
         $this->output->writeln("<error>Failed to create resource, $userServiceName</error>");
         return Command::FAILURE;
       }
+    }
+
+    $ormInstallationCommand = `cd $this->projectPath && composer --ansi require assegaiphp/orm`;
+
+    if (false === $ormInstallationCommand)
+    {
+      $this->output->writeln('<error>Failed to install ORM</error>');
+      return Command::FAILURE;
     }
 
     $this->output->writeln("✔️  Database installation complete\n");
