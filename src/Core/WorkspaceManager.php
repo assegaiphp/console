@@ -196,6 +196,10 @@ class WorkspaceManager
    */
   public function install(): int
   {
+    $this->output->writeln('');
+    $this->output->writeln($this->formatter->formatBlock("Installing project dependencies...", 'question', true));
+    $this->output->writeln('');
+
     printf(
       "%s%s▹▹▹▹▹%s Installation in progress... ☕%s\n\n",
       ColorFX::BLINK->value, Color::FG_LIGHT_BLUE->value, Color::FG_WHITE->value, Color::RESET->value
