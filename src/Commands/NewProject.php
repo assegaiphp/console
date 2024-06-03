@@ -90,6 +90,7 @@ class NewProject extends Command
     }
 
     $output->writeln([
+      "",
       "✔️  Installation done! ☕\n",
       "🚀  Successfully created the <info>$projectPath</info> project",
       "👉  Get started with the following commands:\n",

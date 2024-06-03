@@ -28,17 +28,17 @@ class DatabaseInstaller extends AbstractInstaller
    */
   public function install(): int
   {
-    if (! $this->questionHelper->ask($this->input, $this->output, new ConfirmationQuestion('<info>?</info> Do you want to install the database? (Y/n) ')))
+    if (! $this->questionHelper->ask($this->input, $this->output, new ConfirmationQuestion('<info>?</info> Would you like to add a database configuration? (Y/n) ')))
     {
       $this->output->writeln('');
-      $this->output->writeln('<comment>Skipping database installation...</comment>');
+      $this->output->writeln('<comment>Skipping database configuration...</comment>');
       $this->output->writeln('');
       return Command::SUCCESS;
     }
 
     $this->output->writeln('');
     $this->output->writeln(
-      $this->formatter->formatBlock("Installing the database...", 'question', true)
+      $this->formatter->formatBlock("Configuring databases...", 'question', true)
     );
     $this->output->writeln('');
 
@@ -63,7 +63,7 @@ class DatabaseInstaller extends AbstractInstaller
         return Command::FAILURE;
       }
 
-      $installer = match ($database) {
+      $dbInstaller = match ($database) {
         'mysql' => new MySQLInstaller(
           $this->input,
           $this->output,
@@ -87,7 +87,7 @@ class DatabaseInstaller extends AbstractInstaller
         ),
       };
 
-      if (($statusCode = $installer->install()) > 0)
+      if (($statusCode = $dbInstaller->install()) > 0)
       {
         $this->output->writeln($this->formatter->formatBlock("Failed to install $database", 'error', true));
         return $statusCode;
@@ -97,7 +97,7 @@ class DatabaseInstaller extends AbstractInstaller
 
     if (! file_exists( Path::join($this->projectPath, 'src', 'Users') ) )
     {
-      $userResourceQuestion = new Question("<info>?</info> What is the name of the users resource? (Users) ", 'Users');
+      $userResourceQuestion = new Question("<info>?</info> What is the name of the users' resource? (Users) ", 'Users');
       $userServiceName = $this->questionHelper->ask($this->input, $this->output, $userResourceQuestion);
       $command = "cd $this->projectPath && assegai generate resource $userServiceName";
 

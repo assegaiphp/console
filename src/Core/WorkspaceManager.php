@@ -160,7 +160,7 @@ class WorkspaceManager
     }
 
     # Initialize the git repository
-    $initGitQuestion = new ConfirmationQuestion("<info>?</info> Initialize git repository? (Y/n) ", true);
+    $initGitQuestion = new ConfirmationQuestion("<info>?</info> Initialize git repository? (y/N) ", false);
     if (
       is_installed('git') &&
       $this->questionHelper->ask($this->input, $this->output, $initGitQuestion)
