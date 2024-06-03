@@ -2,15 +2,13 @@
 
 namespace Assegai\Console\Util;
 
-use Assegai\Console\Util\Exceptions\UtilityException;
-
+/**
+ * The Path class provides utility methods for working with file paths.
+ *
+ * @package Assegai\Console\Util
+ */
 class Path
 {
-  /**
-   * @var string $workingDirectory The working directory.
-   */
-  private static string $workingDirectory = '';
-
   /**
    * Path constructor.
    */
@@ -38,18 +36,30 @@ class Path
    * Returns the path to the resources' directory.
    *
    * @param string $path The path to the resource.
-   * @return string The path to the resource.
+   * @return false|string The path to the resource. False if the project root path could not be determined.
    */
-  public static function getResourcePath(string $path = ''): string
+  public static function getResourcePath(string $path = ''): false|string
   {
-    if ($path)
+    $rootPath = self::getProjectRootPath();
+
+    if (false === $rootPath)
     {
-      return self::join(self::getProjectRootPath(), 'res', $path);
+      return false;
     }
 
-    return self::join(self::getProjectRootPath(), 'res');
+    if ($path)
+    {
+      return self::join($rootPath, 'res', $path);
+    }
+
+    return self::join($rootPath, 'res');
   }
 
+  /**
+   * Returns the path to the public directory.
+   *
+   * @return string The path to the public directory.
+   */
   public static function getServerRoot(): string
   {
     return $_SERVER['DOCUMENT_ROOT'];
@@ -58,11 +68,16 @@ class Path
   /**
    * Returns the path to the project's root directory.
    *
-   * @return string The path to the project's root directory.
+   * @return false|string The path to the project's root directory. False if the project root path could not be determined.
    */
-  public static function getProjectRootPath(): string
+  public static function getProjectRootPath(): false|string
   {
     $path = getcwd();
+
+    if (false === $path)
+    {
+      return false;
+    }
 
     while(strlen($path) > 1)
     {
@@ -82,9 +97,9 @@ class Path
   /**
    * Returns the working directory.
    *
-   * @return string The working directory.
+   * @return false|string The working directory. False if the working directory could not be determined.
    */
-  public static function getWorkingDirectory(): string
+  public static function getWorkingDirectory(): false|string
   {
     return getcwd();
   }
@@ -92,11 +107,18 @@ class Path
   /**
    * Returns the path the assets' directory.
    *
-   * @return string The path to the assets' directory.
+   * @return false|string The path to the assets' directory. False if the project root path could not be determined.
    */
-  public static function getAssetsDirectory(): string
+  public static function getAssetsDirectory(): false|string
   {
-    return self::join(self::getProjectRootPath(), 'assets');
+    $rootPath = self::getProjectRootPath();
+
+    if (false === $rootPath)
+    {
+      return false;
+    }
+
+    return self::join($rootPath, 'assets');
   }
 
   /**
