@@ -10,16 +10,28 @@ use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\FormatterHelper;
-use Symfony\Component\Console\Helper\ProgressBar;
-use Symfony\Component\Console\Helper\ProgressIndicator;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\Question;
 
+/**
+ * Class WorkspaceManager. Manages the workspace.
+ *
+ * @package Assegai\Console\Core
+ */
 class WorkspaceManager
 {
+  protected ?string $projectPath = null;
+
+  /**
+   * WorkspaceManager constructor.
+   *
+   * @param InputInterface $input The input interface.
+   * @param OutputInterface $output The output interface.
+   * @param FormatterHelper $formatter The formatter helper.
+   * @param QuestionHelper $questionHelper The question helper.
+   */
   public function __construct(
     protected InputInterface $input,
     protected OutputInterface $output,
@@ -29,6 +41,13 @@ class WorkspaceManager
   {
   }
 
+  /**
+   * Initializes the project
+   *
+   * @param string|null $projectName The project name
+   * @param string|null $workingDirectory The working directory
+   * @return int The command status
+   */
   public function init(?string &$projectName = null, ?string $workingDirectory = null): int
   {
     $workingDirectory = $directory ?? getcwd();
@@ -184,8 +203,20 @@ class WorkspaceManager
       ColorFX::BLINK->value, Color::FG_LIGHT_BLUE->value, Color::FG_WHITE->value, Color::RESET->value
     );
 
-    $databaseInstaller = new DatabaseInstaller($this->input, $this->output, $this->formatter, $this->questionHelper);
-    $dependencyInstaller = new ComposerDependencyInstaller($this->input, $this->output, $this->formatter, $this->questionHelper);
+    $databaseInstaller = new DatabaseInstaller(
+      $this->input,
+      $this->output,
+      $this->formatter,
+      $this->questionHelper,
+      $this->projectPath
+    );
+    $dependencyInstaller = new ComposerDependencyInstaller(
+      $this->input,
+      $this->output,
+      $this->formatter,
+      $this->questionHelper,
+      $this->projectPath
+    );
 
     // Run the database installer
     if ($status = $databaseInstaller->install())
@@ -217,5 +248,10 @@ class WorkspaceManager
       substr_count($version, '.') < 2 => $version . '.0',
       default => $version
     };
+  }
+
+  public function setProjectPath(string $path): void
+  {
+    $this->projectPath = $path;
   }
 }
