@@ -34,7 +34,7 @@ Learn more in the [official documentation](https://assegaiphp.com/guide/cli/over
 
 * Author - [Andrew Masiye](https://twitter.com/feenix11), [Daniel Kaluba](https://twitter.com/ZombieKlassic)
 * Website - [https://atatusoft.com](https://atatusoft.com/)
-* Twitter - [@assegaiphp](https://twitter.com/assegaiphp)
+* X - [@assegaiphp](https://twitter.com/assegaiphp)
 
 ## License
 
