@@ -76,10 +76,11 @@ class Inspector
       return false;
     }
 
-    // Check if the workspace has a valid index.php file
-    if (! file_exists(Path::join($workspaceDirectory, 'index.php')) )
+    // Check if the workspace has a valid bootstrap file
+    $bootstrapFilename = BOOTSTRAP_FILE;
+    if (! file_exists(Path::join($workspaceDirectory, $bootstrapFilename)) )
     {
-      $this->output->writeln("Workspace $workspaceDirectory does not have an index.php file.", OutputInterface::VERBOSITY_VERBOSE);
+      $this->output->writeln("Workspace $workspaceDirectory does not have an $bootstrapFilename file.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
 
