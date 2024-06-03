@@ -63,7 +63,6 @@ class Path
   public static function getProjectRootPath(): string
   {
     $path = getcwd();
-    echo $path . PHP_EOL;
 
     while(strlen($path) > 1)
     {
