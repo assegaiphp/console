@@ -24,12 +24,13 @@ class SQLiteInstaller extends AbstractInstaller
     $dbNameQuestion = new Question("<info>?</info> Database name: ");
     $dbName = $this->questionHelper->ask($this->input, $this->output, $dbNameQuestion);
 
+    $defaultPath = DEFAULT_SQLITE_PATH;
     $path = 'sqlite:' . match ($connectionType = $this->questionHelper->ask($this->input, $this->output, $connectionTypeQuestion)) {
       'in-memory' => '',
       'in-memory (persistent)' => ':memory:',
       default => $this
                   ->questionHelper
-                  ->ask($this->input, $this->output, new Question("<info>?</info> Path: ", DEFAULT_SQLITE_PATH))
+                  ->ask($this->input, $this->output, new Question("<info>?</info> Path: <fg=gray>($defaultPath)</> ", $defaultPath))
     };
 
     $newDatabaseConfig = [

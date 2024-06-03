@@ -60,7 +60,7 @@ class WorkspaceManager
 
     if (! $projectName )
     {
-      $projectNameQuestion = new Question("<info>?</info> Project name: ($defaultProjectName) ", $defaultProjectName);
+      $projectNameQuestion = new Question("<info>?</info> Project name: <fg=gray>($defaultProjectName)</> ", $defaultProjectName);
       $projectName = $this->questionHelper->ask($this->input, $this->output, $projectNameQuestion);
     }
     $projectNameText = new Text($projectName);
@@ -86,7 +86,7 @@ class WorkspaceManager
 
     $description = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Description: ")) ?? "";
     $defaultVersion = DEFAULT_PROJECT_VERSION ?? '0.0.1';
-    $version = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Version: ($defaultVersion) ", $defaultVersion));
+    $version = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Version: <fg=gray>($defaultVersion)</> ", $defaultVersion));
     $version = $this->filterVersion($version);
     $type = 'project';
 
@@ -118,10 +118,10 @@ class WorkspaceManager
 
     $projectNameText = new Text($projectName);
     $defaultPackageName = 'assegaiphp/' . $projectNameText->snakeCase();
-    $packageName = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Package name: ($defaultPackageName) ", $defaultPackageName));
+    $packageName = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Package name: <fg=gray>($defaultPackageName)</> ", $defaultPackageName));
     [$vendor, $package] = explode('/', $packageName);
     $defaultNamespace = Text::snakeCaseToPascalCase($vendor) . '\\' . Text::snakeCaseToPascalCase($package) . '\\';
-    $namespace = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Namespace: ($defaultNamespace) ", $defaultNamespace));
+    $namespace = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Namespace: <fg=gray>($defaultNamespace)</> ", $defaultNamespace));
 
     $composerConfig = [
       "name" => $packageName,
@@ -160,7 +160,7 @@ class WorkspaceManager
     }
 
     # Initialize the git repository
-    $initGitQuestion = new ConfirmationQuestion("<info>?</info> Initialize git repository? (y/N) ", false);
+    $initGitQuestion = new ConfirmationQuestion("<info>?</info> Initialize git repository? <fg=gray>(y/N)</> ", false);
     if (
       is_installed('git') &&
       $this->questionHelper->ask($this->input, $this->output, $initGitQuestion)

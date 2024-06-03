@@ -18,17 +18,20 @@ class PostgreSQLInstaller extends AbstractInstaller
     $dbNameQuestion = new Question("<info>?</info> Database name: ");
     $dbName = $this->questionHelper->ask($this->input, $this->output, $dbNameQuestion);
 
-    $dbHostQuestion = new Question("<info>?</info> Host: ", DEFAULT_POSTGRES_HOST);
+    $defaultHost = DEFAULT_POSTGRES_HOST;
+    $dbHostQuestion = new Question("<info>?</info> Host: <fg=gray>($defaultHost)</>: ", $defaultHost);
     $dbHost = $this->questionHelper->ask($this->input, $this->output, $dbHostQuestion);
 
-    $dbUserQuestion = new Question("<info>?</info> User: ", DEFAULT_POSTGRES_USER);
+    $defaultUser = DEFAULT_POSTGRES_USER;
+    $dbUserQuestion = new Question("<info>?</info> User: <fg=gray>($defaultUser)</>: ", $defaultUser);
     $dbUser = $this->questionHelper->ask($this->input, $this->output, $dbUserQuestion);
 
     $dbPasswordQuestion = new Question("<info>?</info> Password: ");
     $dbPasswordQuestion->setHidden(true);
     $dbPassword = $this->questionHelper->ask($this->input, $this->output, $dbPasswordQuestion);
 
-    $dbPortQuestion = new Question("<info>?</info> Port: ", DEFAULT_POSTGRES_PORT);
+    $defaultPort = DEFAULT_POSTGRES_PORT;
+    $dbPortQuestion = new Question("<info>?</info> Port: <fg=gray>($defaultPort)</> ", $defaultPort);
     $dbPort = $this->questionHelper->ask($this->input, $this->output, $dbPortQuestion);
 
     $newDatabaseConfig = [

@@ -9,12 +9,17 @@ use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Console\Question\Question;
 
+/**
+ * Class DatabaseInstaller. Installs the database.
+ *
+ * @package
+ */
 class DatabaseInstaller extends AbstractInstaller
 {
   protected array $requiredExtensions = [
-    'mysql' => ['pdo_mysql', 'mysqli'],
-    'postgresql' => ['pdo_pgsql'],
-    'sqlite' => ['pdo_sqlite']
+    'mysql'       => ['intl', 'pdo_mysql', 'mysqli'],
+    'postgresql'  => ['intl', 'pdo_pgsql'],
+    'sqlite'      => ['intl', 'pdo_sqlite']
   ];
 
   protected array $supportedDatabase = [
@@ -28,7 +33,7 @@ class DatabaseInstaller extends AbstractInstaller
    */
   public function install(): int
   {
-    if (! $this->questionHelper->ask($this->input, $this->output, new ConfirmationQuestion('<info>?</info> Would you like to add a database configuration? (Y/n) ')))
+    if (! $this->questionHelper->ask($this->input, $this->output, new ConfirmationQuestion('<info>?</info> Would you like to add a database configuration? <fg=gray>(Y/n)</> ')))
     {
       $this->output->writeln('');
       $this->output->writeln('<comment>Skipping database configuration...</comment>');
@@ -44,7 +49,7 @@ class DatabaseInstaller extends AbstractInstaller
 
     // Ask what database to use.
     $databaseChoiceQuestion = new ChoiceQuestion(
-      '<info>?</info> Which database do you want to use? (comma separated): ',
+      '<info>?</info> Which database do you want to use? <fg=gray>(comma separated)</> ',
       $this->supportedDatabase,
       0
     );
@@ -97,7 +102,7 @@ class DatabaseInstaller extends AbstractInstaller
 
     if (! file_exists( Path::join($this->projectPath, 'src', 'Users') ) )
     {
-      $userResourceQuestion = new Question("<info>?</info> What is the name of the users' resource? (Users) ", 'Users');
+      $userResourceQuestion = new Question("<info>?</info> What is the name of the users' resource? <fg=gray>(Users)</> ", 'Users');
       $userServiceName = $this->questionHelper->ask($this->input, $this->output, $userResourceQuestion);
       $command = "cd $this->projectPath && assegai generate resource $userServiceName";
 
