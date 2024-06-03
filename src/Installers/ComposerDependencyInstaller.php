@@ -13,7 +13,13 @@ class ComposerDependencyInstaller extends AbstractInstaller
    */
   public function install(): int
   {
-    // TODO: Implement install() method.
+    $installCommand = `cd $this->projectPath && composer --ansi require assegaiphp/core && composer install`;
+
+    if (false === $installCommand)
+    {
+      $this->output->writeln('<error>Failed to install composer dependencies</error>');
+      return Command::FAILURE;
+    }
 
     return Command::SUCCESS;
   }

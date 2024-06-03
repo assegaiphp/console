@@ -47,6 +47,8 @@ class NewProject extends Command
       return $errorCode;
     }
 
+    $workspaceManager->setProjectPath(Path::join($projectDirectory, $projectName));
+
     $output->writeln('');
     if ($errorCode = $workspaceManager->install())
     {

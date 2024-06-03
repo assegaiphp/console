@@ -5,7 +5,7 @@ return [
   'default_password_hash_algo' => '2y',
   'databases' => [
     'mysql' => [
-      'assegai_test_db' => [
+      'db_name' => [
         'host' => 'localhost',
         'user' => 'root',
         'password' => '',

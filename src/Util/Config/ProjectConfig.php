@@ -98,4 +98,27 @@ class ProjectConfig
 
     return null;
   }
+
+  /**
+   * Updates the project config file with the new values.
+   *
+   * @param array<string, mixed> $newDatabaseConfig The new config values.
+   * @return false|int The number of bytes written to the file, or false on failure.
+   */
+  public function updateDatabaseConfig(array $newDatabaseConfig, string $projectPath): false|int
+  {
+    $configPath = Path::join($projectPath, 'config', 'default.php');
+    $oldDatabaseConfig = require($configPath);
+
+    if (! isset($oldDatabaseConfig['databases']) )
+    {
+      $oldDatabaseConfig['databases'] = [];
+    }
+
+    $databaseConfig = $oldDatabaseConfig;
+    $databaseConfig['databases'] = array_merge($oldDatabaseConfig['databases'], $newDatabaseConfig['databases']);
+    $configContent = "<?php\n\nreturn " . array_to_string($databaseConfig) . ';';
+
+    return file_put_contents($configPath, $configContent);
+  }
 }

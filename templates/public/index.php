@@ -25,4 +25,4 @@ $_GET['path'] = trim($_SERVER['REQUEST_URI'], '/');
 /*
  * This is the entry point of the application.
  */
-require_once('../app.php');
+require_once(__DIR__ . '/../app.php');

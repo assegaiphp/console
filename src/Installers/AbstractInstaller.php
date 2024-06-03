@@ -27,7 +27,8 @@ abstract class AbstractInstaller implements InstallerInterface
     protected InputInterface  $input,
     protected OutputInterface $output,
     protected FormatterHelper $formatter,
-    protected QuestionHelper $questionHelper
+    protected QuestionHelper $questionHelper,
+    protected string $projectPath,
   )
   {
   }
