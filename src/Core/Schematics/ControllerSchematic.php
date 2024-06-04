@@ -16,7 +16,13 @@ class ControllerSchematic extends AbstractClassSchematic
   public function forAppModuleUpdate(): array
   {
     return [
-      'controllers' => [$this->getClassName() . '::class'],
+      'use' => [],
+      'declare' => [],
+      'provide' => [],
+      'control' => [$this->getClassName() . '::class'],
+      'import' => [],
+      'export' => [],
+      'config' => [],
     ];
   }
 }
