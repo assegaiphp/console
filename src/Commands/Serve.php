@@ -32,8 +32,7 @@ class Serve extends Command
     $formatter = $this->getHelper('formatter');
 
     $projectConfig = new ProjectConfig($input, $output);
-    $projectConfig
-      ->load();
+    $projectConfig->load();
 
     $port = $input->getOption('port') ?? $projectConfig->get('development')->get('server')['port'] ?? DEFAULT_DEV_SERVER_PORT;
     $host = $input->getOption('host') ?? $projectConfig->get('development')->get('server')['host'] ?? DEFAULT_DEV_SERVER_HOST;
