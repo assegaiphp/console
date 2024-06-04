@@ -3,6 +3,7 @@
 namespace Assegai\Console\Core\Schematics;
 
 use Assegai\Console\Core\Interfaces\SchematicInterface;
+use Assegai\Console\Core\Schematics\Enumerations\ClassTemplate;
 use Assegai\Console\Util\Config\ComposerConfig;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
@@ -19,7 +20,22 @@ abstract class AbstractClassSchematic implements SchematicInterface
    * @var string
    */
   protected string $namespace = 'Assegai\\App';
+  /**
+   * The class name
+   *
+   * @var string
+   */
   protected string $className = '';
+  /**
+   * @var array|array[]
+   */
+  protected array $regex = [
+    ['pattern' => '/(class|interface|enum|abstract)\s(.*)\n\{(\s*)}/', 'replacement' => "$1 $2\n{}"],
+    ['pattern' => '/namespace (.*;)(\n*)(.+)/', 'replacement' => "namespace $1\n\n$3"],
+    ['pattern' => '/](\s+)(class|interface|enum|abstract)/', 'replacement' => "]\n$2"],
+    ['pattern' => '/{(\n{2,})(\s*)(public|private|protected|function)/', 'replacement' => "\{\n$2$3"],
+    ['pattern' => '/(\s+)}\n{2,}}/', 'replacement' => "$1}\n}"],
+  ];
 
   /**
    * AbstractClassSchematic constructor.
@@ -30,11 +46,15 @@ abstract class AbstractClassSchematic implements SchematicInterface
    * @param string $path The path to the file
    * @param string $prefix The prefix of the class name
    * @param string $suffix The suffix of the class name
-   * @param array $imports The imports of the class
-   * @param array $attributes The attributes of the class
-   * @param array $properties The properties of the class
+   * @param string[] $imports The imports of the class
+   * @param string[] $attributes The attributes of the class
+   * @param string[] $properties The properties of the class
    * @param string $constructor The constructor of the class
-   * @param array $methods The methods of the class
+   * @param string[] $methods The methods of the class
+   * @param bool $isFlat Whether the class is flat
+   * @param ClassTemplate $template The template of the class
+   * @param string $parent The parent of the class
+   * @param string[] $interfaces The interfaces of the class
    */
   public function __construct(
     protected InputInterface $input,
@@ -49,6 +69,9 @@ abstract class AbstractClassSchematic implements SchematicInterface
     protected string $constructor = '',
     protected array $methods = [],
     protected bool $isFlat = false,
+    protected ClassTemplate $template = ClassTemplate::DEFAULT,
+    protected string $parent = '',
+    protected array $interfaces = [],
   )
   {
     $this->className = (new Text($this->name))->pascalCase();
@@ -66,6 +89,24 @@ abstract class AbstractClassSchematic implements SchematicInterface
   }
 
   /**
+   * For the AppModule.php file update.
+   *
+   * @return array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} The array of statements for the AppModule.php file
+   */
+  public function forAppModuleUpdate(): array
+  {
+    return [
+      'use' => [],
+      'declare' => [],
+      'provide' => [],
+      'control' => [],
+      'import' => [],
+      'export' => [],
+      'config' => [],
+    ];
+  }
+
+  /**
    * @inheritDoc
    */
   public function build(): int
@@ -79,7 +120,7 @@ namespace $this->namespace;
 
 {$this->generateDeclaredImports()}
 {$this->getClassAttributes()}
-class {$this->getClassName()}
+{$this->template->value} {$this->getClassName()}{$this->getClassAncestors()}
 {
   {$this->generateProperties()}
   {$this->generateConstructor()}
@@ -88,9 +129,11 @@ class {$this->getClassName()}
 
 PHP;
 
-    $content = preg_replace('/class\s(.*)\n\{(\s*)}/', "class $1\n{}", $content);
-    $content = preg_replace('/namespace (.*;)(\n*)(.+)/', "namespace $1\n\n$3", $content);
-    $content = preg_replace('/](\s+)class/', "]\nclass", $content);
+    foreach ($this->regex as $regex)
+    {
+      extract($regex);
+      $content = preg_replace($pattern, $replacement, $content);
+    }
 
     # Create the directory recursively if it doesn't exist
     $dir = dirname($this->getFilePath());
@@ -103,14 +146,16 @@ PHP;
       }
     }
 
-    # Create the file if it doesn't exist
-    if (false === file_exists($this->getFilePath()) )
+    if (file_exists($this->getFilePath()) )
     {
-      if (false === touch($this->getFilePath()) )
-      {
-        $this->output->writeln("<error>Failed to create the file: $this->path</error>");
-        return Command::FAILURE;
-      }
+      $this->output->writeln("<error>File already exists: {$this->getRelativeFilename()}</error>");
+      return Command::FAILURE;
+    }
+
+    if (false === touch($this->getFilePath()) )
+    {
+      $this->output->writeln("<error>Failed to create the file: $this->path</error>");
+      return Command::FAILURE;
     }
 
     # Write to the file
@@ -134,12 +179,12 @@ PHP;
       return Command::FAILURE;
     }
 
-    $this->output->writeln("<info>CREATED</info> {$this->getRelativeFilename()} ($bytes bytes)");
+    $this->output->writeln("<info>CREATE</info> {$this->getRelativeFilename()} ($bytes bytes)");
 
     $inspector = new Inspector($this->input, $this->output);
     if ($inspector->isValidWorkspace(getcwd() ?: ''))
     {
-      $this->updateAppModule();
+      $this->updateAppModule($this->forAppModuleUpdate());
     }
 
     return Command::SUCCESS;
@@ -279,7 +324,7 @@ PHP;
       $lines = explode("\n", $method);
       foreach ($lines as $line)
       {
-        $render .= "  $line;\n";
+        $render .= "$line\n";
       }
     }
 
@@ -301,7 +346,15 @@ PHP;
     $config = new ComposerConfig($this->input, $this->output);
     $config->load();
 
-    $this->namespace = $config->get('namespace') ?? $this->namespace;
+    $namespaces = $config->get('autoload.psr-4');
+    foreach ($namespaces as $namespace => $path)
+    {
+      if ($path === 'src/')
+      {
+        $this->namespace = rtrim($namespace, '\\');
+        break;
+      }
+    }
   }
 
   /**
@@ -352,11 +405,98 @@ PHP;
    *
    * @return int The status of the update.
    */
-  protected function updateAppModule(): int
+  protected function updateAppModule(
+    array $props = []
+  ): int
   {
     // TODO: Implement updateAppModule() method.
-    $bytes = 0;
-    $this->output->writeln("<fg=bright-blue>UPDATED</> src/AppModule.php ($bytes)");
+    $filename = Path::join('src', 'AppModule.php');
+    $filePath = Path::join(getcwd() ?: '', $filename);
+
+    if (! file_exists($filePath) )
+    {
+      $this->output->writeln("<error>File does not exist: $filename</error>");
+      return Command::FAILURE;
+    }
+    $content = file_get_contents($filePath);
+
+    if (! $content)
+    {
+      $this->output->writeln("<error>Could not read $filename</error>");
+      return Command::FAILURE;
+    }
+
+    $content = $this->getUpdatedAppModuleContent($content, $props);
+
+    $bytes = file_put_contents($filePath, $content);
+    if (false === $bytes)
+    {
+      $this->output->writeln("<error>Could not write to $filename</error>");
+      return Command::FAILURE;
+    }
+
+    $this->output->writeln("<fg=bright-blue>UPDATE</> src/AppModule.php ($bytes bytes)");
     return Command::SUCCESS;
+  }
+
+  protected function getClassAncestors(): string
+  {
+    $render = '';
+
+    if ($this->parent)
+    {
+      $render .= " extends $this->parent";
+    }
+
+    if ($this->interfaces)
+    {
+      $render .= " implements " . implode(', ', $this->interfaces);
+    }
+
+    return $render;
+  }
+
+  /**
+   * Get the updated AppModule.php content.
+   *
+   * @param string $content The content of the AppModule.php file
+   * @param array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} $props The properties for the update
+   * @return string The updated content of the AppModule.php file
+   */
+  protected function getUpdatedAppModuleContent(string $content, array $props): string
+  {
+    $output = $content;
+
+    foreach ($props as $prop => $values)
+    {
+      if ($prop === 'use')
+      {
+        // TODO: Replace the use statements
+
+        continue;
+      }
+
+      $matches = [];
+      $pattern = "/$prop: \[([\w:,\s]*)]/";
+      $oldValues = [];
+      if (preg_match($pattern, $output, $matches))
+      {
+        $oldValues = explode(',', $matches[1] ?? '');
+      }
+
+      $newValues = [...$oldValues, ...$values];
+      if ((count($values) + count($oldValues)) > 3)
+      {
+        $replacements = "\n" . implode(",\n", array_map(fn($value) => "    $value", $newValues)) . "\n  ";
+      }
+      else
+      {
+        $replacements = implode(', ', $newValues);
+      }
+
+      $output = preg_replace($pattern, "$prop: [$replacements]", $output);
+    }
+
+    return $output;
   }
 }
