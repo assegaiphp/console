@@ -27,7 +27,7 @@ abstract class AbstractClassSchematic implements SchematicInterface
    */
   protected string $className = '';
   /**
-   * @var array|array[]
+   * @var array<array{pattern: string, replacement: string}>
    */
   protected array $regex = [
     ['pattern' => '/(class|interface|enum|abstract)\s(.*)\n\{(\s*)}/', 'replacement' => "$1 $2\n{}"],
@@ -132,7 +132,7 @@ PHP;
     foreach ($this->regex as $regex)
     {
       extract($regex);
-      $content = preg_replace($pattern, $replacement, $content);
+      $content = preg_replace($pattern, $replacement, $content ?? '');
     }
 
     # Create the directory recursively if it doesn't exist
@@ -403,10 +403,19 @@ PHP;
   /**
    * Update the AppModule.php file.
    *
+   * @param array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} $props
    * @return int The status of the update.
    */
   protected function updateAppModule(
-    array $props = []
+    array $props = [
+      'use' => [],
+      'declare' => [],
+      'provide' => [],
+      'control' => [],
+      'import' => [],
+      'export' => [],
+      'config' => [],
+    ]
   ): int
   {
     // TODO: Implement updateAppModule() method.
@@ -479,7 +488,7 @@ PHP;
       $matches = [];
       $pattern = "/$prop: \[([\w:,\s]*)]/";
       $oldValues = [];
-      if (preg_match($pattern, $output, $matches))
+      if (preg_match($pattern, $output ?? '', $matches))
       {
         $oldValues = explode(',', $matches[1] ?? '');
       }
@@ -494,9 +503,9 @@ PHP;
         $replacements = implode(', ', $newValues);
       }
 
-      $output = preg_replace($pattern, "$prop: [$replacements]", $output);
+      $output = preg_replace($pattern, "$prop: [$replacements]", $output ?? '');
     }
 
-    return $output;
+    return $output ?? '';
   }
 }
