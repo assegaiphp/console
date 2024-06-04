@@ -51,7 +51,7 @@ class WorkspaceManager
    */
   public function init(?string &$projectName = null, ?string $workingDirectory = null): int
   {
-    $workingDirectory = $directory ?? getcwd();
+    $workingDirectory = $workingDirectory ?? getcwd();
     $templatePath = Path::getTemplatesDirectory();
     $defaultProjectName = DEFAULT_PROJECT_NAME;
 
@@ -64,7 +64,7 @@ class WorkspaceManager
       $projectName = $this->questionHelper->ask($this->input, $this->output, $projectNameQuestion);
     }
     $projectNameText = new Text($projectName);
-    $projectDirectory = Path::join($workingDirectory, $projectNameText->kebabCase());
+    $projectDirectory = Path::join($workingDirectory ?: '', $projectNameText->kebabCase());
 
     if ( file_exists($projectDirectory) )
     {
@@ -85,7 +85,7 @@ class WorkspaceManager
     }
 
     $description = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Description: ")) ?? "";
-    $defaultVersion = DEFAULT_PROJECT_VERSION ?? '0.0.1';
+    $defaultVersion = DEFAULT_PROJECT_VERSION;
     $version = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Version: <fg=gray>($defaultVersion)</> ", $defaultVersion));
     $version = $this->filterVersion($version);
     $type = 'project';
@@ -210,14 +210,14 @@ class WorkspaceManager
       $this->output,
       $this->formatter,
       $this->questionHelper,
-      $this->projectPath
+      $this->projectPath ?? ''
     );
     $dependencyInstaller = new ComposerDependencyInstaller(
       $this->input,
       $this->output,
       $this->formatter,
       $this->questionHelper,
-      $this->projectPath
+      $this->projectPath ?? ''
     );
 
     // Run the database installer
@@ -284,7 +284,7 @@ class WorkspaceManager
       }
 
       $fileContent = file_get_contents($filePath);
-      $fileContent = str_replace('Assegai\App', $namespace, $fileContent);
+      $fileContent = str_replace('Assegai\App', $namespace, $fileContent ?: '');
 
       if (false === file_put_contents($filePath, $fileContent) )
       {
