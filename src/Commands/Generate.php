@@ -73,9 +73,11 @@ class Generate extends Command
     ];
   }
 
+  /**
+   * @inheritDoc
+   */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
-    // TODO: Implement execute() method.
     $name = $input->getArgument('name');
     $directory = $input->getOption('directory');
 

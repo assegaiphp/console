@@ -15,18 +15,53 @@ The AssegaiPHP Console is a command-line interface tool that makes it easy to cr
 The AssegaiPHP Console includes built-in support for the collection of [schematics] available at @assegaiphp/schematics, allowing for easy initialization, development, and maintenance of AssegaiPHP applications through scaffolding, development mode serving, and production distribution building and bundling.
 
 ## Installation
+
+### Linux
+
+Install the Assegai Console globally using Composer:
+```bash
+$ composer global require assegai/console
+```
+
+Add the Composer bin directory to your PATH to make the `assegai` command available globally:
+```bash
+ln -s ~/.config/composer/vendor/bin/assegai /usr/local/bin/assegai
+```
+
 ### Windows
-Before we create a new Assegai application on your Windows machine, make sure to install Docker Desktop. Next, you should ensure that Windows Subsystem for Linux 2 (WSL2) is installed and enabled. WSL allows you to run Linux binary executables natively on Windows 10. Information on how to install and enable WSL2 can be found within Microsoft's developer environment documentation.
 
-> After installing and enabling WSL2, you should ensure that Docker Desktop is configured to use the WSL2 backend.
+> **Note:** The following instructions are for Windows 10/11. If you are using an older version of Windows, please refer to the [official Composer documentation](https://getcomposer.org/doc/00-intro.md#installation-windows) for installation instructions.
 
-Next, you are ready to create your first Assegai project. Launch Windows Terminal and begin a new terminal session for your WSL2 Linux operating system. Next, you can use a simple terminal command to create a new Assegai project. For example, to create a new Assegai application in a directory named "example-app", you may run the following command in your terminal:
+For Windows, you can use WSL (Windows Subsystem for Linux) to install the Assegai Console. Follow the instructions for [Linux](#linux) above.
 
-```
-$ composer require assegaiphp/console
-```
+### macOS
+
+For macOS, you can use the same instructions as for [Linux](#linux).
 
 ## Usage
+
+### Get Started
+
+To create a new Assegai project, run the following command:
+```bash
+$ assegai new my-app
+```
+
+This command will create a new Assegai project in the `my-app` directory.
+
+### Development
+
+After creating a new project, you can start the development server to preview your application in the browser.
+```bash
+cd my-app
+```
+
+To start the development server, navigate to the project directory and run the following command:
+```bash
+$ assegai serve
+```
+
+![Assegai Serve](assets/images/screenshots/serve.png)
 
 Learn more in the [official documentation](https://assegaiphp.com/guide/cli/overview).
 
