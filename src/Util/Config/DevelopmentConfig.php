@@ -10,7 +10,11 @@ class DevelopmentConfig
    * @param array{host: string, port: int, openBrowser: boolean} $server
    */
   public function __construct(
-    protected array $server = []
+    protected array $server = [
+      'host' => 'localhost',
+      'port' => 8000,
+      'openBrowser' => true
+    ]
   )
   {
   }
@@ -21,13 +25,13 @@ class DevelopmentConfig
    */
   public function loadFromObject(object $object): self
   {
-    foreach ($object as $property => $value)
+    foreach ((array)$object as $property => $value)
     {
       if (property_exists($this, $property))
       {
         if (gettype($this->$property) === 'array' && gettype($value) === 'object')
         {
-          $value = json_decode(json_encode($value), true);
+          $value = json_decode(json_encode($value) ?: '', true);
         }
         $this->$property = $value;
       }
