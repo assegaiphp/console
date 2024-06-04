@@ -108,7 +108,11 @@ class DatabaseInstaller extends AbstractInstaller
 
       if ( false === passthru($command) )
       {
-        $this->output->writeln("<error>Failed to create resource, $userServiceName</error>");
+        $this->output->writeln([
+          '',
+          "<error>Failed to create resource, $userServiceName</error>",
+          ''
+        ]);
         return Command::FAILURE;
       }
     }
@@ -117,11 +121,20 @@ class DatabaseInstaller extends AbstractInstaller
 
     if (false === $ormInstallationCommand)
     {
-      $this->output->writeln('<error>Failed to install ORM</error>');
+      $this->output->writeln([
+        '',
+        '<error>Failed to install ORM</error>',
+        ''
+      ]);
       return Command::FAILURE;
     }
 
-    $this->output->writeln("✔️  Database installation complete\n");
+    $this->output->writeln([
+      '',
+      "✔️  Database installation complete\n",
+      ''
+    ]);
+
     return Command::SUCCESS;
   }
 
