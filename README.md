@@ -20,7 +20,7 @@ The AssegaiPHP Console includes built-in support for the collection of [schemati
 
 Install the Assegai Console globally using Composer:
 ```bash
-$ composer global require assegai/console
+$ composer global require assegaiphp/console
 ```
 
 Add the Composer bin directory to your PATH to make the `assegai` command available globally:
