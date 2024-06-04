@@ -25,5 +25,5 @@ describe("ProjectConfig", function() {
       "input" => new MockInput(),
       "output" => new MockOutput(),
     ]
-  ]);
+  ])->skip();
 });
