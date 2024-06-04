@@ -69,6 +69,6 @@ class Info extends Command
 
     return $this->getApplication()?->doRun(new ArrayInput([
       'command' => 'list'
-    ]), $output);
+    ]), $output) ?? Command::INVALID;
   }
 }
