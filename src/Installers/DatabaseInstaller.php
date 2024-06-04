@@ -16,12 +16,18 @@ use Symfony\Component\Console\Question\Question;
  */
 class DatabaseInstaller extends AbstractInstaller
 {
+  /**
+   * @var array<string, string[]> $requiredExtensions The required extensions for each database.
+   */
   protected array $requiredExtensions = [
     'mysql'       => ['intl', 'pdo_mysql', 'mysqli'],
     'postgresql'  => ['intl', 'pdo_pgsql'],
     'sqlite'      => ['intl', 'pdo_sqlite']
   ];
 
+  /**
+   * @var array<string> $supportedDatabase The supported databases.
+   */
   protected array $supportedDatabase = [
     'mysql',
     'postgresql',
