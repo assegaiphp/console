@@ -38,7 +38,7 @@ class ComposerConfig
   {
     if (is_null($this->workingDirectory))
     {
-      $this->workingDirectory = getcwd();
+      $this->workingDirectory = getcwd() ?: '';
     }
 
     $composerJsonPath = Path::join($this->workingDirectory, 'composer.json');
@@ -49,7 +49,7 @@ class ComposerConfig
       return Command::FAILURE;
     }
 
-    $this->composerJson = json_decode(file_get_contents($composerJsonPath), true);
+    $this->composerJson = json_decode(file_get_contents($composerJsonPath) ?: '', true);
 
     return Command::SUCCESS;
   }
@@ -111,7 +111,7 @@ class ComposerConfig
    */
   public function commit(): int
   {
-    $composerJsonPath = Path::join($this->workingDirectory, 'composer.json');
+    $composerJsonPath = Path::join($this->workingDirectory ?? '', 'composer.json');
     if (false === file_put_contents($composerJsonPath, json_encode($this->composerJson, JSON_PRETTY_PRINT)) )
     {
       $this->output->writeln('<error>Failed to write to composer.json</error>');
