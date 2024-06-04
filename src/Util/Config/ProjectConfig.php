@@ -45,7 +45,13 @@ class ProjectConfig
     protected string $root = '',
     protected string $sourceRoot = '',
     protected array $scripts = [],
-    protected DevelopmentConfig|array $development = []
+    protected DevelopmentConfig|array $development = [
+      'server' => [
+        'host' => 'localhost',
+        'port' => 8000,
+        'openBrowser' => true
+      ]
+    ]
   )
   {
   }
@@ -59,7 +65,7 @@ class ProjectConfig
   {
     if (is_null($this->workingDirectory))
     {
-      $this->workingDirectory = getcwd();
+      $this->workingDirectory = getcwd() ?: '';
     }
 
     $assegaiJsonPath = Path::join($this->workingDirectory, 'assegai.json');
@@ -92,7 +98,7 @@ class ProjectConfig
         }
         else if ($property === 'scripts')
         {
-          $this->$property = json_decode(json_encode($value), true);
+          $this->$property = json_decode(json_encode($value) ?: '', true);
         }
         else
         {
