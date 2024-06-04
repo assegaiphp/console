@@ -1,0 +1,44 @@
+#!/usr/bin/env php
+
+<?php
+
+use Assegai\Console\Commands\DumpAutoload;
+use Assegai\Console\Commands\Generate;
+use Assegai\Console\Commands\Info;
+use Assegai\Console\Commands\NewProject;
+use Assegai\Console\Commands\Serve;
+use Assegai\Console\Commands\Update;
+use Assegai\Console\Commands\Version;
+use Symfony\Component\Console\Application;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+/**
+ * Bootstrap the application
+ *
+ * @return void
+ */
+function bootstrap(): void
+{
+  try {
+    $app = new Application('Assegai CLI');
+    $app
+      ->addCommands([
+        new DumpAutoload(),
+        new Generate(),
+        new NewProject(),
+        new Info(),
+        new Serve(),
+        new Update(),
+        new Version(),
+      ]);
+    $app->setDefaultCommand('info');
+
+    $app->run();
+  } catch (Exception $e) {
+    echo $e->getMessage();
+    exit(1);
+  }
+}
+
+bootstrap();

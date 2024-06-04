@@ -1,0 +1,5 @@
+.htaccess
+.env
+
+/vendor/
+/config/local*.php
