@@ -23,11 +23,11 @@ class MySQLInstaller extends AbstractInstaller
     $dbName = $this->questionHelper->ask($this->input, $this->output, $dbNameQuestion);
 
     $defaultHost = DEFAULT_MYSQL_HOST;
-    $dbHostQuestion = new Question("<info>?</info> Host: ($defaultHost) ", $defaultHost);
+    $dbHostQuestion = new Question("<info>?</info> Host: <fg=gray>($defaultHost)</> ", $defaultHost);
     $dbHost = $this->questionHelper->ask($this->input, $this->output, $dbHostQuestion);
 
     $defaultUser = DEFAULT_MYSQL_USER;
-    $dbUserQuestion = new Question("<info>?</info> User: ($defaultUser) ", $defaultUser);
+    $dbUserQuestion = new Question("<info>?</info> User: <fg=gray>($defaultUser)</> ", $defaultUser);
     $dbUser = $this->questionHelper->ask($this->input, $this->output, $dbUserQuestion);
 
     $dbPasswordQuestion = new Question("<info>?</info> Password: ", "");
@@ -35,7 +35,7 @@ class MySQLInstaller extends AbstractInstaller
     $dbPassword = $this->questionHelper->ask($this->input, $this->output, $dbPasswordQuestion);
 
     $defaultPort = DEFAULT_MYSQL_PORT;
-    $dbPortQuestion = new Question("<info>?</info> Port:($defaultPort) ", $defaultPort);
+    $dbPortQuestion = new Question("<info>?</info> Port: <fg=gray>($defaultPort)</> ", $defaultPort);
     $dbPort = $this->questionHelper->ask($this->input, $this->output, $dbPortQuestion);
 
     $newDatabaseConfig = [

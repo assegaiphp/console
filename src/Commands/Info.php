@@ -67,8 +67,8 @@ class Info extends Command
     # Output information about the available commands
     $output->writeln("\n" . $formatter->formatBlock('Commands', 'question') . "\n");
 
-    return $this->getApplication()->doRun(new ArrayInput([
+    return $this->getApplication()?->doRun(new ArrayInput([
       'command' => 'list'
-    ]), $output);
+    ]), $output) ?? Command::INVALID;
   }
 }

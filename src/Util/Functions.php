@@ -10,10 +10,17 @@
 function copy_directory(string $source, string $destination): bool
 {
   $directory = dir($source);
+
+  if (false === $directory)
+  {
+    return false;
+  }
+
   if (!is_dir($destination))
   {
     mkdir($destination, 0755, true);
   }
+
   while (false !== ($entry = $directory->read()))
   {
     if ($entry == '.' || $entry == '..')
@@ -38,7 +45,7 @@ function copy_directory(string $source, string $destination): bool
 /**
  * Converts an array to a string.
  *
- * @param array $array The array to convert.
+ * @param array<string, mixed> $array The array to convert.
  * @return false|string The string representation of the array.
  */
 function array_to_string(array $array): false|string
@@ -60,7 +67,7 @@ function array_to_string(array $array): false|string
  *
  * @param string $message The message to format.
  * @param string $style The style to apply.
- * @return array The formatted block.
+ * @return array<string, mixed> The formatted block.
  */
 function format_block(string $message, string $style): array
 {

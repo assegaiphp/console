@@ -121,7 +121,7 @@ class NewProject extends Command
     $donateLink = DONATION_LINK;
     $donationMessage = "🍷  Donate: <href=$donateLink>$donateLink</>\n";
     $lineLength = strlen($donationMessage) - strlen($donateLink);
-    $offset = ($terminalWidth / 2) - ($lineLength / 2);
+    $offset = intval(($terminalWidth / 2) - ($lineLength / 2));
     $padding = str_repeat(' ', $offset);
     $output->writeln($padding . $donationMessage);
   }

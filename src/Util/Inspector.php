@@ -56,7 +56,15 @@ class Inspector
     }
 
     // Check if the workspace is empty
-    if (count(scandir($workspaceDirectory)) === 2)
+    $workspaceFiles = scandir($workspaceDirectory);
+
+    if (false === $workspaceFiles)
+    {
+      $this->output->writeln("Failed to read workspace $workspaceDirectory.", OutputInterface::VERBOSITY_VERBOSE);
+      return false;
+    }
+
+    if (count($workspaceFiles) === 2)
     {
       $this->output->writeln("Workspace $workspaceDirectory is empty.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
@@ -107,6 +115,11 @@ class Inspector
   public function getInstalledFrameworkVersion(?string $workingDirectory = null): string
   {
     $workingDirectory = $workingDirectory ?? getcwd();
+    if (false === $workingDirectory)
+    {
+      return 'Not installed';
+    }
+
     $packageName = PACKAGE_NAME_CORE;
     return $this->getPackageVersion($packageName, $workingDirectory) ?: 'Not installed';
   }
@@ -132,7 +145,7 @@ class Inspector
 
     try
     {
-      return $this->installedVersions->getVersion($packageName);
+      return $this->installedVersions->getVersion($packageName) ?? false;
     }
     catch (OutOfBoundsException $e)
     {

@@ -1,0 +1,19 @@
+{
+  "name": "assegaiphp/tests",
+  "description": "description",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Andrew Masiye",
+      "email": "email@example.com"
+    }
+  ],
+  "require": {
+  },
+  "autoload": {
+    "psr-4": {
+        "Assegaiphp\\Mocks\\": "src/"
+    }
+  }
+}

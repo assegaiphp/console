@@ -19,7 +19,8 @@ class DumpAutoload extends Command
   {
     $inspector = new Inspector($input, $output);
 
-    if ($inspector->isValidWorkspace(getcwd()) === false)
+    $workspace = getcwd();
+    if ($inspector->isValidWorkspace(is_bool($workspace) ? '' : $workspace) === false)
     {
       $output->writeln('<error>Not a valid workspace</error>');
       return Command::FAILURE;

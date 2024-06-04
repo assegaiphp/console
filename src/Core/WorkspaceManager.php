@@ -51,7 +51,7 @@ class WorkspaceManager
    */
   public function init(?string &$projectName = null, ?string $workingDirectory = null): int
   {
-    $workingDirectory = $directory ?? getcwd();
+    $workingDirectory = $workingDirectory ?? getcwd();
     $templatePath = Path::getTemplatesDirectory();
     $defaultProjectName = DEFAULT_PROJECT_NAME;
 
@@ -60,11 +60,11 @@ class WorkspaceManager
 
     if (! $projectName )
     {
-      $projectNameQuestion = new Question("<info>?</info> Project name: ($defaultProjectName) ", $defaultProjectName);
+      $projectNameQuestion = new Question("<info>?</info> Project name: <fg=gray>($defaultProjectName)</> ", $defaultProjectName);
       $projectName = $this->questionHelper->ask($this->input, $this->output, $projectNameQuestion);
     }
     $projectNameText = new Text($projectName);
-    $projectDirectory = Path::join($workingDirectory, $projectNameText->kebabCase());
+    $projectDirectory = Path::join($workingDirectory ?: '', $projectNameText->kebabCase());
 
     if ( file_exists($projectDirectory) )
     {
@@ -85,8 +85,8 @@ class WorkspaceManager
     }
 
     $description = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Description: ")) ?? "";
-    $defaultVersion = DEFAULT_PROJECT_VERSION ?? '0.0.1';
-    $version = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Version: ($defaultVersion) ", $defaultVersion));
+    $defaultVersion = DEFAULT_PROJECT_VERSION;
+    $version = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Version: <fg=gray>($defaultVersion)</> ", $defaultVersion));
     $version = $this->filterVersion($version);
     $type = 'project';
 
@@ -118,10 +118,10 @@ class WorkspaceManager
 
     $projectNameText = new Text($projectName);
     $defaultPackageName = 'assegaiphp/' . $projectNameText->snakeCase();
-    $packageName = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Package name: ($defaultPackageName) ", $defaultPackageName));
+    $packageName = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Package name: <fg=gray>($defaultPackageName)</> ", $defaultPackageName));
     [$vendor, $package] = explode('/', $packageName);
     $defaultNamespace = Text::snakeCaseToPascalCase($vendor) . '\\' . Text::snakeCaseToPascalCase($package) . '\\';
-    $namespace = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Namespace: ($defaultNamespace) ", $defaultNamespace));
+    $namespace = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Namespace: <fg=gray>($defaultNamespace)</> ", $defaultNamespace));
 
     $composerConfig = [
       "name" => $packageName,
@@ -160,7 +160,7 @@ class WorkspaceManager
     }
 
     # Initialize the git repository
-    $initGitQuestion = new ConfirmationQuestion("<info>?</info> Initialize git repository? (y/N) ", false);
+    $initGitQuestion = new ConfirmationQuestion("<info>?</info> Initialize git repository? <fg=gray>(y/N)</> ", false);
     if (
       is_installed('git') &&
       $this->questionHelper->ask($this->input, $this->output, $initGitQuestion)
@@ -210,14 +210,14 @@ class WorkspaceManager
       $this->output,
       $this->formatter,
       $this->questionHelper,
-      $this->projectPath
+      $this->projectPath ?? ''
     );
     $dependencyInstaller = new ComposerDependencyInstaller(
       $this->input,
       $this->output,
       $this->formatter,
       $this->questionHelper,
-      $this->projectPath
+      $this->projectPath ?? ''
     );
 
     // Run the database installer
@@ -284,7 +284,7 @@ class WorkspaceManager
       }
 
       $fileContent = file_get_contents($filePath);
-      $fileContent = str_replace('Assegai\App', $namespace, $fileContent);
+      $fileContent = str_replace('Assegai\App', $namespace, $fileContent ?: '');
 
       if (false === file_put_contents($filePath, $fileContent) )
       {

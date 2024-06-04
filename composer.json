@@ -1,15 +1,16 @@
 {
-    "name": "assegaiphp/console",
-    "description": "assegaiphp/console is a powerful PHP composer library designed to simplify the development of console and terminal applications with an interface reminiscent of ncurses. Leveraging ANSI escape sequences, this library offers programmers a comprehensive API to create interactive and portable console-based applications.",
+    "name": "assegaiphp\/console",
+    "description": "assegaiphp\/console is a powerful PHP composer library designed to simplify the development of console and terminal applications with an interface reminiscent of ncurses. Leveraging ANSI escape sequences, this library offers programmers a comprehensive API to create interactive and portable console-based applications.",
     "type": "library",
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Assegai\\Console\\": "src/"
+            "Assegai\\Console\\": "src\/",
+            "Assegai\\Console\\Tests\\": "tests\/"
         },
         "files": [
-            "src/Util/Constants.php",
-            "src/Util/Functions.php"
+            "src\/Util\/Constants.php",
+            "src\/Util\/Functions.php"
         ]
     },
     "authors": [
@@ -19,19 +20,24 @@
         }
     ],
     "require": {
-        "symfony/console": "^7.1",
+        "symfony\/console": "^7.1",
         "php": ">=8.3",
-        "plejus/pluralize": "^1.0"
+        "plejus\/pluralize": "^1.0"
     },
     "config": {
         "allow-plugins": {
-            "pestphp/pest-plugin": true
+            "pestphp\/pest-plugin": true
         }
     },
     "require-dev": {
-        "pestphp/pest": "^2.34"
+        "pestphp\/pest": "^2.34",
+        "phpstan/phpstan": "^1.11"
     },
     "bin": [
-        "bin/assegai"
-    ]
+        "bin\/assegai"
+    ],
+    "scripts": {
+        "test": "vendor/bin/pest tests",
+        "analyze": "vendor/bin/phpstan analyse src tests/Unit tests/Feature --level 8"
+    }
 }
