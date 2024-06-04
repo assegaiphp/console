@@ -9,8 +9,18 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class ComposerConfig
 {
+  /**
+   * @var array<string, mixed> $composerJson The composer.json file.
+   */
   protected array $composerJson = [];
 
+  /**
+   * The ComposerConfig constructor.
+   *
+   * @param InputInterface $input The input interface.
+   * @param OutputInterface $output The output interface.
+   * @param string|null $workingDirectory The working directory.
+   */
   public function __construct(
     protected InputInterface $input,
     protected OutputInterface $output,
@@ -19,6 +29,11 @@ class ComposerConfig
   {
   }
 
+  /**
+   * Load the composer.json file
+   *
+   * @return int
+   */
   public function load(): int
   {
     if (is_null($this->workingDirectory))
