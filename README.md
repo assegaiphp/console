@@ -25,7 +25,7 @@ $ composer global require assegai/console
 
 Add the Composer bin directory to your PATH to make the `assegai` command available globally:
 ```bash
-ln -s ~/.config/composer/vendor/bin/assegai /usr/local/bin/assegai
+$ ln -s ~/.config/composer/vendor/bin/assegai /usr/local/bin/assegai
 ```
 
 ### Windows
@@ -53,7 +53,7 @@ This command will create a new Assegai project in the `my-app` directory.
 
 After creating a new project, you can start the development server to preview your application in the browser.
 ```bash
-cd my-app
+$ cd my-app
 ```
 
 To start the development server, navigate to the project directory and run the following command:
