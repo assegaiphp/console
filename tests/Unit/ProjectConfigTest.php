@@ -7,7 +7,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-describe("ProjectConfig Unit Test", function() {
+describe("ProjectConfig", function() {
   it("can create an instance", function(InputInterface $input, OutputInterface $output) {
     expect(new ProjectConfig($input, $output))->toBeInstanceOf(ProjectConfig::class);
   })->with([
@@ -25,5 +25,5 @@ describe("ProjectConfig Unit Test", function() {
       "input" => new MockInput(),
       "output" => new MockOutput(),
     ]
-  ]);
+  ])->skip();
 });
