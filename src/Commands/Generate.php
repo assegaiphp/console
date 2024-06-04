@@ -30,6 +30,9 @@ class Generate extends Command
    * @var array<SchematicInterface> $schematics
    */
   protected array $schematics = [];
+  /**
+   * @var array<string, string> $aliasMap The alias map
+   */
   protected array $aliasMap = [];
 
   /**
