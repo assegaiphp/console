@@ -2,6 +2,8 @@
 
 namespace Assegai\Console\Core\Schematics;
 
+use Assegai\Console\Core\Formatting\InlineAttributePropertiesFormatter;
+use Assegai\Console\Core\Formatting\StackedAttributePropertiesFormatter;
 use Assegai\Console\Core\Interfaces\SchematicInterface;
 use Assegai\Console\Core\Schematics\Enumerations\ClassTemplate;
 use Assegai\Console\Util\Config\ComposerConfig;
@@ -104,7 +106,7 @@ abstract class AbstractClassSchematic implements SchematicInterface
    *
    * @return array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} The array of statements for the AppModule.php file
    */
-  public function forAppModuleUpdate(): array
+  public function getModuleUpdates(): array
   {
     return [
       'use' => [],
@@ -196,11 +198,17 @@ PHP;
     {
       if ($localModuleFilename = $this->getLocalModuleFilename())
       {
-        $this->updateLocalModule($localModuleFilename, $this->forAppModuleUpdate());
+        if (($status = $this->updateLocalModule($localModuleFilename, $this->getModuleUpdates()) ) !== Command::SUCCESS)
+        {
+          return $status;
+        }
       }
       else
       {
-        $this->updateAppModule($this->forAppModuleUpdate());
+        if (($status = $this->updateAppModule($this->getModuleUpdates()) ) !== Command::SUCCESS)
+        {
+          return $status;
+        }
       }
     }
 
@@ -571,15 +579,62 @@ PHP;
    *
    * @param string $localModuleFilename The local module filename
    * @param array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} $props
-   * @return void
+   * @return int The status of the update
    */
-  protected function updateLocalModule(string $localModuleFilename, array $props): void
+  protected function updateLocalModule(
+    string $localModuleFilename,
+    array $props
+  ): int
   {
     // TODO: Implement updateLocalModule() method.
 
     $relativeLocalModuleFilename = $this->getRelativeLocalModuleFilePath($localModuleFilename);
+    $modulePropertyNameMap = [
+      'use' => 'use',
+      'declare' => 'declarations',
+      'provide' => 'providers',
+      'control' => 'controllers',
+      'import' => 'imports',
+      'export' => 'exports',
+    ];
+    $moduleFileContent = file_get_contents($relativeLocalModuleFilename) ?: '';
+    $originalBytes = strlen($moduleFileContent);
 
     $bytes = 0;
-    $this->output->writeln("<info>UPDATE</info> $relativeLocalModuleFilename ($bytes bytes)");
+    foreach ($props as $prop => $values)
+    {
+      $propertyName = $modulePropertyNameMap[$prop] ?? '';
+      if ($prop === 'use')
+      {
+        continue;
+      }
+
+      if (! $propertyName)
+      {
+        continue;
+      }
+
+      $formatter = new InlineAttributePropertiesFormatter($propertyName);
+      $oldValues = $formatter->extractValues($moduleFileContent ?? '');
+
+      if (count($oldValues) + count($values) > 3)
+      {
+        $formatter = new StackedAttributePropertiesFormatter($propertyName);
+      }
+
+      $formatter->addValues($values);
+      $moduleFileContent = preg_replace($formatter->getPattern(), $formatter->getFormatted($moduleFileContent ?? ''), $moduleFileContent ?? '');
+    }
+
+    $bytesToAdd = file_put_contents($relativeLocalModuleFilename, $moduleFileContent);
+    if (false === $bytesToAdd)
+    {
+      $this->output->writeln("<error>Failed to write to the file: $relativeLocalModuleFilename</error>");
+      return Command::FAILURE;
+    }
+    $bytes += $bytesToAdd;
+
+    $this->output->writeln("<fg=bright-blue>UPDATE</> $relativeLocalModuleFilename ($bytes bytes)");
+    return Command::SUCCESS;
   }
 }

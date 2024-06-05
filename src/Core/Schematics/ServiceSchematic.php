@@ -2,6 +2,8 @@
 
 namespace Assegai\Console\Core\Schematics;
 
+use Override;
+
 /**
  * A service schematic.
  *
@@ -15,5 +17,22 @@ class ServiceSchematic extends AbstractClassSchematic
     $this->namespaceSuffix = $this->properName;
     $this->imports = ['Assegai\Core\Attributes\Injectable'];
     $this->attributes = ['Injectable'];
+  }
+
+  /**
+   * @inheritDoc
+   */
+  #[Override]
+  public function getModuleUpdates(): array
+  {
+    return [
+      'use' => [$this->namespace . '\\' . $this->getClassName()],
+      'declare' => [],
+      'provide' => [$this->getClassName() . '::class'],
+      'control' => [],
+      'import' => [],
+      'export' => [],
+      'config' => [],
+    ];
   }
 }
