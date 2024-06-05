@@ -9,6 +9,7 @@ class ControllerSchematic extends AbstractClassSchematic
   public function configure(): void
   {
     $this->suffix = 'controller';
+    $this->namespaceSuffix = $this->properName;
     $this->imports = ['Assegai\Core\Attributes\Controller'];
     $this->attributes = ["Controller('$this->name')"];
   }

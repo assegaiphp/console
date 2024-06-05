@@ -43,7 +43,24 @@ class Generate extends Command
   public function configure(): void
   {
     $this
-      ->addArgument('schematic', InputArgument::REQUIRED, 'The schematic to generate')
+      ->addArgument(
+        'schematic',
+        InputArgument::REQUIRED,
+        'The schematic to generate',
+        null,
+        [
+          'application',
+          'controller',
+          'class',
+          'enum',
+          'guard',
+          'interface',
+          'module',
+          'pipe',
+          'resource',
+          'service'
+        ]
+      )
       ->addArgument('name', InputArgument::REQUIRED, 'The name of the schematic to generate')
       ->addOption('directory', 'd', InputArgument::OPTIONAL, 'The directory to generate the schematic in', getcwd())
       ->setHelp(implode("\n", [

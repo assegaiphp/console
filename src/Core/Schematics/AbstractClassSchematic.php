@@ -21,11 +21,17 @@ abstract class AbstractClassSchematic implements SchematicInterface
    */
   protected string $namespace = 'Assegai\\App';
   /**
-   * The class name
+   * The namespace suffix of the class
    *
    * @var string
    */
-  protected string $className = '';
+  protected string $namespaceSuffix = '';
+  /**
+   * The proper name of the class. This is the name in PascalCase.
+   *
+   * @var string
+   */
+  protected string $properName = '';
   /**
    * @var array<array{pattern: string, replacement: string}>
    */
@@ -36,6 +42,10 @@ abstract class AbstractClassSchematic implements SchematicInterface
     ['pattern' => '/{(\n{2,})(\s*)(public|private|protected|function)/', 'replacement' => "\{\n$2$3"],
     ['pattern' => '/(\s+)}\n{2,}}/', 'replacement' => "$1}\n}"],
   ];
+  /**
+   * @var Inspector $inspector The inspector
+   */
+  protected Inspector $inspector;
 
   /**
    * AbstractClassSchematic constructor.
@@ -56,7 +66,7 @@ abstract class AbstractClassSchematic implements SchematicInterface
    * @param string $parent The parent of the class
    * @param string[] $interfaces The interfaces of the class
    */
-  public function __construct(
+  public final function __construct(
     protected InputInterface $input,
     protected OutputInterface $output,
     protected string $name,
@@ -74,7 +84,8 @@ abstract class AbstractClassSchematic implements SchematicInterface
     protected array $interfaces = [],
   )
   {
-    $this->className = (new Text($this->name))->pascalCase();
+    $this->properName = (new Text($this->name))->pascalCase();
+    $this->inspector = new Inspector($this->input, $this->output);
     $this->configure();
   }
 
@@ -181,10 +192,16 @@ PHP;
 
     $this->output->writeln("<info>CREATE</info> {$this->getRelativeFilename()} ($bytes bytes)");
 
-    $inspector = new Inspector($this->input, $this->output);
-    if ($inspector->isValidWorkspace(getcwd() ?: ''))
+    if ($this->inspector->isValidWorkspace(getcwd() ?: ''))
     {
-      $this->updateAppModule($this->forAppModuleUpdate());
+      if ($localModuleFilename = $this->getLocalModuleFilename())
+      {
+        $this->updateLocalModule($localModuleFilename, $this->forAppModuleUpdate());
+      }
+      else
+      {
+        $this->updateAppModule($this->forAppModuleUpdate());
+      }
     }
 
     return Command::SUCCESS;
@@ -352,6 +369,10 @@ PHP;
       if ($path === 'src/')
       {
         $this->namespace = rtrim($namespace, '\\');
+        if ($this->namespaceSuffix)
+        {
+          $this->namespace .= '\\' . $this->namespaceSuffix;
+        }
         break;
       }
     }
@@ -384,20 +405,29 @@ PHP;
    */
   protected function getRelativeFilename(): string
   {
-    $inspector = new Inspector($this->input, $this->output);
     $tail = '';
 
-    if ($inspector->isValidWorkspace(getcwd() ?: ''))
+    if ($this->inspector->isValidWorkspace(getcwd() ?: ''))
     {
       $tail = 'src';
     }
 
     if (! $this->isFlat )
     {
-      $tail = Path::join($tail, (new Text($this->name))->pascalCase());
+      $tail = Path::join($tail, $this->properName);
     }
 
     return Path::join($tail, $this->getFileName());
+  }
+
+  /**
+   * Get the relative local module filename.
+   *
+   * @return string The relative local module filename
+   */
+  protected function getRelativeLocalModuleFilePath(string $localModuleFilename): string
+  {
+    return Path::join(dirname($this->getRelativeFilename()), $localModuleFilename);
   }
 
   /**
@@ -507,5 +537,49 @@ PHP;
     }
 
     return $output ?? '';
+  }
+
+  /**
+   * Retrieve the local module filename if it exists.
+   *
+   * @return false|string The local module filename, or false if not found
+   */
+  private function getLocalModuleFilename(): false|string
+  {
+    $workingDirectory = dirname($this->getFilePath());
+    $localFiles = scandir($workingDirectory);
+
+    if (false === $localFiles)
+    {
+      $this->output->writeln("<error>Failed to scan the directory: $workingDirectory</error>");
+      return false;
+    }
+
+    foreach ($localFiles as $file)
+    {
+      if (str_ends_with($file, 'Module.php'))
+      {
+        return $file;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Update the local module file.
+   *
+   * @param string $localModuleFilename The local module filename
+   * @param array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} $props
+   * @return void
+   */
+  protected function updateLocalModule(string $localModuleFilename, array $props): void
+  {
+    // TODO: Implement updateLocalModule() method.
+
+    $relativeLocalModuleFilename = $this->getRelativeLocalModuleFilePath($localModuleFilename);
+
+    $bytes = 0;
+    $this->output->writeln("<info>UPDATE</info> $relativeLocalModuleFilename ($bytes bytes)");
   }
 }

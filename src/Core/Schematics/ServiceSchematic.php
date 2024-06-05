@@ -12,6 +12,7 @@ class ServiceSchematic extends AbstractClassSchematic
   public function configure(): void
   {
     $this->suffix = 'service';
+    $this->namespaceSuffix = $this->properName;
     $this->imports = ['Assegai\Core\Attributes\Injectable'];
     $this->attributes = ['Injectable'];
   }
