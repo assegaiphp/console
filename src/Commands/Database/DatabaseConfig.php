@@ -12,6 +12,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Class DatabaseConfig. This class is a command that sets up the database configuration.
+ *
+ * @package Assegai\Console\Commands\Database
  */
 #[AsCommand(
   name: 'database:config',
