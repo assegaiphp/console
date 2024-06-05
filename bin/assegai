@@ -11,6 +11,7 @@ use Assegai\Console\Commands\Info;
 use Assegai\Console\Commands\Migration\MigrationCreate;
 use Assegai\Console\Commands\Migration\MigrationDown;
 use Assegai\Console\Commands\Migration\MigrationRefresh;
+use Assegai\Console\Commands\Migration\MigrationSetup;
 use Assegai\Console\Commands\Migration\MigrationUp;
 use Assegai\Console\Commands\NewProject;
 use Assegai\Console\Commands\Serve;
@@ -46,6 +47,7 @@ function bootstrap(): void
         new MigrationUp(),
         new MigrationDown(),
         new MigrationRefresh(),
+        new MigrationSetup(),
         new NewProject(),
         new Info(),
         new Serve(),
