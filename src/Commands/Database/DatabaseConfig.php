@@ -20,6 +20,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class DatabaseConfig extends Command
 {
+  /**
+   * @var string[] $validTypes The valid types of the database.
+   */
   protected array $validTypes = ['mysql', 'pgsql', 'sqlite'];
 
   public function configure(): void
