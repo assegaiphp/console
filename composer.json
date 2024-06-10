@@ -22,7 +22,8 @@
     "require": {
         "symfony/console": "^7.1",
         "php": ">=8.3",
-        "plejus/pluralize": "^1.0"
+        "plejus/pluralize": "^1.0",
+        "ext-pdo": "*"
     },
     "config": {
         "allow-plugins": {
