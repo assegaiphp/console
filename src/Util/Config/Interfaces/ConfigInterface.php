@@ -21,6 +21,14 @@ interface ConfigInterface
   public function get(string $path, mixed $default): mixed;
 
   /**
+   * Check if a value exists in the config file
+   *
+   * @param string $path The path to the value
+   * @return bool
+   */
+  public function has(string $path): bool;
+
+  /**
    * Set a value in the config file
    *
    * @param string $path The path to the value

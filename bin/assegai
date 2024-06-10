@@ -2,7 +2,8 @@
 
 <?php
 
-use Assegai\Console\Commands\Database\DatabaseConfig;
+use Assegai\Console\Commands\Database\DatabaseConfigure;
+use Assegai\Console\Commands\Database\DatabaseLoad;
 use Assegai\Console\Commands\Database\DatabaseSeed;
 use Assegai\Console\Commands\Database\DatabaseSetup;
 use Assegai\Console\Commands\DumpAutoload;
@@ -38,7 +39,8 @@ function bootstrap(): void
     $app = new Application('Assegai CLI');
     $app
       ->addCommands([
-        new DatabaseConfig(),
+        new DatabaseConfigure(),
+        new DatabaseLoad(),
         new DatabaseSeed(),
         new DatabaseSetup(),
         new DumpAutoload(),

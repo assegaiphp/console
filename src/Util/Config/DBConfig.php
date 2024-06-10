@@ -5,6 +5,7 @@ namespace Assegai\Console\Util\Config;
 use Assegai\Console\Util\Config\Interfaces\ConfigInterface;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
+use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -31,7 +32,7 @@ class DBConfig implements ConfigInterface
   /**
    * @var string[] $possibleConfigFilenames The possible configuration filenames.
    */
-  protected array $possibleConfigFilenames = ['local.php', 'dev.php', 'default.php'];
+  protected array $possibleConfigFilenames = ['local.php', 'dev.php', 'secure.php', 'default.php'];
 
   /**
    * DatabaseConfig constructor.
@@ -108,10 +109,28 @@ class DBConfig implements ConfigInterface
   /**
    * @inheritDoc
    */
+  public function has(string $path): bool
+  {
+    return null !== $this->get($path);
+  }
+
+  /**
+   * @inheritDoc
+   */
   public function set(string $path, mixed $value): void
   {
 
     $tokens = explode('.', $path);
+
+    if (! in_array('databases', $tokens) )
+    {
+      $tokenCount = count($tokens);
+      $newTokenCount = array_unshift($tokens, 'databases');
+      if ($newTokenCount === $tokenCount )
+      {
+        throw new RuntimeException('Failed to set database configuration');
+      }
+    }
 
     $target = &$this->config;
 
@@ -135,7 +154,12 @@ class DBConfig implements ConfigInterface
   {
     $data = array_to_string($this->config);
 
-    $bytes = file_put_contents($this->path, $data);
+    $bytes = file_put_contents($this->path, <<<PHP
+<?php
+
+return $data;
+PHP
+    );
     if (false === $bytes )
     {
       $this->output->writeln('<error>Failed to write to configuration file</error>');

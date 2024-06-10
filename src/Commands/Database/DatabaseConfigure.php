@@ -2,13 +2,18 @@
 
 namespace Assegai\Console\Commands\Database;
 
+use Assegai\Console\Core\Database\Enumerations\DatabaseType;
+use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Question\ChoiceQuestion;
+use Symfony\Component\Console\Question\Question;
 
 /**
  * Class DatabaseConfig. This class is a command that sets up the database configuration.
@@ -45,16 +50,14 @@ class DatabaseConfigure extends Command
       'host',
       'H',
       InputArgument::OPTIONAL,
-      'The host of the database',
-      'localhost'
+      'The host of the database'
     );
 
     $this->addOption(
       'port',
       'P',
       InputArgument::OPTIONAL,
-      'The port of the database',
-      '3306'
+      'The port of the database'
     );
 
     $this->addOption(
@@ -62,7 +65,6 @@ class DatabaseConfigure extends Command
       'u',
       InputArgument::OPTIONAL,
       'The user of the database',
-      'root',
     );
 
     $this->addOption(
@@ -70,7 +72,6 @@ class DatabaseConfigure extends Command
       'p',
       InputArgument::OPTIONAL,
       'The password of the database',
-      '',
     );
 
 
@@ -81,10 +82,15 @@ class DatabaseConfigure extends Command
     $inspector = new Inspector($input, $output);
     $workingDirectory = getcwd() ?: '';
     $configFilename = Path::join($workingDirectory, 'config', 'local.php');
+    $type = $input->getOption('type');
 
     if (! $inspector->isValidWorkspace($workingDirectory))
     {
-      $output->writeln('<error>This is not a valid workspace.</error>');
+      $output->writeln([
+        '',
+        '<error>This is not a valid workspace.</error>',
+        ''
+      ]);
       return Command::FAILURE;
     }
 
@@ -94,16 +100,40 @@ class DatabaseConfigure extends Command
 
       if (! file_exists($configFilename))
       {
-        $output->writeln('<error>The configuration file does not exist.</error>');
+        $output->writeln([
+          '',
+          '<error>The configuration file does not exist.</error>',
+          ''
+        ]);
         return Command::FAILURE;
       }
     }
 
+    /** @var QuestionHelper $questionHelper */
     $questionHelper = $this->getHelper('question');
 
-    if ($input->getOption('type') !== 'sqlite')
+    if (! DatabaseType::isValid($type) )
     {
-      $output->writeln('Configuring the SQLite database...');
+      $output->writeln([
+        '',
+        '<error>Invalid database type.</error>',
+        ''
+      ]);
+      $type = $questionHelper->ask($input, $output, new ChoiceQuestion('<info>?</info> Database type: ', DatabaseType::toArray(), 0));
+      $output->writeln([
+        "Selected database type: <info>$type</info>",
+        ''
+      ]);
+    }
+
+
+    if ($type === 'sqlite')
+    {
+      $output->writeln([
+        '',
+        'Configuring the SQLite database...',
+        ''
+      ]);
       return Command::SUCCESS;
     }
 
@@ -112,7 +142,66 @@ class DatabaseConfigure extends Command
     $user = $input->getOption('user');
     $name = $input->getArgument('name');
 
-    $output->writeln('Configuring the database <info>$name</info>...');
+    $output->writeln("Configuring the database <info>$name</info>...");
+
+    if (! $host )
+    {
+      $defaultHost = match ($type) {
+        'mysql' => DEFAULT_MYSQL_HOST,
+        'pgsql' => DEFAULT_POSTGRES_HOST,
+        default => ''
+      };
+      $host = $questionHelper->ask($input, $output, new Question("<info>?</info> Host: (<fg=gray>$defaultHost</>) ", $defaultHost));
+    }
+
+    if (! $port )
+    {
+      $defaultPort = match ($type) {
+        'mysql' => DEFAULT_MYSQL_PORT,
+        'pgsql' => DEFAULT_POSTGRES_PORT,
+        default => ''
+      };
+      $port = $questionHelper->ask($input, $output, new Question("<info>?</info> Port: (<fg=gray>$defaultPort</>) ", $defaultPort));
+    }
+
+    if (! $user )
+    {
+      $defaultUser = match ($type) {
+        'mysql' => DEFAULT_MYSQL_USER,
+        'pgsql' => DEFAULT_POSTGRES_USER,
+        default => ''
+      };
+      $user = $questionHelper->ask($input, $output, new Question("<info>?</info> User: (<fg=gray>$defaultUser</>) ", $defaultUser));
+    }
+
+    $passwordQuestion = new Question('<info>?</info> Password: ', '');
+    $passwordQuestion->setHidden(true);
+    $password = $questionHelper->ask($input, $output, $passwordQuestion);
+
+    $dbConfig = new DBConfig($input, $output, $name, $type);
+    if (Command::SUCCESS !== $dbConfig->load())
+    {
+      $output->writeln([
+        '',
+        '<error>Failed to load database configuration.</error>',
+        ''
+      ]);
+      return Command::FAILURE;
+    }
+
+    $dbConfig->set("$type.$name", [
+      'host' => $host,
+      'port' => (int)$port,
+      'user' => $user,
+      'password' => $password
+    ]);
+
+    $output->writeln('');
+    if ($dbConfig->commit() !== Command::SUCCESS)
+    {
+      $output->writeln('<error>Failed to save database configuration.</error>');
+      return Command::FAILURE;
+    }
     return Command::SUCCESS;
   }
 }
