@@ -16,11 +16,11 @@ use Symfony\Component\Console\Output\OutputInterface;
  * @package Assegai\Console\Commands\Database
  */
 #[AsCommand(
-  name: 'database:config',
+  name: 'database:configure',
   description: 'Setup the database configuration',
-  aliases: ['db:config']
+  aliases: ['database:config', 'db:config']
 )]
-class DatabaseConfig extends Command
+class DatabaseConfigure extends Command
 {
   /**
    * @var string[] $validTypes The valid types of the database.
@@ -29,6 +29,7 @@ class DatabaseConfig extends Command
 
   public function configure(): void
   {
+    $this->setHelp('This command sets up the connection configuration for a database. It creates a configuration file in the config directory.');
     $this
       ->addArgument('name', InputArgument::REQUIRED, 'The name of the database')
       ->addOption(
