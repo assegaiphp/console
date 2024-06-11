@@ -23,10 +23,20 @@ Install the Assegai Console globally using Composer:
 $ composer global require assegaiphp/console
 ```
 
-Add the Composer bin directory to your PATH to make the `assegai` command available globally:
+Create a symbolic link to the Assegai Console binary in a directory that is included in your system's `PATH` environment variable. For example, you can create a symbolic link in the `/usr/local/bin` directory:
 ```bash
-$ ln -s ~/.config/composer/vendor/bin/assegai /usr/local/bin/assegai
+$ sudo ln -s ~/.config/composer/vendor/bin/assegai /usr/local/bin/assegai
 ```
+
+Alternatively, you can add the [Composer](https://getcomposer.org/doc/00-intro.md#installation-linux-unix-macos) bin directory to your `$PATH` to make `assegai` 
+available globally. To do so, add the following line to your shell configuration file (e.g., `~/.bashrc`, `~/.zshrc`, 
+etc.):
+
+```bash
+$ export PATH="$PATH:$HOME/.config/composer/vendor/bin"
+```
+
+> **Note:** The path to the Composer bin directory may vary depending on your system configuration. Please refer to the [official Composer documentation](https://getcomposer.org/doc/00-intro.md#installation-linux-unix-macos) for more information.
 
 ### Windows
 

@@ -2,7 +2,9 @@
 
 namespace Assegai\Console\Core\Schematics;
 
+use Assegai\Console\Core\Interfaces\ConfigurableInterface;
 use Assegai\Console\Core\Interfaces\SchematicInterface;
+use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -15,6 +17,13 @@ use Symfony\Component\Console\Output\OutputInterface;
 abstract class AbstractDirectorySchematic implements SchematicInterface
 {
   /**
+   * The name of the directory
+   *
+   * @var string
+   */
+  protected string $directoryName = '';
+
+  /**
    * AbstractDirectorySchematic constructor.
    *
    * @param InputInterface $input The input interface
@@ -22,13 +31,25 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
    * @param string $name The name of the schematic
    * @param string $path The path to the directory
    */
-  public function __construct(
+  public final function __construct(
     protected InputInterface $input,
     protected OutputInterface $output,
     protected string $name,
     protected string $path,
+    protected string $prefix = '',
+    protected string $suffix = '',
   )
   {
+    $this->directoryName = (new Text($this->name))->pascalCase();
+    $this->configure();
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function configure(): void
+  {
+     // Do nothing
   }
 
   /**

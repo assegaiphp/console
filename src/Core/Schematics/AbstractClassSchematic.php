@@ -2,6 +2,8 @@
 
 namespace Assegai\Console\Core\Schematics;
 
+use Assegai\Console\Core\Formatting\InlineAttributePropertiesFormatter;
+use Assegai\Console\Core\Formatting\StackedAttributePropertiesFormatter;
 use Assegai\Console\Core\Interfaces\SchematicInterface;
 use Assegai\Console\Core\Schematics\Enumerations\ClassTemplate;
 use Assegai\Console\Util\Config\ComposerConfig;
@@ -21,11 +23,17 @@ abstract class AbstractClassSchematic implements SchematicInterface
    */
   protected string $namespace = 'Assegai\\App';
   /**
-   * The class name
+   * The namespace suffix of the class
    *
    * @var string
    */
-  protected string $className = '';
+  protected string $namespaceSuffix = '';
+  /**
+   * The proper name of the class. This is the name in PascalCase.
+   *
+   * @var string
+   */
+  protected string $properName = '';
   /**
    * @var array<array{pattern: string, replacement: string}>
    */
@@ -36,6 +44,10 @@ abstract class AbstractClassSchematic implements SchematicInterface
     ['pattern' => '/{(\n{2,})(\s*)(public|private|protected|function)/', 'replacement' => "\{\n$2$3"],
     ['pattern' => '/(\s+)}\n{2,}}/', 'replacement' => "$1}\n}"],
   ];
+  /**
+   * @var Inspector $inspector The inspector
+   */
+  protected Inspector $inspector;
 
   /**
    * AbstractClassSchematic constructor.
@@ -44,6 +56,7 @@ abstract class AbstractClassSchematic implements SchematicInterface
    * @param OutputInterface $output The output interface
    * @param string $name The name of the schematic
    * @param string $path The path to the file
+   * @param string $subdirectory The subdirectory of the class
    * @param string $prefix The prefix of the class name
    * @param string $suffix The suffix of the class name
    * @param string[] $imports The imports of the class
@@ -56,11 +69,12 @@ abstract class AbstractClassSchematic implements SchematicInterface
    * @param string $parent The parent of the class
    * @param string[] $interfaces The interfaces of the class
    */
-  public function __construct(
+  public final function __construct(
     protected InputInterface $input,
     protected OutputInterface $output,
     protected string $name,
     protected string $path,
+    protected string $subdirectory = '',
     protected string $prefix = '',
     protected string $suffix = '',
     protected array $imports = [],
@@ -74,7 +88,8 @@ abstract class AbstractClassSchematic implements SchematicInterface
     protected array $interfaces = [],
   )
   {
-    $this->className = (new Text($this->name))->pascalCase();
+    $this->properName = (new Text($this->name))->pascalCase();
+    $this->inspector = new Inspector($this->input, $this->output);
     $this->configure();
   }
 
@@ -93,7 +108,7 @@ abstract class AbstractClassSchematic implements SchematicInterface
    *
    * @return array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} The array of statements for the AppModule.php file
    */
-  public function forAppModuleUpdate(): array
+  public function getModuleUpdates(): array
   {
     return [
       'use' => [],
@@ -181,10 +196,22 @@ PHP;
 
     $this->output->writeln("<info>CREATE</info> {$this->getRelativeFilename()} ($bytes bytes)");
 
-    $inspector = new Inspector($this->input, $this->output);
-    if ($inspector->isValidWorkspace(getcwd() ?: ''))
+    if ($this->inspector->isValidWorkspace(getcwd() ?: ''))
     {
-      $this->updateAppModule($this->forAppModuleUpdate());
+      if ($localModuleFilename = $this->getLocalModuleFilename())
+      {
+        if (($status = $this->updateLocalModule($localModuleFilename, $this->getModuleUpdates()) ) !== Command::SUCCESS)
+        {
+          return $status;
+        }
+      }
+      else
+      {
+        if (($status = $this->updateAppModule($this->getModuleUpdates()) ) !== Command::SUCCESS)
+        {
+          return $status;
+        }
+      }
     }
 
     return Command::SUCCESS;
@@ -352,6 +379,10 @@ PHP;
       if ($path === 'src/')
       {
         $this->namespace = rtrim($namespace, '\\');
+        if ($this->namespaceSuffix)
+        {
+          $this->namespace .= '\\' . ltrim($this->namespaceSuffix, '\\');
+        }
         break;
       }
     }
@@ -384,20 +415,37 @@ PHP;
    */
   protected function getRelativeFilename(): string
   {
-    $inspector = new Inspector($this->input, $this->output);
     $tail = '';
 
-    if ($inspector->isValidWorkspace(getcwd() ?: ''))
+    if ($this->inspector->isValidWorkspace(getcwd() ?: ''))
     {
       $tail = 'src';
     }
 
     if (! $this->isFlat )
     {
-      $tail = Path::join($tail, (new Text($this->name))->pascalCase());
+      if ($this->subdirectory)
+      {
+        $tokens = explode('/', $this->subdirectory);
+        foreach ($tokens as $token)
+        {
+          $tail = Path::join($tail, (new Text($token))->pascalCase());
+        }
+      }
+      $tail = Path::join($tail, $this->properName);
     }
 
     return Path::join($tail, $this->getFileName());
+  }
+
+  /**
+   * Get the relative local module filename.
+   *
+   * @return string The relative local module filename
+   */
+  protected function getRelativeLocalModuleFilePath(string $localModuleFilename): string
+  {
+    return Path::join(dirname($this->getRelativeFilename()), $localModuleFilename);
   }
 
   /**
@@ -507,5 +555,116 @@ PHP;
     }
 
     return $output ?? '';
+  }
+
+  /**
+   * Retrieve the local module filename if it exists.
+   *
+   * @return false|string The local module filename, or false if not found
+   */
+  private function getLocalModuleFilename(): false|string
+  {
+    $workingDirectory = dirname($this->getFilePath());
+    $localFiles = scandir($workingDirectory);
+
+    if (false === $localFiles)
+    {
+      $this->output->writeln("<error>Failed to scan the directory: $workingDirectory</error>");
+      return false;
+    }
+
+    foreach ($localFiles as $file)
+    {
+      if (str_ends_with($file, 'Module.php'))
+      {
+        return $file;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Update the local module file.
+   *
+   * @param string $localModuleFilename The local module filename
+   * @param array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} $props
+   * @return int The status of the update
+   */
+  protected function updateLocalModule(
+    string $localModuleFilename,
+    array $props
+  ): int
+  {
+    // TODO: Implement updateLocalModule() method.
+
+    $relativeLocalModuleFilename = $this->getRelativeLocalModuleFilePath($localModuleFilename);
+    $modulePropertyNameMap = [
+      'use' => 'use',
+      'declare' => 'declarations',
+      'provide' => 'providers',
+      'control' => 'controllers',
+      'import' => 'imports',
+      'export' => 'exports',
+    ];
+    $moduleFileContent = file_get_contents($relativeLocalModuleFilename) ?: '';
+
+    $bytes = 0;
+    foreach ($props as $prop => $values)
+    {
+      $propertyName = $modulePropertyNameMap[$prop] ?? '';
+      if ($prop === 'use')
+      {
+        // TODO: Fix the use statements
+        continue;
+      }
+
+      if (! $propertyName)
+      {
+        continue;
+      }
+
+      $formatter = new InlineAttributePropertiesFormatter($propertyName);
+      $oldValues = $formatter->extractValues($moduleFileContent ?? '');
+
+      if (count($oldValues) + count($values) > 3)
+      {
+        $formatter = new StackedAttributePropertiesFormatter($propertyName);
+      }
+
+      $formatter->addValues($values);
+      $moduleFileContent = preg_replace($formatter->getPattern(), $formatter->getFormatted($moduleFileContent ?? ''), $moduleFileContent ?? '');
+    }
+
+    $bytesToAdd = file_put_contents($relativeLocalModuleFilename, $moduleFileContent);
+    if (false === $bytesToAdd)
+    {
+      $this->output->writeln("<error>Failed to write to the file: $relativeLocalModuleFilename</error>");
+      return Command::FAILURE;
+    }
+    $bytes += $bytesToAdd;
+
+    $this->output->writeln("<fg=bright-blue>UPDATE</> $relativeLocalModuleFilename ($bytes bytes)");
+    return Command::SUCCESS;
+  }
+
+  /**
+   * Retrieve the resolved namespace suffix.
+   *
+   * @return string The resolved namespace suffix
+   */
+  public function getResolvedNamespaceSuffix(): string
+  {
+    $namespaceSuffix = '';
+    if ($this->subdirectory)
+    {
+      $tokens = explode('/', $this->subdirectory);
+      foreach ($tokens as $token)
+      {
+        $namespaceSuffix .= '\\' . (new Text($token))->pascalCase();
+      }
+    }
+
+    return $namespaceSuffix . '\\' . $this->properName;
   }
 }
