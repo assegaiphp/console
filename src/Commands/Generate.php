@@ -13,6 +13,8 @@ use Assegai\Console\Core\Schematics\ModuleSchematic;
 use Assegai\Console\Core\Schematics\PipeSchematic;
 use Assegai\Console\Core\Schematics\ResourceSchematic;
 use Assegai\Console\Core\Schematics\ServiceSchematic;
+use Assegai\Console\Util\Path;
+use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -43,7 +45,24 @@ class Generate extends Command
   public function configure(): void
   {
     $this
-      ->addArgument('schematic', InputArgument::REQUIRED, 'The schematic to generate')
+      ->addArgument(
+        'schematic',
+        InputArgument::REQUIRED,
+        'The schematic to generate',
+        null,
+        [
+          'application',
+          'controller',
+          'class',
+          'enum',
+          'guard',
+          'interface',
+          'module',
+          'pipe',
+          'resource',
+          'service'
+        ]
+      )
       ->addArgument('name', InputArgument::REQUIRED, 'The name of the schematic to generate')
       ->addOption('directory', 'd', InputArgument::OPTIONAL, 'The directory to generate the schematic in', getcwd())
       ->setHelp(implode("\n", [
@@ -81,7 +100,7 @@ class Generate extends Command
    */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
-    $name = $input->getArgument('name');
+    $name = basename($input->getArgument('name'));
     $directory = $input->getOption('directory');
 
     if (false === $directory)
@@ -90,17 +109,19 @@ class Generate extends Command
       return Command::FAILURE;
     }
 
+    $subdirectory = dirname($input->getArgument('name')) ?: '';
+
     $this->addAllSchematics([
-      'application' => new ApplicationSchematic($input, $output, $name, $directory),
-      'controller'  => new ControllerSchematic($input, $output, $name, $directory),
-      'class'       => new ClassSchematic($input, $output, $name, $directory),
-      'enum'        => new EnumSchematic($input, $output, $name, $directory),
-      'guard'       => new GuardSchematic($input, $output, $name, $directory),
-      'interface'   => new InterfaceSchematic($input, $output, $name, $directory),
-      'module'      => new ModuleSchematic($input, $output, $name, $directory),
-      'pipe'        => new PipeSchematic($input, $output, $name, $directory),
-      'resource'    => new ResourceSchematic($input, $output, $name, $directory),
-      'service'     => new ServiceSchematic($input, $output, $name, $directory)
+      'application' => new ApplicationSchematic($input, $output, $name, $directory, $subdirectory),
+      'controller'  => new ControllerSchematic($input, $output, $name, $directory, $subdirectory),
+      'class'       => new ClassSchematic($input, $output, $name, $directory, $subdirectory),
+      'enum'        => new EnumSchematic($input, $output, $name, $directory, $subdirectory),
+      'guard'       => new GuardSchematic($input, $output, $name, $directory, $subdirectory),
+      'interface'   => new InterfaceSchematic($input, $output, $name, $directory, $subdirectory),
+      'module'      => new ModuleSchematic($input, $output, $name, $directory, $subdirectory),
+      'pipe'        => new PipeSchematic($input, $output, $name, $directory, $subdirectory),
+      'resource'    => new ResourceSchematic($input, $output, $name, $directory, $subdirectory),
+      'service'     => new ServiceSchematic($input, $output, $name, $directory, $subdirectory)
     ]);
 
     if ($this->setSchematic($input->getArgument('schematic')) > 0)
