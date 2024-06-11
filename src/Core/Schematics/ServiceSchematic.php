@@ -14,7 +14,7 @@ class ServiceSchematic extends AbstractClassSchematic
   public function configure(): void
   {
     $this->suffix = 'service';
-    $this->namespaceSuffix = $this->properName;
+    $this->namespaceSuffix = $this->getResolvedNamespaceSuffix();
     $this->imports = ['Assegai\Core\Attributes\Injectable'];
     $this->attributes = ['Injectable'];
   }
@@ -26,7 +26,7 @@ class ServiceSchematic extends AbstractClassSchematic
   public function getModuleUpdates(): array
   {
     return [
-      'use' => [$this->namespace . '\\' . $this->getClassName()],
+      'use' => [],
       'declare' => [],
       'provide' => [$this->getClassName() . '::class'],
       'control' => [],

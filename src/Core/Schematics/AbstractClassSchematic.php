@@ -56,6 +56,7 @@ abstract class AbstractClassSchematic implements SchematicInterface
    * @param OutputInterface $output The output interface
    * @param string $name The name of the schematic
    * @param string $path The path to the file
+   * @param string $subdirectory The subdirectory of the class
    * @param string $prefix The prefix of the class name
    * @param string $suffix The suffix of the class name
    * @param string[] $imports The imports of the class
@@ -73,6 +74,7 @@ abstract class AbstractClassSchematic implements SchematicInterface
     protected OutputInterface $output,
     protected string $name,
     protected string $path,
+    protected string $subdirectory = '',
     protected string $prefix = '',
     protected string $suffix = '',
     protected array $imports = [],
@@ -379,7 +381,7 @@ PHP;
         $this->namespace = rtrim($namespace, '\\');
         if ($this->namespaceSuffix)
         {
-          $this->namespace .= '\\' . $this->namespaceSuffix;
+          $this->namespace .= '\\' . ltrim($this->namespaceSuffix, '\\');
         }
         break;
       }
@@ -422,6 +424,14 @@ PHP;
 
     if (! $this->isFlat )
     {
+      if ($this->subdirectory)
+      {
+        $tokens = explode('/', $this->subdirectory);
+        foreach ($tokens as $token)
+        {
+          $tail = Path::join($tail, (new Text($token))->pascalCase());
+        }
+      }
       $tail = Path::join($tail, $this->properName);
     }
 
@@ -598,7 +608,6 @@ PHP;
       'export' => 'exports',
     ];
     $moduleFileContent = file_get_contents($relativeLocalModuleFilename) ?: '';
-    $originalBytes = strlen($moduleFileContent);
 
     $bytes = 0;
     foreach ($props as $prop => $values)
@@ -606,6 +615,7 @@ PHP;
       $propertyName = $modulePropertyNameMap[$prop] ?? '';
       if ($prop === 'use')
       {
+        // TODO: Fix the use statements
         continue;
       }
 
@@ -636,5 +646,25 @@ PHP;
 
     $this->output->writeln("<fg=bright-blue>UPDATE</> $relativeLocalModuleFilename ($bytes bytes)");
     return Command::SUCCESS;
+  }
+
+  /**
+   * Retrieve the resolved namespace suffix.
+   *
+   * @return string The resolved namespace suffix
+   */
+  public function getResolvedNamespaceSuffix(): string
+  {
+    $namespaceSuffix = '';
+    if ($this->subdirectory)
+    {
+      $tokens = explode('/', $this->subdirectory);
+      foreach ($tokens as $token)
+      {
+        $namespaceSuffix .= '\\' . (new Text($token))->pascalCase();
+      }
+    }
+
+    return $namespaceSuffix . '\\' . $this->properName;
   }
 }

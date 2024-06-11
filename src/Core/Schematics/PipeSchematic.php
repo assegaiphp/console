@@ -12,7 +12,7 @@ class PipeSchematic extends AbstractClassSchematic
   public function configure(): void
   {
     $this->suffix = 'pipe';
-    $this->namespaceSuffix = $this->properName;
+    $this->namespaceSuffix = $this->getResolvedNamespaceSuffix();
     $this->imports = [
       'Assegai\Core\Interfaces\IPipeTransform',
       'Assegai\Core\Attributes\Injectable',

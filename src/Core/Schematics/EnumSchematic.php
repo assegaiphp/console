@@ -14,6 +14,6 @@ class EnumSchematic extends AbstractClassSchematic
   public function configure(): void
   {
     $this->template = ClassTemplate::ENUM;
-    $this->namespaceSuffix = $this->properName;
+    $this->namespaceSuffix = $this->getResolvedNamespaceSuffix();
   }
 }

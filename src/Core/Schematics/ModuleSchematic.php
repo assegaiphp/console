@@ -7,7 +7,7 @@ class ModuleSchematic extends AbstractClassSchematic
   public function configure(): void
   {
     $this->suffix = 'module';
-    $this->namespaceSuffix = $this->properName;
+    $this->namespaceSuffix = $this->getResolvedNamespaceSuffix();
     $this->imports = ['Assegai\Core\Attributes\Modules\Module'];
     $this->attributes = [<<<PHP
 Module(
