@@ -2,9 +2,18 @@
 
 <?php
 
+use Assegai\Console\Commands\Database\DatabaseConfigure;
+use Assegai\Console\Commands\Database\DatabaseLoad;
+use Assegai\Console\Commands\Database\DatabaseSeed;
+use Assegai\Console\Commands\Database\DatabaseSetup;
 use Assegai\Console\Commands\DumpAutoload;
 use Assegai\Console\Commands\Generate;
 use Assegai\Console\Commands\Info;
+use Assegai\Console\Commands\Migration\MigrationCreate;
+use Assegai\Console\Commands\Migration\MigrationDown;
+use Assegai\Console\Commands\Migration\MigrationRefresh;
+use Assegai\Console\Commands\Migration\MigrationSetup;
+use Assegai\Console\Commands\Migration\MigrationUp;
 use Assegai\Console\Commands\NewProject;
 use Assegai\Console\Commands\Serve;
 use Assegai\Console\Commands\Update;
@@ -30,8 +39,17 @@ function bootstrap(): void
     $app = new Application('Assegai CLI');
     $app
       ->addCommands([
+        new DatabaseConfigure(),
+        new DatabaseLoad(),
+        new DatabaseSeed(),
+        new DatabaseSetup(),
         new DumpAutoload(),
         new Generate(),
+        new MigrationCreate(),
+        new MigrationUp(),
+        new MigrationDown(),
+        new MigrationRefresh(),
+        new MigrationSetup(),
         new NewProject(),
         new Info(),
         new Serve(),

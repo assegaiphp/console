@@ -2,12 +2,13 @@
 
 namespace Assegai\Console\Util\Config;
 
+use Assegai\Console\Util\Config\Interfaces\ConfigInterface;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class ComposerConfig
+class ComposerConfig implements ConfigInterface
 {
   /**
    * @var array<string, mixed> $composerJson The composer.json file.
@@ -57,10 +58,11 @@ class ComposerConfig
   /**
    * Get a value from the composer.json file
    *
-   * @param string $path
+   * @param string $path The path to the value
+   * @param mixed $default The default value
    * @return mixed
    */
-  public function get(string $path): mixed
+  public function get(string $path, mixed $default = null): mixed
   {
     $tokens = explode('.', $path);
 
@@ -70,13 +72,21 @@ class ComposerConfig
     {
       if (! array_key_exists($token, $value))
       {
-        return null;
+        return $default;
       }
 
       $value = $value[$token];
     }
 
     return $value;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function has(string $path): bool
+  {
+    // TODO: Implement has() method.
   }
 
   /**
