@@ -73,8 +73,6 @@ class DatabaseConfigure extends Command
       InputArgument::OPTIONAL,
       'The password of the database',
     );
-
-
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
@@ -126,6 +124,7 @@ class DatabaseConfigure extends Command
       ]);
     }
 
+    $name = $input->getArgument('name');
 
     if ($type === 'sqlite')
     {
@@ -134,13 +133,44 @@ class DatabaseConfigure extends Command
         'Configuring the SQLite database...',
         ''
       ]);
+
+      $dsn = 'sqlite:';
+      $choices = ['on-disk', 'in-memory', 'in-memory (persistent)'];
+
+      $typeQuestion =
+        new ChoiceQuestion("<info>?</info> How do you want to store your data?: ", $choices, 0);
+      $sqlType = $questionHelper->ask($input, $output, $typeQuestion);
+
+      $dsn .= match ($sqlType) {
+        'on-disk' => ".data/$name.sq3",
+        'in-memory' => ':memory:',
+        'in-memory (persistent)' => 'file::memory:?cache=shared'
+      };
+
+      $dbConfig = new DBConfig($input, $output, $name, $type);
+      if (Command::SUCCESS !== $dbConfig->load())
+      {
+        $output->writeln([
+          '',
+          '<error>Failed to load database configuration.</error>',
+          ''
+        ]);
+        return Command::FAILURE;
+      }
+      $dbConfig->set("$type.$name", ['path' => str_replace('sqlite:', '', $dsn)]);
+
+      if (Command::SUCCESS !== $dbConfig->commit())
+      {
+        $output->writeln('<error>Failed to save database configuration.</error>');
+        return Command::FAILURE;
+      }
+
       return Command::SUCCESS;
     }
 
     $host = $input->getOption('host');
     $port = $input->getOption('port');
     $user = $input->getOption('user');
-    $name = $input->getArgument('name');
 
     $output->writeln("Configuring the database <info>$name</info>...");
 
