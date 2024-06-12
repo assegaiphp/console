@@ -91,7 +91,7 @@ class DBConfig implements ConfigInterface
   {
     $tokens = explode('.', $path);
 
-    $value = $this->config;
+    $value = $this->config['databases'] ?? [];
 
     foreach ($tokens as $token)
     {
