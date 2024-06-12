@@ -9,6 +9,7 @@ use Assegai\Console\Tests\Mocks\MockOutput;
 use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
+use Exception;
 use PDO;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\QuestionHelper;
@@ -91,19 +92,16 @@ class SQLiteDatabase extends PDO implements DatabaseConnectionInterface
     if (!$path)
     {
       $output->writeln('<error>Database path not defined.</error>');
-
-      $helper = new QuestionHelper();
-      $confirmQuestion = new ConfirmationQuestion("<info>?</info> Do you want to create the database? <fg=gray>(Y/n)</>", true);
-
-      if (! $helper->ask($input, $output, $confirmQuestion) )
-      {
-        return false;
-      }
+      return false;
     }
 
+    $path = Path::join(Path::getWorkingDirectory() ?: '', $path);
     return file_exists($path);
   }
 
+  /**
+   * @inheritDoc
+   */
   public static function doesNotExist(string $name): bool
   {
     return ! self::exists($name);
@@ -112,9 +110,67 @@ class SQLiteDatabase extends PDO implements DatabaseConnectionInterface
   /**
    * @inheritDoc
    */
-  public function setup(): int
+  public static function setup(?string $name = null): int
   {
-    return file_exists($this->path) ? Command::SUCCESS : Command::FAILURE;
+    $input = new MockInput();
+    $output = new ConsoleOutput(OutputInterface::VERBOSITY_VERBOSE);
+    $type = DatabaseType::SQLITE->value;
+    $dbConfig = new DBConfig($input, $output, $name, $type);
+
+    if (Command::SUCCESS !== $dbConfig->load())
+    {
+      $output->writeln("<error>Failed to load database configuration.</error>\n");
+      return Command::FAILURE;
+    }
+
+    $path = $dbConfig->get("sqlite.$name.path");
+
+    if (!$path)
+    {
+      $output->writeln("<error>Database path not defined.</error>\n");
+      return Command::FAILURE;
+    }
+
+    $path = Path::join(Path::getWorkingDirectory() ?: '', $path);
+
+    if (! file_exists($path) )
+    {
+      $helper = new QuestionHelper();
+      $confirmQuestion = new ConfirmationQuestion("<info>?</info> Do you want to create the database? <fg=gray>(Y/n)</>", true);
+
+      if (! $helper->ask($input, $output, $confirmQuestion) )
+      {
+        return Command::FAILURE;
+      }
+    }
+
+    $migrationsTableName = self::getMigrationsTableName();
+    $query = "CREATE TABLE $migrationsTableName (migration TEXT PRIMARY KEY, ran_at TEXT)";
+
+    try
+    {
+      $database = new self($name, $input, $output);
+
+      if (false === $database->exec($query))
+      {
+        $output->writeln("<error>Failed to create the migrations table.</error>\n");
+        return Command::FAILURE;
+      }
+    }
+    catch (Exception $exception)
+    {
+      if (! str_contains($exception->getMessage(), 'already exists'))
+      {
+        $output->writeln("<error>({$exception->getCode()}): {$exception->getMessage()}</error>\n");
+        return Command::FAILURE;
+      }
+
+      $output->writeln("<comment>Migrations table already exists.</comment>\n");
+      return Command::SUCCESS;
+    }
+
+    $output->writeln("<info>SQLite database successfully set up.</info>\n", OutputInterface::VERBOSITY_VERBOSE);
+    return Command::SUCCESS;
   }
 
   /**
@@ -123,5 +179,13 @@ class SQLiteDatabase extends PDO implements DatabaseConnectionInterface
   public function drop(): int
   {
     return unlink($this->path) ? Command::SUCCESS : Command::FAILURE;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public static function getMigrationsTableName(): string
+  {
+    return '__migrations';
   }
 }

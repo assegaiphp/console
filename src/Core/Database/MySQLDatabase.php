@@ -90,7 +90,6 @@ class MySQLDatabase extends PDO implements DatabaseConnectionInterface
   {
     $input = new MockInput();
     $output = new ConsoleOutput();
-    $helper = new QuestionHelper();
     $type = DatabaseType::MYSQL->value;
 
     try
@@ -231,7 +230,7 @@ class MySQLDatabase extends PDO implements DatabaseConnectionInterface
 
       if (false === $createResult)
       {
-        $output->writeln('<error>Failed to create the database.</error>');
+        $output->writeln("<error>Failed to create the database.</error>\n");
         return Command::FAILURE;
       }
 
@@ -239,21 +238,26 @@ class MySQLDatabase extends PDO implements DatabaseConnectionInterface
 
       if (false === $errorCount)
       {
-        $output->writeln("<error>Error scanning $errorOutputPath file</error>");
+        $output->writeln("<error>Error scanning $errorOutputPath file</error>\n");
         return Command::FAILURE;
       }
 
       if ($errorCount)
       {
-        $output->writeln("<error>Errors found! Check $errorOutputPath for more details.</error>");
+        $output->writeln("<error>Errors found! Check $errorOutputPath for more details.</error>\n");
         return Command::FAILURE;
       }
 
       if (false === unlink($errorOutputPath))
       {
-        $output->writeln("<error>Error deleting $errorOutputPath file</error>");
+        $output->writeln("<error>Error deleting $errorOutputPath file</error>\n");
         return Command::FAILURE;
       }
+    }
+    else
+    {
+      $output->writeln("<comment>Database $name already exists.</comment>\n");
+      exit(Command::SUCCESS);
     }
 
     # Create the migrations table
@@ -267,11 +271,11 @@ class MySQLDatabase extends PDO implements DatabaseConnectionInterface
 
     if (false === $database->exec($query) )
     {
-      $output->writeln('<error>Failed to create the migrations table.</error>');
+      $output->writeln("<error>Failed to create the migrations table.</error>\n");
       return Command::FAILURE;
     }
 
-    $output->writeln("\n<info>MySQL database successfully set up.</info>", OutputInterface::VERBOSITY_VERBOSE);
+    $output->writeln("<info>MySQL database successfully set up.</info>\n", OutputInterface::VERBOSITY_VERBOSE);
     return Command::SUCCESS;
   }
 

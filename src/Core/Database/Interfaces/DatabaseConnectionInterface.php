@@ -27,7 +27,7 @@ interface DatabaseConnectionInterface
    *
    * @return int The status of the creation.
    */
-  public function setup(): int;
+  public static function setup(?string $name = null): int;
 
   /**
    * Drop the database.
@@ -35,4 +35,11 @@ interface DatabaseConnectionInterface
    * @return int The status of the drop.
    */
   public function drop(): int;
+
+  /**
+   * Gets the name of the migrations table.
+   *
+   * @return string The name of the migrations table.
+   */
+  public static function getMigrationsTableName(): string;
 }

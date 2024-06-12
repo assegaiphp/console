@@ -8,6 +8,7 @@ use Assegai\Console\Core\Database\MySQLDatabase;
 use Assegai\Console\Core\Database\PostgreSQLDatabase;
 use Assegai\Console\Core\Database\SQLiteDatabase;
 use Assegai\Console\Util\Inspector;
+use Exception;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\QuestionHelper;
@@ -42,7 +43,7 @@ class DatabaseSetup extends Command
 
     if (! $inspector->isValidWorkspace(getcwd() ?: '') )
     {
-      $output->writeln('<error>Invalid workspace.</error>');
+      $output->writeln("<error>Invalid workspace.</error>\n");
       return Command::FAILURE;
     }
 
@@ -50,50 +51,52 @@ class DatabaseSetup extends Command
     $name = $input->getArgument('name');
     $type = $input->getOption('type');
 
-    if (! DatabaseType::isValid($type))
+    if (! DatabaseType::isValid($type) )
     {
-      $output->writeln('<error>Invalid database type.</error>');
+      $output->writeln("<error>Invalid database type.</error>\n");
       return Command::FAILURE;
     }
 
     // Check if the database exists
-    $databaseConnectionClass = match($type) {
+    $databaseClass = match($type) {
       DatabaseType::SQLITE->value => SQLiteDatabase::class,
       DatabaseType::POSTGRESQL->value => PostgreSQLDatabase::class,
       default => MySQLDatabase::class
     };
 
-    if ($databaseConnectionClass::exists($name))
+    if ($type === DatabaseType::POSTGRESQL->value)
     {
-      $output->writeln('<info>Database exists.</info>');
+      // Not implemented
+      $output->writeln("<error>PostgreSQL not implemented.</error>\n");
       return Command::SUCCESS;
     }
 
-    /** @var DatabaseConnectionInterface $database */
-    $database = new $databaseConnectionClass($name, $input, $output);
-
-    // If the database does not exist, then ask the user to create it
-    $output->writeln('<info>Database does not exist. Creating database...</info>');
-    $answer = $helper->ask($input, $output, new ConfirmationQuestion('<info>?</info> Do you want to create the database? <fg=gray>(Y/n)</> '));
-
-    if (!$answer)
-    {
-      if ($databaseConnectionClass === SQLiteDatabase::class)
-      {
-        $database->drop();
-      }
-
-      $output->writeln('<error>Database not created.</error>');
-      return Command::FAILURE;
-    }
-
     // Create the database
-    if (Command::SUCCESS !== $database->setup())
+    if (Command::SUCCESS !== $databaseClass::setup($name))
     {
-      $output->writeln('<error>Failed to create the database.</error>');
+      $output->writeln("<error>Failed to create the database.</error>\n");
       return Command::FAILURE;
     }
 
+    try
+    {
+      // Check if the database connection is successful
+      /** @var DatabaseConnectionInterface $database */
+      $database = new $databaseClass($name, $input, $output);
+    }
+    catch (Exception $exception)
+    {
+      $message = match ($exception->getCode() ) {
+        MySQLDatabase::ERROR_UNKNOWN_DATABASE => 'Database not found',
+        MySQLDatabase::ERROR_INVALID_CREDENTIALS => 'Invalid credentials',
+        default => $exception->getMessage()
+      };
+
+      $output->writeln("<error>({$exception->getCode()}): $message</error>\n");
+      return Command::FAILURE;
+    }
+
+    $output->writeln("✔️ Database <info>$name</info>, successfully setup!.");
     return Command::SUCCESS;
   }
 }
