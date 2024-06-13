@@ -324,4 +324,28 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     return true;
   }
+
+  /**
+   * @inheritDoc
+   */
+  public function createMigrationsTable(): int
+  {
+    $migrationsTable = self::getMigrationsTableName();
+
+    $query = "CREATE TABLE IF NOT EXISTS $migrationsTable (
+      migration VARCHAR(255) NOT NULL PRIMARY KEY,
+      ran_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )";
+
+    $result = $this->exec($query);
+
+    if (false === $result)
+    {
+      $this->output->writeln("<error>Failed to create the migrations table.</error>\n");
+      return Command::FAILURE;
+    }
+
+    $this->output->writeln("<info>Migrations table created.</info>\n");
+    return Command::SUCCESS;
+  }
 }

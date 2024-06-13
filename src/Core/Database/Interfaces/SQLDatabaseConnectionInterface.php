@@ -16,4 +16,11 @@ interface SQLDatabaseConnectionInterface extends DatabaseConnectionInterface
    * @return bool True if the table exists, false otherwise.
    */
   public function hasTable(string $tableName): bool;
+
+  /**
+   * Create the migrations table.
+   *
+   * @return int The status of the operation.
+   */
+  public function createMigrationsTable(): int;
 }

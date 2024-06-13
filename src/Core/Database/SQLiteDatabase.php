@@ -204,4 +204,21 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     return $statement->fetchColumn() === $tableName;
   }
+
+  /**
+   * @inheritDoc
+   */
+  public function createMigrationsTable(): int
+  {
+    $migrationsTableName = self::getMigrationsTableName();
+    $query = "CREATE TABLE IF NOT EXISTS $migrationsTableName (migration TEXT PRIMARY KEY, ran_at TEXT)";
+
+    if (false === $this->exec($query))
+    {
+      $this->output->writeln("<error>Failed to create the migrations table.</error>\n");
+      return Command::FAILURE;
+    }
+
+    return Command::SUCCESS;
+  }
 }
