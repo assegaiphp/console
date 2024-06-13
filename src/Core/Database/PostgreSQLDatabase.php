@@ -4,6 +4,7 @@ namespace Assegai\Console\Core\Database;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\Interfaces\DatabaseConnectionInterface;
+use Assegai\Console\Core\Database\Interfaces\SQLDatabaseConnectionInterface;
 use Assegai\Console\Tests\Mocks\MockInput;
 use Assegai\Console\Tests\Mocks\MockOutput;
 use Assegai\Console\Util\Config\DBConfig;
@@ -23,7 +24,7 @@ use Symfony\Component\Console\Question\Question;
  *
  * @package Assegai\Console\Core\Database
  */
-class PostgreSQLDatabase extends PDO implements DatabaseConnectionInterface
+class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 {
   /**
    * @var Inspector
@@ -296,8 +297,39 @@ class PostgreSQLDatabase extends PDO implements DatabaseConnectionInterface
     return Command::SUCCESS;
   }
 
+  /**
+   * @inheritDoc
+   */
   public static function getMigrationsTableName(): string
   {
     return '__migrations';
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function hasTable(string $tableName): bool
+  {
+    $query = "SELECT EXISTS (
+      SELECT FROM information_schema.tables
+      WHERE table_schema = 'public'
+      AND table_name = '$tableName'
+    )";
+
+    $result = $this->query($query);
+
+    if (false === $result)
+    {
+      $this->output->writeln("<error>Failed to check if the table exists.</error>\n");
+      return false;
+    }
+
+    if (0 === $result->rowCount())
+    {
+      $this->output->writeln("<comment>Table $tableName does not exist.</comment>\n");
+      return false;
+    }
+
+    return true;
   }
 }

@@ -3,9 +3,8 @@
 namespace Assegai\Console\Core\Database;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
-use Assegai\Console\Core\Database\Interfaces\DatabaseConnectionInterface;
+use Assegai\Console\Core\Database\Interfaces\SQLDatabaseConnectionInterface;
 use Assegai\Console\Tests\Mocks\MockInput;
-use Assegai\Console\Tests\Mocks\MockOutput;
 use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
@@ -16,7 +15,6 @@ use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 
 /**
@@ -24,7 +22,7 @@ use Symfony\Component\Console\Question\ConfirmationQuestion;
  *
  * @package Assegai\Console\Core\Database
  */
-class SQLiteDatabase extends PDO implements DatabaseConnectionInterface
+class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
 {
   /**
    * @var string $path The path to the database.
@@ -187,5 +185,23 @@ class SQLiteDatabase extends PDO implements DatabaseConnectionInterface
   public static function getMigrationsTableName(): string
   {
     return '__migrations';
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function hasTable(string $tableName): bool
+  {
+    $query = "SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'";
+
+    $statement = $this->query($query);
+
+    if (false === $statement)
+    {
+      $this->output->writeln("<error>Failed to check if table exists.</error>\n");
+      return false;
+    }
+
+    return $statement->fetchColumn() === $tableName;
   }
 }
