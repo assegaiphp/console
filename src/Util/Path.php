@@ -183,4 +183,14 @@ class Path
   {
     return Path::join(dirname(__DIR__, 2), 'certs');
   }
+
+  /**
+   * Returns the path to the migrations' directory.
+   *
+   * @return string The path to the migrations' directory.
+   */
+  public static function getMigrationsDirectory(): string
+  {
+    return Path::join(self::getWorkingDirectory() ?? '', 'migrations');
+  }
 }
