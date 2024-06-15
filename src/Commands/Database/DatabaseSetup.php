@@ -96,7 +96,7 @@ class DatabaseSetup extends Command
       return Command::FAILURE;
     }
 
-    $output->writeln("✔️ Database <info>$name</info>, successfully setup!.");
+    $output->writeln("✔️  Database <info>$name</info>, successfully setup!.");
     return Command::SUCCESS;
   }
 }
