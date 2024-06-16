@@ -18,4 +18,4 @@ const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_USER = 'postgres';
 const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_SQLITE_PATH = 'database.sqlite';
-const BOOTSTRAP_FILE = 'app.php';
+const BOOTSTRAP_FILE = 'bootstrap.php';
