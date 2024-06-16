@@ -8,13 +8,12 @@ use Assegai\Console\Core\Schematics\ClassSchematic;
 use Assegai\Console\Core\Schematics\ControllerSchematic;
 use Assegai\Console\Core\Schematics\EnumSchematic;
 use Assegai\Console\Core\Schematics\GuardSchematic;
+use Assegai\Console\Core\Schematics\InterceptorSchematic;
 use Assegai\Console\Core\Schematics\InterfaceSchematic;
 use Assegai\Console\Core\Schematics\ModuleSchematic;
 use Assegai\Console\Core\Schematics\PipeSchematic;
 use Assegai\Console\Core\Schematics\ResourceSchematic;
 use Assegai\Console\Core\Schematics\ServiceSchematic;
-use Assegai\Console\Util\Path;
-use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -56,6 +55,7 @@ class Generate extends Command
           'class',
           'enum',
           'guard',
+          'interceptor',
           'interface',
           'module',
           'pipe',
@@ -74,6 +74,7 @@ class Generate extends Command
         "    │ <fg=green>controller</>    │ <comment>c</comment>           │ Generate a controller declaration            │",
         "    │ <fg=green>class</>         │ <comment>cl</comment>          │ Generate a new class                         │",
         "    │ <fg=green>guard</>         │ <comment>g</comment>           │ Generate a guard declaration                 │",
+        "    │ <fg=green>interceptor</>   │ <comment>ic</comment>          │ Generate an interceptor                      │",
         "    │ <fg=green>interface</>     │ <comment>i</comment>           │ Generate an interface                        │",
         "    │ <fg=green>module</>        │ <comment>m</comment>           │ Generate a module declaration                │",
         "    │ <fg=green>pipe</>          │ <comment>p</comment>           │ Generate a pipe declaration                  │",
@@ -87,6 +88,7 @@ class Generate extends Command
       'c' => 'controller',
       'cl' => 'class',
       'g' => 'guard',
+      'ic' => 'interceptor',
       'i' => 'interface',
       'm' => 'module',
       'p' => 'pipe',
@@ -117,6 +119,7 @@ class Generate extends Command
       'class'       => new ClassSchematic($input, $output, $name, $directory, $subdirectory),
       'enum'        => new EnumSchematic($input, $output, $name, $directory, $subdirectory),
       'guard'       => new GuardSchematic($input, $output, $name, $directory, $subdirectory),
+      'interceptor' => new InterceptorSchematic($input, $output, $name, $directory, $subdirectory),
       'interface'   => new InterfaceSchematic($input, $output, $name, $directory, $subdirectory),
       'module'      => new ModuleSchematic($input, $output, $name, $directory, $subdirectory),
       'pipe'        => new PipeSchematic($input, $output, $name, $directory, $subdirectory),
@@ -124,7 +127,7 @@ class Generate extends Command
       'service'     => new ServiceSchematic($input, $output, $name, $directory, $subdirectory)
     ]);
 
-    if ($this->setSchematic($input->getArgument('schematic')) > 0)
+    if ($this->setSchematic($input->getArgument('schematic')) !== Command::SUCCESS)
     {
       $output->writeln("<error>Invalid schematic</error>");
       return Command::FAILURE;

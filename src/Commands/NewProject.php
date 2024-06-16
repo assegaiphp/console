@@ -22,6 +22,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class NewProject extends Command
 {
+  /**
+   * @inheritDoc
+   */
   public function configure(): void
   {
     $this->addArgument('name', InputArgument::OPTIONAL, 'The name of the project');
@@ -30,6 +33,9 @@ class NewProject extends Command
       ->addOption('skip-git', 'g', InputOption::VALUE_NONE, 'Skip git repository initialization');
   }
 
+  /**
+   * @inheritDoc
+   */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
     $projectName = $input->getArgument('name');
