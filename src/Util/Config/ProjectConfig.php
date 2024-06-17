@@ -2,6 +2,7 @@
 
 namespace Assegai\Console\Util\Config;
 
+use Assegai\Console\Util\Config\Interfaces\ConfigInterface;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -12,7 +13,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * @package Assegai\Console\Util\Config
  */
-class ProjectConfig
+class ProjectConfig implements ConfigInterface
 {
   /**
    * @var array<string, mixed> $config The project configuration.
@@ -68,62 +69,42 @@ class ProjectConfig
       $this->workingDirectory = getcwd() ?: '';
     }
 
-    $assegaiJsonPath = Path::join($this->workingDirectory, 'assegai.json');
+    $configFilename = 'assegai.json';
+    $composerJsonPath = Path::join($this->workingDirectory, $configFilename);
 
-    if (! $assegaiJsonPath )
+    if (! file_exists($composerJsonPath))
     {
-      $this->output->writeln("<error>Project config not found</error>");
-
+      $this->output->writeln("<error>$configFilename not found</error>");
       return Command::FAILURE;
     }
 
-    $configContents = file_get_contents($assegaiJsonPath);
-
-    if ($configContents === false)
-    {
-      $this->output->writeln("<error>Failed to load project config file contents</error>");
-      return Command::FAILURE;
-    }
-
-    $configObject = json_decode($configContents);
-
-    foreach ($configObject as $property => $value)
-    {
-      if (property_exists($this, $property))
-      {
-        if ($property === 'development')
-        {
-          $this->development = new DevelopmentConfig();
-          $this->development->loadFromObject($value);
-        }
-        else if ($property === 'scripts')
-        {
-          $this->$property = json_decode(json_encode($value) ?: '', true);
-        }
-        else
-        {
-          $this->$property = $value;
-        }
-      }
-    }
+    $this->config = json_decode(file_get_contents($composerJsonPath) ?: '', true);
+    $this->development = $this->get('development') ?? $this->development;
 
     return Command::SUCCESS;
   }
 
+
   /**
-   * Returns the value of the property of given name if it exists.
-   *
-   * @param string $propertyName The property name
-   * @return mixed The value of the given property if it exists, otherwise null.
+   * @inheritDoc
    */
-  public function get(string $propertyName): mixed
+  public function get(string $path, mixed $default = null): mixed
   {
-    if (property_exists($this, $propertyName))
+    $tokens = explode('.', $path);
+
+    $value = $this->config;
+
+    foreach ($tokens as $token)
     {
-      return $this->$propertyName;
+      if (! array_key_exists($token, $value) )
+      {
+        return $default;
+      }
+
+      $value = $value[$token];
     }
 
-    return null;
+    return $value;
   }
 
   /**
@@ -147,5 +128,50 @@ class ProjectConfig
     $configContent = "<?php\n\nreturn " . array_to_string($databaseConfig) . ';';
 
     return file_put_contents($configPath, $configContent);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function has(string $path): bool
+  {
+    return null !== $this->get($path);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function set(string $path, mixed $value): void
+  {
+    $tokens = explode('.', $path);
+
+    $target = &$this->config;
+
+    foreach ($tokens as $token)
+    {
+      if (! array_key_exists($token, $target))
+      {
+        $target[$token] = [];
+      }
+
+      $target = &$target[$token];
+    }
+
+    $target = $value;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function commit(): int
+  {
+    $composerJsonPath = Path::join($this->workingDirectory ?? '', 'assegai.json');
+    if (false === file_put_contents($composerJsonPath, json_encode($this->config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) )
+    {
+      $this->output->writeln('<error>Failed to write to composer.json</error>');
+      return Command::FAILURE;
+    }
+
+    return Command::SUCCESS;
   }
 }

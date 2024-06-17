@@ -88,7 +88,7 @@ class Inspector
     $bootstrapFilename = BOOTSTRAP_FILE;
     if (! file_exists(Path::join($workspaceDirectory, $bootstrapFilename)) )
     {
-      $this->output->writeln("Workspace $workspaceDirectory does not have an $bootstrapFilename file.", OutputInterface::VERBOSITY_VERBOSE);
+      $this->output->writeln("Workspace $workspaceDirectory does not have a $bootstrapFilename file.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
 

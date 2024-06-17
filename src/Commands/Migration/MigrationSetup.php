@@ -90,7 +90,7 @@ class MigrationSetup extends Command
     if (Command::SUCCESS !== $dbConfig->load() )
     {
       $output->writeln("<error>Failed to load database configuration</error>\n");
-      return false;
+      return Command::FAILURE;
     }
 
     /** @var SQLDatabaseConnectionInterface $database */

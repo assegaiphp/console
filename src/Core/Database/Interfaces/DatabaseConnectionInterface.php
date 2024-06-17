@@ -25,9 +25,10 @@ interface DatabaseConnectionInterface
   /**
    * Create the database.
    *
+   * @param string $name The name of the database.
    * @return int The status of the creation.
    */
-  public static function setup(?string $name = null): int;
+  public static function setup(string $name): int;
 
   /**
    * Drop the database.

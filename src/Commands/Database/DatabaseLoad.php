@@ -66,9 +66,10 @@ class DatabaseLoad extends Command
         $user = $config->get('user', DEFAULT_POSTGRES_USER);
         $password = $config->get('password', '');
 
-        if (false === "PGPASSWORD=$password psql -U $user -h $host -p $port $database < $file")
+        if (false === `PGPASSWORD=$password psql -U $user -h $host -p $port $database < $file`)
         {
-
+          $output->writeln('<error>Failed to load the schema.sql file</error>');
+          return Command::FAILURE;
         }
         break;
       case DatabaseType::SQLITE->value:

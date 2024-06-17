@@ -4,6 +4,7 @@ namespace Assegai\Console\Core\Schematics;
 
 use Assegai\Console\Core\Interfaces\ConfigurableInterface;
 use Assegai\Console\Core\Interfaces\SchematicInterface;
+use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -17,11 +18,36 @@ use Symfony\Component\Console\Output\OutputInterface;
 abstract class AbstractDirectorySchematic implements SchematicInterface
 {
   /**
+   * The namespace of the class
+   *
+   * @var string
+   */
+  protected string $namespace = 'Assegai\\App';
+  /**
+   * The namespace suffix of the class
+   *
+   * @var string
+   */
+  protected string $namespaceSuffix = '';
+  /**
    * The name of the directory
    *
    * @var string
    */
   protected string $directoryName = '';
+
+  /**
+   * The structure of the directory
+   *
+   * @var array<string, string|array> $structure
+   */
+  protected array $structure = [];
+  /**
+   * The output of the directory
+   *
+   * @var array<string, string> $outputDirectory
+   */
+  protected array $outputDirectory = [];
 
   /**
    * AbstractDirectorySchematic constructor.
@@ -75,6 +101,12 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
       return Command::FAILURE;
     }
 
+    if (! $this->writeFiles($this->outputDirectory) )
+    {
+      $this->output->writeln(sprintf('<error>Failed to write output for %s</error>', $this->path), OutputInterface::VERBOSITY_VERBOSE);
+      return Command::FAILURE;
+    }
+
     return Command::SUCCESS;
   }
 
@@ -102,6 +134,20 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
   {
     // TODO: Implement the scaffold method
 
+    // Create the root directory
+    if (false === mkdir() )
+    {
+      return false;
+    }
+
+    // Walk through the structure and create the subdirectories and files
+
+    // Foreach key value pair in the structure array
+
+    // If the value is an array, create a directory with the key name
+
+    // If the value is a string, create a file with the key name and the value as the content
+
     return true;
   }
 
@@ -125,6 +171,29 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
   private function resolveContent(): bool
   {
     // TODO: Implement the resolveContent method
+
+    return true;
+  }
+
+  /**
+   * Get the root directory path
+   *
+   * @return string Returns the root directory path
+   */
+  private function getRootDirectoryPath(): string
+  {
+    return Path::join($this->path, $this->directoryName);
+  }
+
+  /**
+   * Write the output of the directory
+   *
+   * @param array $directory The directory to write
+   * @return bool Returns true if the output was written successfully, false otherwise
+   */
+  private function writeFiles(array $directory): bool
+  {
+    // TODO: Implement the writeOutput method
 
     return true;
   }

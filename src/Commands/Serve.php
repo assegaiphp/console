@@ -30,10 +30,14 @@ class Serve extends Command
     $formatter = $this->getHelper('formatter');
 
     $projectConfig = new ProjectConfig($input, $output);
-    $projectConfig->load();
+    if (Command::SUCCESS !== $projectConfig->load())
+    {
+      $output->writeln("<error>Failed to load the project configuration</error>");
+      return Command::FAILURE;
+    }
 
-    $port = $input->getOption('port') ?? $projectConfig->get('development')->get('server')['port'] ?? DEFAULT_DEV_SERVER_PORT;
-    $host = $input->getOption('host') ?? $projectConfig->get('development')->get('server')['host'] ?? DEFAULT_DEV_SERVER_HOST;
+    $port = $input->getOption('port') ?? $projectConfig->get('development.server.port') ?? DEFAULT_DEV_SERVER_PORT;
+    $host = $input->getOption('host') ?? $projectConfig->get('development.server.host') ?? DEFAULT_DEV_SERVER_HOST;
     $https = $input->getOption('https') ?? false;
     $router = Path::join($input->getOption('root') ?? getcwd(), 'index.php');
     $scheme = $https ? 'https' : 'http';
