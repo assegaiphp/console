@@ -54,7 +54,7 @@ class __NAME__Controller
   #[Get]
   public function findAll(): string
   {
-    return $this->__NAME__Service->findAll();  
+    return \$this->__NAME__Service->findAll();  
   }
 }
 PHP,

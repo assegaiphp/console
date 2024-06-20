@@ -33,7 +33,7 @@ class InterceptorSchematic extends AbstractClassSchematic
     // TODO: Implement intercept() method
     
     return function () use (\$context) {
-      return \$context->next();
+      return \$context;
     };
   }
 PHP
