@@ -14,18 +14,18 @@ interface MigratorInterface
   /**
    * Run the migrations.
    *
-   * @param int|null $migrations The number of migrations to run.
+   * @param int|null $runs The number of migrations to run.
    * @return int|false The number of migrations run or false if an error occurred.
    */
-  public function up(?int $migrations = null): int|false;
+  public function up(?int $runs = null): int|false;
 
   /**
    * Rollback the migrations.
    *
-   * @param int|null $migrations The number of migrations to rollback.
+   * @param int|null $rollbacks The number of migrations to rollback.
    * @return int|false The number of migrations rolled back or false if an error occurred.
    */
-  public function down(?int $migrations = null): int|false;
+  public function down(?int $rollbacks = null): int|false;
 
   /**
    * Reset the migrations.
@@ -76,13 +76,6 @@ interface MigratorInterface
    * @return string|false The next migration or false if an error occurred.
    */
   public function next(): string|false;
-
-  /**
-   * Get the current migration.
-   *
-   * @return string|false The current migration or false if an error occurred.
-   */
-  public function current(): string|false;
 
   /**
    * Get the migrations table name.

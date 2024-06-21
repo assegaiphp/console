@@ -3,7 +3,7 @@
 namespace Assegai\Console\Core\Migrations;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
-use Assegai\Console\Core\Database\MySQLDatabase;
+use Assegai\Console\Core\Database\PostgreSQLDatabase;
 use Assegai\Console\Core\Migrations\Enumerations\MigrationListerType;
 use Assegai\Console\Core\Migrations\Interfaces\MigrationListerInterface;
 use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
@@ -13,13 +13,9 @@ use Assegai\Console\Core\Migrations\Listers\RanMigrationsLister;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Output\OutputInterface;
 
-/**
- * Class MySQLDatabaseMigrator. This class is a migrator for MySQL databases.
- *
- * @package Assegai\Console\Core\Migrations
- */
-class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
+class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorInterface
 {
+
   /**
    * @inheritDoc
    * @noinspection DuplicatedCode
@@ -167,7 +163,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
   public function create(string $name): string|false
   {
     $directoryName = date('YmdHis') . '_' . $name;
-    $path = Path::join($this->getMigrationsDirectoryPath(), DatabaseType::MYSQL->value, $this->name, $directoryName);
+    $path = Path::join($this->getMigrationsDirectoryPath(), DatabaseType::POSTGRESQL->value, $this->name, $directoryName);
 
     if (! file_exists($path) )
     {
@@ -250,10 +246,10 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
 
   /**
    * @inheritDoc
-   * @noinspection DuplicatedCode
    */
   public function next(): string|false
   {
+    /** @duplicates */
     $lastMigration = $this->last();
 
     $allMigrations = $this->listAll();
@@ -276,7 +272,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
    */
   public function getMigrationsDirectoryPath(): string
   {
-    return Path::join(getcwd() ?: '', 'migrations', DatabaseType::MYSQL->value, $this->name);
+    return Path::join(getcwd() ?: '', 'migrations', DatabaseType::POSTGRESQL->value, $this->name);
   }
 
   /**
