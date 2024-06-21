@@ -246,6 +246,7 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
 
   /**
    * @inheritDoc
+   * @noinspection DuplicatedCode
    */
   public function next(): string|false
   {
