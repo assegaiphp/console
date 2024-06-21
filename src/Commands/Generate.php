@@ -68,7 +68,7 @@ class Generate extends Command
       ->setHelp(implode("\n", [
         "Available schematics:",
         "    ┌───────────────┬─────────────┬──────────────────────────────────────────────┐",
-        "    │ <fg=red>Schematic</>     │ <fg=red>Alias</>       │ <fg=red>Description</>                                  │",
+        "    │ <fg=blue>Schematic</>     │ <fg=blue>Alias</>       │ <fg=blue>Description</>                                  │",
         "    ├───────────────┼─────────────┼──────────────────────────────────────────────┤",
         "    │ <fg=green>application</>   │ <comment>application</comment> │ Generate a new application workspace         │",
         "    │ <fg=green>controller</>    │ <comment>c</comment>           │ Generate a controller declaration            │",

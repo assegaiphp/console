@@ -96,6 +96,17 @@ class Inspector
   }
 
   /**
+   * Check if the given path is not a valid project directory.
+   *
+   * @param string $workspaceDirectory The path to check.
+   * @return bool
+   */
+  public function isNotAValidWorkspace(string $workspaceDirectory): bool
+  {
+    return ! $this->isValidWorkspace($workspaceDirectory);
+  }
+
+  /**
    * Get the version of the CLI package.
    *
    * @return string

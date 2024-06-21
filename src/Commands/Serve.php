@@ -18,20 +18,21 @@ use Symfony\Component\Console\Output\OutputInterface;
 ]
 class Serve extends Command
 {
-  public function configure(): void {
+  public function configure(): void
+  {
     $this->addOption('port', 'p', InputOption::VALUE_OPTIONAL, 'The port to serve the project on', null);
     $this->addOption('host', 'H', InputOption::VALUE_OPTIONAL, 'The host to serve the project on', null);
     $this->addOption('https', 's', InputOption::VALUE_NONE, 'Serve the project over HTTPS');
     $this->addOption('root', 'r', InputOption::VALUE_OPTIONAL, 'The root directory to serve the project from', getcwd());
   }
 
-  public function execute(InputInterface $input, OutputInterface $output): int {
+  public function execute(InputInterface $input, OutputInterface $output): int
+  {
     /** @var FormatterHelper $formatter */
     $formatter = $this->getHelper('formatter');
 
     $projectConfig = new ProjectConfig($input, $output);
-    if (Command::SUCCESS !== $projectConfig->load())
-    {
+    if (Command::SUCCESS !== $projectConfig->load()) {
       $output->writeln("<error>Failed to load the project configuration</error>");
       return Command::FAILURE;
     }
