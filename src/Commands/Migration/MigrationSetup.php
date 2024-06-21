@@ -32,7 +32,7 @@ class MigrationSetup extends Command
       ->setHelp('This command sets up the migrations table in the database and creates the migrations directory ' .
       'in the project root')
       ->addArgument('name', InputArgument::REQUIRED, 'The name of the database')
-      ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the database', 'mysql');
+      ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray());
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
