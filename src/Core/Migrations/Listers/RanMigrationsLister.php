@@ -17,7 +17,7 @@ class RanMigrationsLister extends AbstractMigrationLister
   public function list(): array|false
   {
     $migrationsTableName = $this->migrator->getMigrationsTableName();
-    $sql = "SELECT migration, ran_at as ranAt FROM $migrationsTableName";
+    $sql = "SELECT migration, ran_at as ranAt FROM $migrationsTableName ORDER BY migration DESC";
 
     $statement = $this->migrator->query($sql);
 

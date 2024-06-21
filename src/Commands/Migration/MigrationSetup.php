@@ -108,7 +108,7 @@ class MigrationSetup extends Command
         return Command::FAILURE;
       }
 
-      $output->writeln("🏗️ Migrations setup completed successfully\n");
+      $output->writeln("🏗️ Migrations table created successfully\n");
     }
 
     $output->writeln("✔️  Migrations setup completed successfully\n");
