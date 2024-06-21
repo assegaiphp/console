@@ -161,9 +161,7 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
    */
   public function reset(): int|false
   {
-    // TODO: Implement reset() method.
-
-    return 0;
+    return $this->down(count($this->listRan()));
   }
 
   /**

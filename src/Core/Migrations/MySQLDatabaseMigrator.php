@@ -208,9 +208,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
    */
   public function reset(): int|false
   {
-    // TODO: Implement reset() method.
-
-    return 0;
+    return $this->down(count($this->listRan()));
   }
 
   /**
