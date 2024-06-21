@@ -2,6 +2,8 @@
 
 namespace Assegai\Console\Core\Migrations\Interfaces;
 
+use Assegai\Console\Core\Migrations\Enumerations\MigrationListerType;
+
 /**
  * Interface MigratorInterface. This interface defines the methods that a migrator class should implement.
  *
@@ -36,11 +38,9 @@ interface MigratorInterface
    * Create a new migration.
    *
    * @param string $name The name of the migration.
-   * @param string $type The type of the migration.
-   * @param string $db The name of the database.
    * @return string|false The path to the new migration file or false if an error occurred.
    */
-  public function create(string $name, string $type, string $db): string|false;
+  public function create(string $name): string|false;
 
   /**
    * List all the migrations.
@@ -90,4 +90,12 @@ interface MigratorInterface
    * @return string
    */
   public function getMigrationsDirectoryPath(): string;
+
+  /**
+   * Gets the migration lister.
+   *
+   * @param MigrationListerType $type The type of the migration lister.
+   * @return MigrationListerInterface The migration lister.
+   */
+  public function getLister(MigrationListerType $type): MigrationListerInterface;
 }
