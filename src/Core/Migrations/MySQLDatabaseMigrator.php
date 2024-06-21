@@ -11,6 +11,7 @@ use Assegai\Console\Core\Migrations\Listers\AllMigrationsLister;
 use Assegai\Console\Core\Migrations\Listers\PendingMigrationsLister;
 use Assegai\Console\Core\Migrations\Listers\RanMigrationsLister;
 use Assegai\Console\Util\Path;
+use Symfony\Component\Console\Helper\ProgressIndicator;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -33,10 +34,13 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
     $totalMigrationsToRun = min($runs ?: $totalPendingMigrations, $totalPendingMigrations);
 
     $totalRowsAffected = 0;
+    $progressIndicator = new ProgressIndicator($this->output);
 
+    $progressIndicator->start("Running migrations $totalMigrationsToRun");
     # Foreach migration in the pending migrations
     foreach ($pendingMigrations as $index => $migration)
     {
+      $progressIndicator->setMessage("Running migration $migration");
       # Get the up.sql file content
       $upFilePath = Path::join($this->getMigrationsDirectoryPath(), $migration, 'up.sql');
 
@@ -63,6 +67,11 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
       $timestamp = date(DATE_ATOM);
       $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ('$migration', '$timestamp')";
 
+      if (false === $statement->closeCursor())
+      {
+        $this->output->writeln("<error>Failed to close the cursor</error>\n");
+        return false;
+      }
       $statement = $this->query($sql);
 
       if (false === $statement)
@@ -77,12 +86,12 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
       {
         break;
       }
-    }
 
-    $this->output->writeln([
-      "<info>RUN</info> $successfulRuns migrations",
-      "<info>$totalRowsAffected rows affected</info>\n"
-    ], OutputInterface::VERBOSITY_VERBOSE);
+      $progressIndicator->advance();
+    }
+    $progressIndicator->finish("<info>RUN</info> $successfulRuns migrations");
+
+    $this->output->writeln("<info>$totalRowsAffected rows affected</info>\n", OutputInterface::VERBOSITY_VERBOSE);
     return $successfulRuns;
   }
 
@@ -127,6 +136,11 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
       $migrationsTableName = $this->getMigrationsTableName();
       $sql = "DELETE FROM $migrationsTableName WHERE migration='$migration'";
 
+      if (false === $statement->closeCursor())
+      {
+        $this->output->writeln("<error>Failed to close the cursor</error>\n");
+        return false;
+      }
       $statement = $this->query($sql);
 
       if (false === $statement)

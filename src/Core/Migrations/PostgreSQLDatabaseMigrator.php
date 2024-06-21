@@ -59,6 +59,11 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
       $timestamp = date(DATE_ATOM);
       $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ('$migration', '$timestamp')";
 
+      if (false === $statement->closeCursor())
+      {
+        $this->output->writeln("<error>Failed to close the cursor</error>\n");
+        return false;
+      }
       $statement = $this->query($sql);
 
       if (false === $statement)
@@ -123,6 +128,11 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
       $migrationsTableName = $this->getMigrationsTableName();
       $sql = "DELETE FROM $migrationsTableName WHERE migration='$migration'";
 
+      if (false === $statement->closeCursor())
+      {
+        $this->output->writeln("<error>Failed to close the cursor</error>\n");
+        return false;
+      }
       $statement = $this->query($sql);
 
       if (false === $statement)
