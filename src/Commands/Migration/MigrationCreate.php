@@ -12,14 +12,14 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
-use Symfony\Component\Console\Question\Question;
 
 /**
  * Class MigrationCreate. This class is a command that creates a new migration.
  *
- * @package Assegai\Console\Commands\Migration
+ * @package Assegai\Console\Commands\Migrations
  */
 #[AsCommand(
     name: 'migration:create',
@@ -36,8 +36,11 @@ class MigrationCreate extends Command
     $this
       ->setHelp('This command creates a new migration file in the migrations directory.')
       ->addArgument('name', InputArgument::REQUIRED, 'The name of the migration')
-      ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the migration', DatabaseType::MYSQL->value)
-      ->addOption('db', 'd', InputArgument::OPTIONAL, 'The name of the database');
+      ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the migration', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
+      ->addOption('db', 'd', InputArgument::OPTIONAL, 'The name of the database')
+      ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
+      ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
   }
 
   /**
@@ -79,10 +82,18 @@ class MigrationCreate extends Command
       return Command::FAILURE;
     }
 
+    if ($input->getOption(DatabaseType::MYSQL->value)) {
+      $type = DatabaseType::MYSQL->value;
+    } elseif ($input->getOption(DatabaseType::POSTGRESQL->value)) {
+      $type = DatabaseType::POSTGRESQL->value;
+    } elseif ($input->getOption(DatabaseType::SQLITE->value)) {
+      $type = DatabaseType::SQLITE->value;
+    }
+
     if (! $dbName ) {
       $path = "databases.$type";
       $databases = array_keys($config->get($path, []));
-      $question = new ChoiceQuestion("<info>?</info> Which database would you like to create the migration for? ", $databases, 0);
+      $question = new ChoiceQuestion("<info>?</info> Which <question>$type</question> database would you like to create the migration for? ", $databases, 0);
       $dbName = $helper->ask($input, $output, $question);
     }
 
@@ -98,8 +109,9 @@ class MigrationCreate extends Command
     }
 
     // Create the migration files
-    if (false === file_put_contents(Path::join($path, 'up.sql'), "-- up.sql") ||
-        false === file_put_contents(Path::join($path, 'down.sql'), "-- down.sql")) {
+    $upFileBytes = file_put_contents(Path::join($path, 'up.sql'), "");
+    $downFileBytes = file_put_contents(Path::join($path, 'down.sql'), "");
+    if (false === $upFileBytes || false === $downFileBytes) {
       $output->writeln("<error>Failed to create migration files.</error>\n");
       return Command::FAILURE;
     }
@@ -108,8 +120,8 @@ class MigrationCreate extends Command
 
     // Output success message
     $output->writeln([
-      "<info>CREATE</info> $relativePath/up.sql",
-      "<info>CREATE</info> $relativePath/down.sql\n",
+      "<info>CREATE</info> $relativePath/up.sql ($upFileBytes bytes)",
+      "<info>CREATE</info> $relativePath/down.sql ($downFileBytes bytes)\n",
     ]);
 
     return Command::SUCCESS;
@@ -121,7 +133,8 @@ class MigrationCreate extends Command
    * @param string $name
    * @return string
    */
-  public function getMigrationName(string $name): string {
+  public function getMigrationName(string $name): string
+  {
     $timestamp = date('YmdHis');
     $name = new Text($name);
     return $timestamp . '_' . $name->snakeCase();
