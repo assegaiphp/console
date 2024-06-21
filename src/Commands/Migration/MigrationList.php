@@ -14,6 +14,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
@@ -38,7 +39,13 @@ class MigrationList extends Command
     $this->addArgument('database', InputArgument::REQUIRED, 'The name of the database');
     $this
       ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
+      ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
+      ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database')
       ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the list', 'all', $this->listTypes)
+      ->addOption('all', null, InputOption::VALUE_NONE, 'List all migrations')
+      ->addOption('pending', null, InputOption::VALUE_NONE, 'List pending migrations')
+      ->addOption('executed', null, InputOption::VALUE_NONE, 'List executed migrations')
       ->setHelp(<<<HELP
 This command lists all migrations in the database:
 
@@ -67,6 +74,14 @@ HELP);
 
     $databaseType = DatabaseType::tryFrom($databaseType);
 
+    if ($input->getOption(DatabaseType::MYSQL->value)) {
+      $databaseType = DatabaseType::MYSQL;
+    } elseif ($input->getOption(DatabaseType::POSTGRESQL->value)) {
+      $databaseType = DatabaseType::POSTGRESQL;
+    } elseif ($input->getOption(DatabaseType::SQLITE->value)) {
+      $databaseType = DatabaseType::SQLITE;
+    }
+
     /** @var MigratorInterface $migrator */
     $migrator = match ($databaseType) {
       DatabaseType::MYSQL => new MySQLDatabaseMigrator($databaseName, $input, $output),
@@ -76,6 +91,14 @@ HELP);
 
     $type = MigrationListerType::tryFrom($type);
 
+    if ($input->getOption('all')) {
+      $type = MigrationListerType::ALL;
+    } elseif ($input->getOption('pending')) {
+      $type = MigrationListerType::PENDING;
+    } elseif ($input->getOption('executed')) {
+      $type = MigrationListerType::RAN;
+    }
+
     if (!$type) {
       $output->writeln('<error>Invalid list type</error>');
       return Command::FAILURE;
@@ -83,7 +106,9 @@ HELP);
 
     $migrations = match($type) {
       MigrationListerType::ALL => $migrator->listAll(),
-      MigrationListerType::RAN => $migrator->listRan(),
+      MigrationListerType::RAN => array_map(function($ranMigration) {
+        return $ranMigration['migration'] ?? '';
+      }, $migrator->listRan()),
       MigrationListerType::PENDING => $migrator->listPending()
     };
     $ranMigrations = $migrator->listRan();
@@ -104,7 +129,7 @@ TABLE
       $createdSecond = substr($createdAt, 12, 2);
 
       $createdAt = "$createdYear/$createdMonth/$createdDay $createdHour:$createdMinute:$createdSecond";
-      $executed = $this->wasRun($migration, $ranMigrations) ? "<info>✔</info>" : "<fg=red>x</>";
+      $executed = $this->wasRun($migration, $ranMigrations) ? "<info>✓</info>" : "<fg=red>✕</>";
       $migrationDescription = new Text($name);
       $formattedDescription = sprintf('%-44s', $migrationDescription->titleCase());
       $output->writeln(<<<TABLE
