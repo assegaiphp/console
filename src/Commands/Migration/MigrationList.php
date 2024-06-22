@@ -20,7 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(
   name: 'migration:list',
   description: 'List all migrations',
-  aliases: ['migrations:list', 'migrations']
+  aliases: ['m:list', 'migrations']
 )]
 class MigrationList extends Command
 {

@@ -22,7 +22,7 @@ use Symfony\Component\Console\Question\Question;
 #[AsCommand(
   name: 'migration:setup',
   description: 'Setup the migrations',
-  aliases: ['migration:init, migrate:setup']
+  aliases: ['m:setup', 'migration:init']
 )]
 class MigrationSetup extends Command
 {

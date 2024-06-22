@@ -23,7 +23,7 @@ use Symfony\Component\Console\Question\ChoiceQuestion;
 #[AsCommand(
     name: 'migration:up',
     description: 'Run the migrations',
-    aliases: ['migration:run', 'migrate:up']
+    aliases: ['m:up', 'migration:run', 'migrate:up']
 )]
 class MigrationUp extends Command
 {

@@ -23,7 +23,7 @@ use Symfony\Component\Console\Question\ChoiceQuestion;
 #[AsCommand(
     name: 'migration:down',
     description: 'Rollback the migrations',
-    aliases: ['migration:rollback', 'migrate:down']
+    aliases: ['m:down', 'migration:rollback', 'migrate:down']
 )]
 class MigrationDown extends Command
 {

@@ -24,7 +24,7 @@ use Symfony\Component\Console\Question\ChoiceQuestion;
 #[AsCommand(
     name: 'migration:create',
     description: 'Create a new migration',
-    aliases: ['migrate:create']
+    aliases: ['m:create', 'migration:make']
 )]
 class MigrationCreate extends Command
 {

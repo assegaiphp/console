@@ -3,7 +3,6 @@
 namespace Assegai\Console\Commands\Migration;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
-use Assegai\Console\Util\Config\DBConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -16,7 +15,7 @@ use Throwable;
 #[AsCommand(
   name: 'migration:redo',
   description: 'Redo the last migration',
-  aliases: ['migrations:redo']
+  aliases: ['m:redo']
 )]
 class MigrationRedo extends Command
 {

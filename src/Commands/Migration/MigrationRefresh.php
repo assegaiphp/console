@@ -15,7 +15,7 @@ use Throwable;
 #[AsCommand(
     name: 'migration:refresh',
     description: 'Refresh the migrations',
-    aliases: ['migrate:refresh']
+    aliases: ['m:refresh', 'migrate:fresh']
 )]
 class MigrationRefresh extends Command
 {
