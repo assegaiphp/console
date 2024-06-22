@@ -108,7 +108,7 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
   /**
    * @inheritDoc
    */
-  public static function setup(?string $name = null): int
+  public static function setup(string $name): int
   {
     $input = new MockInput();
     $output = new ConsoleOutput(OutputInterface::VERBOSITY_VERBOSE);

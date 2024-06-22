@@ -191,6 +191,6 @@ class Path
    */
   public static function getMigrationsDirectory(): string
   {
-    return Path::join(self::getWorkingDirectory() ?? '', 'migrations');
+    return Path::join(self::getWorkingDirectory() ?: '', 'migrations');
   }
 }

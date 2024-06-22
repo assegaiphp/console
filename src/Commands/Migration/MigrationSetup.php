@@ -22,7 +22,7 @@ use Symfony\Component\Console\Question\Question;
 #[AsCommand(
   name: 'migration:setup',
   description: 'Setup the migrations',
-  aliases: ['migration:init, migrate:setup']
+  aliases: ['m:setup', 'migration:init']
 )]
 class MigrationSetup extends Command
 {
@@ -32,7 +32,7 @@ class MigrationSetup extends Command
       ->setHelp('This command sets up the migrations table in the database and creates the migrations directory ' .
       'in the project root')
       ->addArgument('name', InputArgument::REQUIRED, 'The name of the database')
-      ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the database', 'mysql');
+      ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray());
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
@@ -90,7 +90,7 @@ class MigrationSetup extends Command
     if (Command::SUCCESS !== $dbConfig->load() )
     {
       $output->writeln("<error>Failed to load database configuration</error>\n");
-      return false;
+      return Command::FAILURE;
     }
 
     /** @var SQLDatabaseConnectionInterface $database */
@@ -108,7 +108,7 @@ class MigrationSetup extends Command
         return Command::FAILURE;
       }
 
-      $output->writeln("🏗️ Migrations setup completed successfully\n");
+      $output->writeln("🏗️ Migrations table created successfully\n");
     }
 
     $output->writeln("✔️  Migrations setup completed successfully\n");

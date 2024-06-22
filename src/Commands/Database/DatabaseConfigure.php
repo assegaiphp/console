@@ -143,8 +143,8 @@ class DatabaseConfigure extends Command
 
       $dsn .= match ($sqlType) {
         'on-disk' => ".data/$name.sq3",
-        'in-memory' => ':memory:',
-        'in-memory (persistent)' => 'file::memory:?cache=shared'
+        'in-memory (persistent)' => 'file::memory:?cache=shared',
+        default => ':memory:'
       };
 
       $dbConfig = new DBConfig($input, $output, $name, $type);
