@@ -117,8 +117,7 @@ class MigrationUp extends Command
     $migrator = match($databaseType) {
       DatabaseType::MYSQL => new MySQLDatabaseMigrator($dbName, $input, $output),
       DatabaseType::POSTGRESQL => new PostgreSQLDatabase($dbName, $input, $output),
-      DatabaseType::SQLITE => new SQLiteDatabase($dbName, $input, $output),
-      default => null
+      DatabaseType::SQLITE => new SQLiteDatabase($dbName, $input, $output)
     };
 
     $numberOfRuns = $input->getOption('migrations');

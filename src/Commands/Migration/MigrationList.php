@@ -84,9 +84,9 @@ HELP);
 
     /** @var MigratorInterface $migrator */
     $migrator = match ($databaseType) {
-      DatabaseType::MYSQL => new MySQLDatabaseMigrator($databaseName, $input, $output),
       DatabaseType::POSTGRESQL => new PostgreSQLDatabaseMigrator($databaseName, $input, $output),
       DatabaseType::SQLITE => new SQLiteDatabaseMigrator($databaseName, $input, $output),
+      default => new MySQLDatabaseMigrator($databaseName, $input, $output),
     };
 
     $type = MigrationListerType::tryFrom($type);
@@ -107,8 +107,8 @@ HELP);
     $migrations = match($type) {
       MigrationListerType::ALL => $migrator->listAll(),
       MigrationListerType::RAN => array_map(function($ranMigration) {
-        return $ranMigration['migration'] ?? '';
-      }, $migrator->listRan()),
+        return $ranMigration['migration'];
+      }, $migrator->listRan() ?: []),
       MigrationListerType::PENDING => $migrator->listPending()
     };
     $ranMigrations = $migrator->listRan();
@@ -119,7 +119,7 @@ HELP);
 ├───┼────────────────────────┼──────────────────────────────────────────────┤
 TABLE
 );
-    foreach ($migrations as $migration) {
+    foreach ($migrations ?: [] as $migration) {
       [$createdAt, $name] = explode('_', $migration, 2);
       $createdYear = substr($createdAt, 0, 4);
       $createdMonth = substr($createdAt, 4, 2);
@@ -129,7 +129,7 @@ TABLE
       $createdSecond = substr($createdAt, 12, 2);
 
       $createdAt = "$createdYear/$createdMonth/$createdDay $createdHour:$createdMinute:$createdSecond";
-      $executed = $this->wasRun($migration, $ranMigrations) ? "<info>✓</info>" : "<fg=red>✕</>";
+      $executed = $this->wasRun($migration, $ranMigrations ?: []) ? "<info>✓</info>" : "<fg=red>✕</>";
       $migrationDescription = new Text($name);
       $formattedDescription = sprintf('%-44s', $migrationDescription->titleCase());
       $output->writeln(<<<TABLE
@@ -147,7 +147,7 @@ TABLE
    * Check if a migration was run.
    *
    * @param string $migration The migration
-   * @param array $ranMigrations The ran migrations
+   * @param array<array{migration: string, ranAt: string}> $ranMigrations The ran migrations
    * @return bool True if the migration was run, false otherwise
    */
   public function wasRun(string $migration, array $ranMigrations): bool

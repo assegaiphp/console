@@ -12,7 +12,7 @@ interface MigrationListerInterface
   /**
    * List the migrations.
    *
-   * @return array|false The list of migrations or false if an error occurred.
+   * @return array<string>|array<int|string, mixed>|false The list of migrations or false if an error occurred.
    */
   public function list(): array|false;
 }

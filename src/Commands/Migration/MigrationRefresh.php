@@ -48,6 +48,7 @@ class MigrationRefresh extends Command
       '--' . DatabaseType::POSTGRESQL->value => $input->getOption(DatabaseType::POSTGRESQL->value),
       '--' . DatabaseType::SQLITE->value => $input->getOption(DatabaseType::SQLITE->value),
     ]);
-    return $this->getApplication()->doRun($input, $output);
+
+    return $this->getApplication()?->doRun($input, $output) ?? Command::FAILURE;
   }
 }

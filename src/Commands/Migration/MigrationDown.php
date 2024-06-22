@@ -118,7 +118,6 @@ class MigrationDown extends Command
       DatabaseType::MYSQL => new MySQLDatabaseMigrator($dbName, $input, $output),
       DatabaseType::POSTGRESQL => new PostgreSQLDatabase($dbName, $input, $output),
       DatabaseType::SQLITE => new SQLiteDatabase($dbName, $input, $output),
-      default => null
     };
 
     $numberOfRollbacks = $input->getOption('migrations');

@@ -11,6 +11,7 @@ use Assegai\Console\Core\Migrations\Listers\AllMigrationsLister;
 use Assegai\Console\Core\Migrations\Listers\PendingMigrationsLister;
 use Assegai\Console\Core\Migrations\Listers\RanMigrationsLister;
 use Assegai\Console\Util\Path;
+use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorInterface
@@ -25,13 +26,13 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
     $successfulRuns = 0;
 
     $pendingMigrations = $this->listPending();
-    $totalPendingMigrations = count($pendingMigrations);
+    $totalPendingMigrations = count($pendingMigrations ?: []);
     $totalMigrationsToRun = min($runs ?: $totalPendingMigrations, $totalPendingMigrations);
 
     $totalRowsAffected = 0;
 
     # Foreach migration in the pending migrations
-    foreach ($pendingMigrations as $index => $migration)
+    foreach ($pendingMigrations ?: [] as $index => $migration)
     {
       # Get the up.sql file content
       $upFilePath = Path::join($this->getMigrationsDirectoryPath(), $migration, 'up.sql');
@@ -44,6 +45,12 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
       $upFileContent = file_get_contents($upFilePath);
 
       # Execute the up.sql file
+      if (empty($upFileContent))
+      {
+        $formatter = new FormatterHelper();
+        $this->output->writeln("\n" . $formatter->formatBlock("WARNING:", 'comment') . " The up.sql file for migration <comment>$migration</comment> is empty\n", OutputInterface::VERBOSITY_VERBOSE);
+        continue;
+      }
       $statement = $this->query($upFileContent);
 
       if (false === $statement)
@@ -95,14 +102,16 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
   {
     $successfulRollbacks = 0;
     $pendingMigrations = $this->listRan();
-    $totalRanMigrations = count($pendingMigrations);
+    $totalRanMigrations = count($pendingMigrations ?: []);
     $totalMigrationsToRollback = min($rollbacks ?: $totalRanMigrations, $totalRanMigrations);
 
     $totalRowsAffected = 0;
 
     # Foreach migration in the pending migrations
-    foreach ($pendingMigrations as $index => $migration)
+    foreach ($pendingMigrations ?: [] as $index => $pendingMigration)
     {
+      $migration = $pendingMigration['migration'];
+
       # Get the down.sql file content
       $downFilePath = Path::join($this->getMigrationsDirectoryPath(), $migration, 'down.sql');
 
@@ -114,6 +123,12 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
       $downFileContent = file_get_contents($downFilePath);
 
       # Execute the down.sql file
+      if (empty($downFileContent))
+      {
+        $formatter = new FormatterHelper();
+        $this->output->writeln("\n" . $formatter->formatBlock("WARNING:", 'comment') . " The down.sql file for migration <comment>$migration</comment> is empty\n", OutputInterface::VERBOSITY_VERBOSE);
+        continue;
+      }
       $statement = $this->query($downFileContent);
 
       if (false === $statement)
@@ -161,7 +176,7 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
    */
   public function reset(): int|false
   {
-    return $this->down(count($this->listRan()));
+    return $this->down(count($this->listRan() ?: []));
   }
 
   /**
@@ -216,7 +231,9 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
    */
   public function listAll(): array|false
   {
-    return $this->getLister(MigrationListerType::ALL)->list();
+    /** @var AllMigrationsLister $lister */
+    $lister = $this->getLister(MigrationListerType::ALL);
+    return $lister->list();
   }
 
   /**
@@ -224,7 +241,9 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
    */
   public function listRan(): array|false
   {
-    return $this->getLister(MigrationListerType::RAN)->list();
+    /** @var RanMigrationsLister $lister */
+    $lister = $this->getLister(MigrationListerType::RAN);
+    return $lister->list();
   }
 
   /**
@@ -232,11 +251,14 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
    */
   public function listPending(): array|false
   {
-    return $this->getLister(MigrationListerType::PENDING)->list();
+    /** @var PendingMigrationsLister $lister */
+    $lister = $this->getLister(MigrationListerType::PENDING);
+    return $lister->list();
   }
 
   /**
    * @inheritDoc
+   * @noinspection DuplicatedCode
    */
   public function last(): string|false
   {
@@ -249,7 +271,14 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
       return false;
     }
 
-    return $statement->fetchColumn() ?? '';
+    $result = $statement->fetchAll();
+
+    if (! isset($result[0]) ) {
+      $this->output->writeln('<error>Failed to get the last migration</error>\n');
+      return false;
+    }
+
+    return $result[0]['migration'] ?? '';
   }
 
   /**
@@ -263,9 +292,15 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
 
     $allMigrations = $this->listAll();
 
-    $lastMigrationIndex = array_search($lastMigration, $allMigrations);
+    $lastMigrationIndex = array_search($lastMigration, $allMigrations ?: []);
 
     if (false === $lastMigrationIndex)
+    {
+      $this->output->writeln('<error>Failed to get the next migration</error>\n');
+      return false;
+    }
+
+    if (is_string($lastMigrationIndex))
     {
       $this->output->writeln('<error>Failed to get the next migration</error>\n');
       return false;

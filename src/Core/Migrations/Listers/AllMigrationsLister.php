@@ -13,15 +13,16 @@ class AllMigrationsLister extends AbstractMigrationLister
 {
   /**
    * @inheritDoc
+   * @return array<string>|false The list of migrations or false if an error occurred.
    */
   public function list(): array|false
   {
     if (! file_exists($this->migrator->getMigrationsDirectoryPath() ) )
     {
-      $this->output->writeln('<error>The migrations directory does not exist</error>');
+      $this->output?->writeln('<error>The migrations directory does not exist</error>');
       return false;
     }
 
-    return array_values(array_diff(scandir($this->migrator->getMigrationsDirectoryPath()), ['.', '..']) ?? []);
+    return array_values(array_diff(scandir($this->migrator->getMigrationsDirectoryPath()) ?: [], ['.', '..']));
   }
 }

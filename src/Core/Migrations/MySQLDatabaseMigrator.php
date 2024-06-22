@@ -11,6 +11,7 @@ use Assegai\Console\Core\Migrations\Listers\AllMigrationsLister;
 use Assegai\Console\Core\Migrations\Listers\PendingMigrationsLister;
 use Assegai\Console\Core\Migrations\Listers\RanMigrationsLister;
 use Assegai\Console\Util\Path;
+use PDO;
 use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -208,7 +209,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
    */
   public function reset(): int|false
   {
-    return $this->down(count($this->listRan()));
+    return $this->down(count($this->listRan() ?: []));
   }
 
   /**
@@ -263,7 +264,9 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
    */
   public function listAll(): array|false
   {
-    return $this->getLister(MigrationListerType::ALL)->list();
+    /** @var AllMigrationsLister $lister */
+    $lister = $this->getLister(MigrationListerType::ALL);
+    return $lister->list();
   }
 
   /**
@@ -271,7 +274,9 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
    */
   public function listRan(): array|false
   {
-    return $this->getLister(MigrationListerType::RAN)->list();
+    /** @var RanMigrationsLister $lister */
+    $lister = $this->getLister(MigrationListerType::RAN);
+    return $lister->list();
   }
 
   /**
@@ -279,7 +284,9 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
    */
   public function listPending(): array|false
   {
-    return $this->getLister(MigrationListerType::PENDING)->list();
+    /** @var PendingMigrationsLister $lister */
+    $lister = $this->getLister(MigrationListerType::PENDING);
+    return $lister->list();
   }
 
   /**
@@ -296,7 +303,14 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
       return false;
     }
 
-    return $statement->fetchColumn() ?? '';
+    $result = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+    if (! isset($result[0]) ) {
+      $this->output->writeln('<error>Failed to get the last migration</error>\n');
+      return false;
+    }
+
+    return $result[0]['migration'] ?? '';
   }
 
   /**
@@ -309,9 +323,15 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
 
     $allMigrations = $this->listAll();
 
-    $lastMigrationIndex = array_search($lastMigration, $allMigrations);
+    $lastMigrationIndex = array_search($lastMigration, $allMigrations ?: []);
 
     if (false === $lastMigrationIndex)
+    {
+      $this->output->writeln('<error>Failed to get the next migration</error>\n');
+      return false;
+    }
+
+    if (is_string($lastMigrationIndex))
     {
       $this->output->writeln('<error>Failed to get the next migration</error>\n');
       return false;

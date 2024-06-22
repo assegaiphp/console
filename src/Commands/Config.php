@@ -54,6 +54,9 @@ class Config extends Command
 
     if ($value = $input->getArgument('value')) {
       if (is_scalar($value)) {
+        if (!is_string($value)) {
+          $value = (string) $value;
+        }
         $value = match(true) {
           is_numeric($value) => preg_match('/\d+.\d+/', $value) ? (float) $value : (int) $value,
           false !== preg_match('/(true|false)/', $value) => boolval($value),
@@ -80,13 +83,13 @@ class Config extends Command
     {
       $output->writeln(match(true) {
         is_bool($value) => $value ? 'true' : 'false',
-        default => $value
+        default => (string) $value
       });
     }
 
     if (is_array($value))
     {
-      $output->writeln(json_encode($value, JSON_PRETTY_PRINT));
+      $output->writeln(json_encode($value, JSON_PRETTY_PRINT) ?: '');
     }
 
     return Command::SUCCESS;

@@ -39,7 +39,7 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
   /**
    * The structure of the directory
    *
-   * @var array<string, string|array> $structure
+   * @var array<string, string|array<string, mixed>> $structure
    */
   protected array $structure = [];
   /**
@@ -166,6 +166,8 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
   private function resolvePathNames(): bool
   {
     // TODO: Implement the resolvePathNames method
+    $rootDirectoryPath = $this->getRootDirectoryPath();
+
     return true;
   }
 
@@ -195,7 +197,7 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
   /**
    * Write the output of the directory
    *
-   * @param array $directory The directory to write
+   * @param array<string, string|array<string, mixed>> $directory The directory to write
    * @return bool Returns true if the output was written successfully, false otherwise
    */
   private function writeFiles(array $directory): bool

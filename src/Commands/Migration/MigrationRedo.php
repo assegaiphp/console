@@ -47,6 +47,13 @@ class MigrationRedo extends Command
     }
 
     $numberOfMigrations = $input->getOption('migrations') ?? 1;
+    $application = $this->getApplication();
+
+    if (!$application)
+    {
+      $output->writeln("<error>Failed to get the application</error>");
+      return Command::FAILURE;
+    }
 
     if (!is_numeric($numberOfMigrations))
     {
@@ -62,7 +69,7 @@ class MigrationRedo extends Command
       '--migrations' => $numberOfMigrations,
       '--database_type' => $databaseType
     ]);
-    if (Command::SUCCESS !== $this->getApplication()->doRun($downInput, $output))
+    if (Command::SUCCESS !== $application->doRun($downInput, $output))
     {
       $output->writeln("<error>Failed to undo the migrations</error>");
       return Command::FAILURE;
@@ -74,7 +81,7 @@ class MigrationRedo extends Command
       '--migrations' => $numberOfMigrations,
       '--database_type' => $databaseType
     ]);
-    if (Command::SUCCESS !== $this->getApplication()->doRun($upInput, $output))
+    if (Command::SUCCESS !== $application->doRun($upInput, $output))
     {
       $output->writeln("<error>Failed to redo the migrations</error>");
       return Command::FAILURE;

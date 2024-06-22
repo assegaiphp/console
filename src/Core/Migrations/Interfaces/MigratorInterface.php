@@ -3,6 +3,7 @@
 namespace Assegai\Console\Core\Migrations\Interfaces;
 
 use Assegai\Console\Core\Migrations\Enumerations\MigrationListerType;
+use PDOStatement;
 
 /**
  * Interface MigratorInterface. This interface defines the methods that a migrator class should implement.
@@ -45,21 +46,21 @@ interface MigratorInterface
   /**
    * List all the migrations.
    *
-   * @return array|false The list of all migrations or false if an error occurred.
+   * @return array<string>|false The list of all migrations or false if an error occurred.
    */
   public function listAll(): array|false;
 
   /**
    * List the migrations that have been run.
    *
-   * @return array|false The list of migrations that have been run or false if an error occurred.
+   * @return array<array{migration: string, ranAt: string}>|false The list of migrations that have been run or false if an error occurred.
    */
   public function listRan(): array|false;
 
   /**
    * List the migrations that are yet to be run.
    *
-   * @return array|false The list of migrations that are yet to be run or false if an error occurred.
+   * @return array<string>|false The list of migrations that are yet to be run or false if an error occurred.
    */
   public function listPending(): array|false;
 
@@ -91,4 +92,19 @@ interface MigratorInterface
    * @return MigrationListerInterface The migration lister.
    */
   public function getLister(MigrationListerType $type): MigrationListerInterface;
+
+  /**
+   * Get the migrations table name.
+   *
+   * @return string
+   */
+  public function getMigrationsTableName(): string;
+
+  /**
+   * Run a query.
+   *
+   * @param string $query The query to run.
+   * @return PDOStatement|false The query result or false if an error occurred.
+   */
+  public function query(string $query): PDOStatement|false;
 }

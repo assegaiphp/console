@@ -13,6 +13,7 @@ class RanMigrationsLister extends AbstractMigrationLister
 {
   /**
    * @inheritDoc
+   * @return array<array{migration: string, ranAt: string}>|false The list of migrations that have been run or false if an error occurred.
    */
   public function list(): array|false
   {
@@ -23,7 +24,7 @@ class RanMigrationsLister extends AbstractMigrationLister
 
     if (false === $statement)
     {
-      $this->output->writeln('<error>Failed to list the migrations that have been run</error>');
+      $this->output?->writeln('<error>Failed to list the migrations that have been run</error>');
       return false;
     }
 

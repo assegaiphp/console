@@ -13,6 +13,7 @@ class PendingMigrationsLister extends AbstractMigrationLister
 {
   /**
    * @inheritDoc
+   * @return array<string>|false The list of migrations that have not been run or false if an error occurred.
    */
   public function list(): array|false
   {
@@ -21,7 +22,7 @@ class PendingMigrationsLister extends AbstractMigrationLister
 
     if (false === $allMigrations || false === $ranMigrations)
     {
-      $this->output->writeln("<error>Failed to list the migrations</error>\n");
+      $this->output?->writeln("<error>Failed to list the migrations</error>\n");
       return false;
     }
 
