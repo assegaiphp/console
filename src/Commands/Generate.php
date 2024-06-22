@@ -8,6 +8,7 @@ use Assegai\Console\Core\Schematics\ClassSchematic;
 use Assegai\Console\Core\Schematics\ControllerSchematic;
 use Assegai\Console\Core\Schematics\EnumSchematic;
 use Assegai\Console\Core\Schematics\GuardSchematic;
+use Assegai\Console\Core\Schematics\InterceptorSchematic;
 use Assegai\Console\Core\Schematics\InterfaceSchematic;
 use Assegai\Console\Core\Schematics\ModuleSchematic;
 use Assegai\Console\Core\Schematics\PipeSchematic;
@@ -43,18 +44,37 @@ class Generate extends Command
   public function configure(): void
   {
     $this
-      ->addArgument('schematic', InputArgument::REQUIRED, 'The schematic to generate')
+      ->addArgument(
+        'schematic',
+        InputArgument::REQUIRED,
+        'The schematic to generate',
+        null,
+        [
+          'application',
+          'controller',
+          'class',
+          'enum',
+          'guard',
+          'interceptor',
+          'interface',
+          'module',
+          'pipe',
+          'resource',
+          'service'
+        ]
+      )
       ->addArgument('name', InputArgument::REQUIRED, 'The name of the schematic to generate')
       ->addOption('directory', 'd', InputArgument::OPTIONAL, 'The directory to generate the schematic in', getcwd())
       ->setHelp(implode("\n", [
         "Available schematics:",
         "    ┌───────────────┬─────────────┬──────────────────────────────────────────────┐",
-        "    │ <fg=red>Schematic</>     │ <fg=red>Alias</>       │ <fg=red>Description</>                                  │",
+        "    │ <fg=blue>Schematic</>     │ <fg=blue>Alias</>       │ <fg=blue>Description</>                                  │",
         "    ├───────────────┼─────────────┼──────────────────────────────────────────────┤",
         "    │ <fg=green>application</>   │ <comment>application</comment> │ Generate a new application workspace         │",
         "    │ <fg=green>controller</>    │ <comment>c</comment>           │ Generate a controller declaration            │",
         "    │ <fg=green>class</>         │ <comment>cl</comment>          │ Generate a new class                         │",
         "    │ <fg=green>guard</>         │ <comment>g</comment>           │ Generate a guard declaration                 │",
+        "    │ <fg=green>interceptor</>   │ <comment>ic</comment>          │ Generate an interceptor                      │",
         "    │ <fg=green>interface</>     │ <comment>i</comment>           │ Generate an interface                        │",
         "    │ <fg=green>module</>        │ <comment>m</comment>           │ Generate a module declaration                │",
         "    │ <fg=green>pipe</>          │ <comment>p</comment>           │ Generate a pipe declaration                  │",
@@ -68,6 +88,7 @@ class Generate extends Command
       'c' => 'controller',
       'cl' => 'class',
       'g' => 'guard',
+      'ic' => 'interceptor',
       'i' => 'interface',
       'm' => 'module',
       'p' => 'pipe',
@@ -81,7 +102,7 @@ class Generate extends Command
    */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
-    $name = $input->getArgument('name');
+    $name = basename($input->getArgument('name'));
     $directory = $input->getOption('directory');
 
     if (false === $directory)
@@ -90,20 +111,23 @@ class Generate extends Command
       return Command::FAILURE;
     }
 
+    $subdirectory = dirname($input->getArgument('name')) ?: '';
+
     $this->addAllSchematics([
-      'application' => new ApplicationSchematic($input, $output, $name, $directory),
-      'controller'  => new ControllerSchematic($input, $output, $name, $directory),
-      'class'       => new ClassSchematic($input, $output, $name, $directory),
-      'enum'        => new EnumSchematic($input, $output, $name, $directory),
-      'guard'       => new GuardSchematic($input, $output, $name, $directory),
-      'interface'   => new InterfaceSchematic($input, $output, $name, $directory),
-      'module'      => new ModuleSchematic($input, $output, $name, $directory),
-      'pipe'        => new PipeSchematic($input, $output, $name, $directory),
-      'resource'    => new ResourceSchematic($input, $output, $name, $directory),
-      'service'     => new ServiceSchematic($input, $output, $name, $directory)
+      'application' => new ApplicationSchematic($input, $output, $name, $directory, $subdirectory),
+      'controller'  => new ControllerSchematic($input, $output, $name, $directory, $subdirectory),
+      'class'       => new ClassSchematic($input, $output, $name, $directory, $subdirectory),
+      'enum'        => new EnumSchematic($input, $output, $name, $directory, $subdirectory),
+      'guard'       => new GuardSchematic($input, $output, $name, $directory, $subdirectory),
+      'interceptor' => new InterceptorSchematic($input, $output, $name, $directory, $subdirectory),
+      'interface'   => new InterfaceSchematic($input, $output, $name, $directory, $subdirectory),
+      'module'      => new ModuleSchematic($input, $output, $name, $directory, $subdirectory),
+      'pipe'        => new PipeSchematic($input, $output, $name, $directory, $subdirectory),
+      'resource'    => new ResourceSchematic($input, $output, $name, $directory, $subdirectory),
+      'service'     => new ServiceSchematic($input, $output, $name, $directory, $subdirectory)
     ]);
 
-    if ($this->setSchematic($input->getArgument('schematic')) > 0)
+    if ($this->setSchematic($input->getArgument('schematic')) !== Command::SUCCESS)
     {
       $output->writeln("<error>Invalid schematic</error>");
       return Command::FAILURE;

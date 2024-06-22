@@ -32,12 +32,15 @@ class Serve extends Command
     $formatter = $this->getHelper('formatter');
 
     $projectConfig = new ProjectConfig($input, $output);
-    $projectConfig->load();
+    if (Command::SUCCESS !== $projectConfig->load()) {
+      $output->writeln("<error>Failed to load the project configuration</error>");
+      return Command::FAILURE;
+    }
 
-    $port = $input->getOption('port') ?? $projectConfig->get('development')->get('server')['port'] ?? DEFAULT_DEV_SERVER_PORT;
-    $host = $input->getOption('host') ?? $projectConfig->get('development')->get('server')['host'] ?? DEFAULT_DEV_SERVER_HOST;
+    $port = $input->getOption('port') ?? $projectConfig->get('development.server.port') ?? DEFAULT_DEV_SERVER_PORT;
+    $host = $input->getOption('host') ?? $projectConfig->get('development.server.host') ?? DEFAULT_DEV_SERVER_HOST;
     $https = $input->getOption('https') ?? false;
-    $router = Path::join($input->getOption('root') ?? getcwd(), 'public/index.php');
+    $router = Path::join($input->getOption('root') ?? getcwd(), 'index.php');
     $scheme = $https ? 'https' : 'http';
     $uri = "$host:$port";
     $certPath = Path::join(Path::getCertificatesDirectory(), 'localhost.crt');
@@ -50,20 +53,17 @@ class Serve extends Command
     $output->writeln('');
     $resultCode = 0;
     $command = "php -S $uri $router";
-    if ($https)
-    {
+    if ($https) {
       $command .= " --cert $certPath --key $keyPath";
     }
 
-    if (false === passthru($command, $resultCode))
-    {
+    if (false === passthru($command, $resultCode)) {
       $output->writeln('');
       $output->writeln("<error>Failed to serve the project on $uri</error>");
       return Command::FAILURE;
     }
 
-    if ($resultCode !== 0)
-    {
+    if ($resultCode !== 0) {
       $output->writeln('');
       $output->writeln("<error>Failed to serve the project on $uri</error>");
       return Command::FAILURE;

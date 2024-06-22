@@ -88,11 +88,22 @@ class Inspector
     $bootstrapFilename = BOOTSTRAP_FILE;
     if (! file_exists(Path::join($workspaceDirectory, $bootstrapFilename)) )
     {
-      $this->output->writeln("Workspace $workspaceDirectory does not have an $bootstrapFilename file.", OutputInterface::VERBOSITY_VERBOSE);
+      $this->output->writeln("Workspace $workspaceDirectory does not have a $bootstrapFilename file.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
 
     return true;
+  }
+
+  /**
+   * Check if the given path is not a valid project directory.
+   *
+   * @param string $workspaceDirectory The path to check.
+   * @return bool
+   */
+  public function isNotAValidWorkspace(string $workspaceDirectory): bool
+  {
+    return ! $this->isValidWorkspace($workspaceDirectory);
   }
 
   /**

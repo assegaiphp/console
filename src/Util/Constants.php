@@ -1,5 +1,7 @@
 <?php
 
+use Assegai\Console\Core\Database\Enumerations\DatabaseType;
+
 const PACKAGE_NAME_CORE = 'assegaiphp/core';
 const PACKAGE_NAME_CLI = 'assegaiphp/console';
 const PACKAGE_NAME_ORM = 'assegaiphp/orm';
@@ -18,4 +20,5 @@ const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_USER = 'postgres';
 const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_SQLITE_PATH = 'database.sqlite';
-const BOOTSTRAP_FILE = 'app.php';
+const BOOTSTRAP_FILE = 'bootstrap.php';
+const DEFAULT_DATABASE_TYPE = DatabaseType::MYSQL->value;

@@ -7,6 +7,7 @@ class GuardSchematic extends AbstractClassSchematic
   public function configure(): void
   {
     $this->suffix = 'guard';
+    $this->namespaceSuffix = $this->getResolvedNamespaceSuffix();
     $this->imports = [
       'Assegai\Core\Interfaces\ICanActivate',
       'Assegai\Core\Interfaces\IExecutionContext',

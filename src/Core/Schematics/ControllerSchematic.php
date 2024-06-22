@@ -2,21 +2,26 @@
 
 namespace Assegai\Console\Core\Schematics;
 
-use Assegai\Console\Util\Text;
+use Override;
 
 class ControllerSchematic extends AbstractClassSchematic
 {
   public function configure(): void
   {
     $this->suffix = 'controller';
+    $this->namespaceSuffix = $this->getResolvedNamespaceSuffix();
     $this->imports = ['Assegai\Core\Attributes\Controller'];
     $this->attributes = ["Controller('$this->name')"];
   }
 
-  public function forAppModuleUpdate(): array
+  /**
+   * @inheritDoc
+   */
+  #[Override]
+  public function getModuleUpdates(): array
   {
     return [
-      'use' => [],
+      'use' => [$this->namespace . '\\' . $this->getClassName()],
       'declare' => [],
       'provide' => [],
       'control' => [$this->getClassName() . '::class'],

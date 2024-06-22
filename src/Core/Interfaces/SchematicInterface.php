@@ -7,7 +7,7 @@ namespace Assegai\Console\Core\Interfaces;
  *
  * @package Assegai\Console\Core\Interfaces
  */
-interface SchematicInterface
+interface SchematicInterface extends ConfigurableInterface
 {
   /**
    * Build the schematic

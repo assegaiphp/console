@@ -128,7 +128,7 @@ class WorkspaceManager
       "description" => $description ,
       "type" => $type,
       "scripts" => [
-        "start" => "php -S localhost:5000 public/index.php",
+        "start" => "php -S localhost:5000 bootstrap.php",
       ],
       "license" => "MIT",
       "autoload" => [
@@ -266,7 +266,7 @@ class WorkspaceManager
    */
   private function updateNamespace(string $projectDirectory, string $namespace): int
   {
-    $filePaths = ['app.php', 'src/AppModule.php', 'src/AppController.php', 'src/AppService.php'];
+    $filePaths = ['bootstrap.php', 'src/AppModule.php', 'src/AppController.php', 'src/AppService.php'];
 
     if (str_ends_with($namespace, '\\'))
     {

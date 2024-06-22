@@ -1,5 +1,14 @@
+.vscode
+.idea
 .htaccess
 .env
+.env.*
 
 /vendor/
 /config/local*.php
+/config/dev*.php
+/config/secure*.php
+/.data/
+/logs/
+
+*.log
