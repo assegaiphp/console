@@ -27,7 +27,7 @@ class MigrationRedo extends Command
     $this
       ->addArgument('database', InputArgument::REQUIRED, 'The database to redo the migration on')
       ->addOption('migrations', 'm', InputArgument::OPTIONAL, 'The number of migrations to redo', 1)
-      ->addOption('database_type', 't', InputArgument::OPTIONAL, 'The type of the database', DatabaseType::MYSQL->value, DatabaseType::toArray())
+      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DatabaseType::MYSQL->value, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use a MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null,  InputOption::VALUE_NONE, 'Use a PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'User an SQLite database');

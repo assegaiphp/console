@@ -25,9 +25,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 class MigrationList extends Command
 {
   /**
-   * @var string[] $listTypes The list types
+   * @var string[] $migrationStatuses The list types
    */
-  protected array $listTypes = ['all', 'pending', 'executed'];
+  protected array $migrationStatuses = ['all', 'pending', 'executed'];
 
   /**
    * @var MigrationListerInterface|null $migrationLister The migration lister
@@ -42,7 +42,7 @@ class MigrationList extends Command
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database')
-      ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the list', 'all', $this->listTypes)
+      ->addOption('status', 's', InputArgument::OPTIONAL, 'Filter migration status', 'all', $this->migrationStatuses)
       ->addOption('all', null, InputOption::VALUE_NONE, 'List all migrations')
       ->addOption('pending', null, InputOption::VALUE_NONE, 'List pending migrations')
       ->addOption('executed', null, InputOption::VALUE_NONE, 'List executed migrations')
@@ -64,7 +64,7 @@ HELP);
   {
     $databaseName = $input->getArgument('database');
     $databaseType = $input->getOption('database_type');
-    $type = $input->getOption('type');
+    $status = $input->getOption('status');
 
     if (! DatabaseType::isValid($databaseType) )
     {
@@ -89,22 +89,22 @@ HELP);
       default => new MySQLDatabaseMigrator($databaseName, $input, $output),
     };
 
-    $type = MigrationListerType::tryFrom($type);
+    $status = MigrationListerType::tryFrom($status);
 
     if ($input->getOption('all')) {
-      $type = MigrationListerType::ALL;
+      $status = MigrationListerType::ALL;
     } elseif ($input->getOption('pending')) {
-      $type = MigrationListerType::PENDING;
+      $status = MigrationListerType::PENDING;
     } elseif ($input->getOption('executed')) {
-      $type = MigrationListerType::RAN;
+      $status = MigrationListerType::RAN;
     }
 
-    if (!$type) {
+    if (!$status) {
       $output->writeln('<error>Invalid list type</error>');
       return Command::FAILURE;
     }
 
-    $migrations = match($type) {
+    $migrations = match($status) {
       MigrationListerType::ALL => $migrator->listAll(),
       MigrationListerType::RAN => array_map(function($ranMigration) {
         return $ranMigration['migration'];

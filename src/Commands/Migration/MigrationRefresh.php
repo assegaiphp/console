@@ -27,7 +27,7 @@ class MigrationRefresh extends Command
     $this
       ->setHelp('This command refreshes the migrations. It rolls back the migrations and then runs them again.')
       ->addArgument('database', InputArgument::REQUIRED, 'The database to refresh the migrations on')
-      ->addOption('database_type', 't', InputArgument::OPTIONAL, 'The type of the database', DatabaseType::MYSQL->value, DatabaseType::toArray())
+      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DatabaseType::MYSQL->value, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use a MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null,  InputOption::VALUE_NONE, 'Use a PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'User an SQLite database');;
