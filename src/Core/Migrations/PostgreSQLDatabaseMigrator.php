@@ -1,4 +1,4 @@
-<?php
+<?php /** @noinspection PhpSuperClassIncompatibleWithInterfaceInspection */
 
 namespace Assegai\Console\Core\Migrations;
 
@@ -62,7 +62,7 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
       $totalRowsAffected += $statement->rowCount();
 
       # Update the migrations table
-      $migrationsTableName = $this->getMigrationsTableName();
+      $migrationsTableName = self::getMigrationsTableName();
       $timestamp = date(DATE_ATOM);
       $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ('$migration', '$timestamp')";
 
@@ -140,7 +140,7 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
       $totalRowsAffected += $statement->rowCount();
 
       # Update the migrations table
-      $migrationsTableName = $this->getMigrationsTableName();
+      $migrationsTableName = self::getMigrationsTableName();
       $sql = "DELETE FROM $migrationsTableName WHERE migration='$migration'";
 
       if (false === $statement->closeCursor())
@@ -262,7 +262,8 @@ class PostgreSQLDatabaseMigrator extends PostgreSQLDatabase implements MigratorI
    */
   public function last(): string|false
   {
-    $query = "SELECT migration FROM {$this->getMigrationsTableName()} ORDER BY ran_at DESC LIMIT 1";
+    $migrationsTableName = self::getMigrationsTableName();
+    $query = "SELECT migration FROM $migrationsTableName ORDER BY ran_at DESC LIMIT 1";
     $statement = $this->query($query);
 
     if (false === $statement)

@@ -3,6 +3,7 @@
 namespace Assegai\Console\Core\Migrations\Interfaces;
 
 use Assegai\Console\Core\Migrations\Enumerations\MigrationListerType;
+use PDO;
 use PDOStatement;
 
 /**
@@ -98,13 +99,16 @@ interface MigratorInterface
    *
    * @return string
    */
-  public function getMigrationsTableName(): string;
+  public static function getMigrationsTableName(): string;
 
   /**
    * Run a query.
    *
-   * @param string $query The query to run.
-   * @return PDOStatement|false The query result or false if an error occurred.
+   * @param string $query The SQL statement to prepare and execute.
+   * Data inside the query should be properly escaped.
+   * @param int $fetchMode The fetch mode must be one of the PDO::FETCH_* constants.
+   * @param mixed ...$fetch_mode_args Arguments of m class constructor when the mode parameter is set to PDO::FETCH_CLASS.
+   * @return PDOStatement|false PDO::query returns a PDOStatement object, or FALSE on failure.
    */
-  public function query(string $query): PDOStatement|false;
+  public function query(string $query, int $fetchMode = PDO::ATTR_DEFAULT_FETCH_MODE, mixed ...$fetch_mode_args): PDOStatement|false;
 }
