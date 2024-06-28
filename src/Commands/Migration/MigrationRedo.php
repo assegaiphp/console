@@ -26,7 +26,7 @@ class MigrationRedo extends Command
   {
     $this
       ->addArgument('database', InputArgument::REQUIRED, 'The database to redo the migration on')
-      ->addOption('migrations', 'm', InputArgument::OPTIONAL, 'The number of migrations to redo', 1)
+      ->addOption('steps', 's', InputArgument::OPTIONAL, 'The number of migrations to redo', 1)
       ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DatabaseType::MYSQL->value, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use a MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null,  InputOption::VALUE_NONE, 'Use a PostgreSQL database')
@@ -46,7 +46,7 @@ class MigrationRedo extends Command
       return Command::FAILURE;
     }
 
-    $numberOfMigrations = $input->getOption('migrations') ?? 1;
+    $numberOfMigrations = $input->getOption('steps') ?? 1;
     $application = $this->getApplication();
 
     if (!$application)

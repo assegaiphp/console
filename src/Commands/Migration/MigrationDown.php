@@ -37,7 +37,7 @@ class MigrationDown extends Command
     $this
       ->addArgument('database', InputArgument::REQUIRED, 'The database to rollback the migrations on')
       ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE)
-      ->addOption('migrations', 'm', InputArgument::OPTIONAL, 'The number of migrations to rollback', 1)
+      ->addOption('steps', 's', InputArgument::OPTIONAL, 'The number of migrations to rollback', 1)
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Run the migrations on a MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Run the migrations on a PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Run the migrations on a SQLite database');
@@ -120,9 +120,15 @@ class MigrationDown extends Command
       DatabaseType::SQLITE => new SQLiteDatabase($dbName, $input, $output),
     };
 
-    $numberOfRollbacks = $input->getOption('migrations');
-    if ($numberOfRollbacks < 0)
-    {
+    $numberOfRollbacks = $input->getOption('steps');
+
+    if (! is_numeric($numberOfRollbacks) ) {
+      $numberOfRollbacks = null;
+    } else {
+      $numberOfRollbacks = (int) $numberOfRollbacks;
+    }
+
+    if ($numberOfRollbacks < 0) {
       $numberOfRollbacks = null;
     }
 
