@@ -3,6 +3,7 @@
 .htaccess
 .env
 .env.*
+!.env.example
 
 /vendor/
 /config/local*.php

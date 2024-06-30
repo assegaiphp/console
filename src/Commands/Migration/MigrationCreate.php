@@ -36,8 +36,8 @@ class MigrationCreate extends Command
     $this
       ->setHelp('This command creates a new migration file in the migrations directory.')
       ->addArgument('name', InputArgument::REQUIRED, 'The name of the migration')
-      ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the migration', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
-      ->addOption('db', 'd', InputArgument::OPTIONAL, 'The name of the database')
+      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the migration', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
+      ->addOption('database', 'db', InputArgument::OPTIONAL, 'The name of the database')
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
@@ -74,8 +74,8 @@ class MigrationCreate extends Command
     }
 
     // Create migration subdirectory if it does not exist
-    $type = $input->getOption('type');
-    $dbName = $input->getOption('db');
+    $type = $input->getOption('database_type');
+    $dbName = $input->getOption('database');
 
     if (!DatabaseType::isValid($type)) {
       $output->writeln("<error>Invalid database type.</error>\n");

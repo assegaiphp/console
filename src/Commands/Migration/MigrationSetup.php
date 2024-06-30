@@ -31,8 +31,8 @@ class MigrationSetup extends Command
     $this
       ->setHelp('This command sets up the migrations table in the database and creates the migrations directory ' .
       'in the project root')
-      ->addArgument('name', InputArgument::REQUIRED, 'The name of the database')
-      ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray());
+      ->addArgument('database', InputArgument::REQUIRED, 'The name of the database')
+      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray());
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
@@ -55,12 +55,12 @@ class MigrationSetup extends Command
     // Create a migrations directory for the specific database type
     $defaultDatabaseType = 'mysql';
     $databaseType =
-      $input->getOption('type') ??
+      $input->getOption('database_type') ??
       $helper->ask($input, $output, new Question("<info>?</info> Enter the database type: <fg=gray>($defaultDatabaseType)</> ", 'mysql'));;
 
     // Create a migrations directory for the specific database
     $databaseName =
-      $input->getArgument('name') ??
+      $input->getArgument('database') ??
       $helper->ask($input, $output, new Question("<info>?</info> Enter the database name: "));
 
     $migrationsDirectory = Path::join($migrationsDirectory, $databaseType, $databaseName);

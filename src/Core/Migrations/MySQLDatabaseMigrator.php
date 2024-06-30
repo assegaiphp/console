@@ -1,4 +1,4 @@
-<?php
+<?php /** @noinspection PhpSuperClassIncompatibleWithInterfaceInspection */
 
 namespace Assegai\Console\Core\Migrations;
 
@@ -12,6 +12,7 @@ use Assegai\Console\Core\Migrations\Listers\PendingMigrationsLister;
 use Assegai\Console\Core\Migrations\Listers\RanMigrationsLister;
 use Assegai\Console\Util\Path;
 use PDO;
+use PDOException;
 use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -33,8 +34,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
 
     $pendingMigrations = $this->listPending();
 
-    if (empty($pendingMigrations))
-    {
+    if (empty($pendingMigrations)) {
       $this->output->writeln("No pending migrations");
       return 0;
     }
@@ -46,14 +46,12 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
 
     $progressBar->start();
     # Foreach migration in the pending migrations
-    foreach ($pendingMigrations as $index => $migration)
-    {
+    foreach ($pendingMigrations as $index => $migration) {
       $progressBar->setMessage("Running migration $migration");
       # Get the up.sql file content
       $upFilePath = Path::join($this->getMigrationsDirectoryPath(), $migration, 'up.sql');
 
-      if (! file_exists($upFilePath) )
-      {
+      if (! file_exists($upFilePath) ) {
         $progressBar->finish();
         $this->output->writeln("<error>The up.sql file for migration $migration does not exist</error>\n");
         return false;
@@ -61,16 +59,32 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
       $upFileContent = file_get_contents($upFilePath);
 
       # Execute the up.sql file
-      if (empty($upFileContent))
-      {
+      if (empty($upFileContent)) {
         $formatter = new FormatterHelper();
         $this->output->writeln("\n" . $formatter->formatBlock("WARNING:", 'comment') . " The up.sql file for migration <comment>$migration</comment> is empty\n", OutputInterface::VERBOSITY_VERBOSE);
         continue;
       }
-      $statement = $this->query($upFileContent);
 
-      if (false === $statement)
-      {
+      if (false === $this->beginTransaction() ) {
+        $this->output->writeln("<error>Failed to begin the transaction</error>\n");
+        return false;
+      }
+
+      try {
+        $statement = $this->query($upFileContent);
+      } catch (PDOException $exception) {
+        if (false === $this->rollBack() ) {
+          $this->output->writeln("<error>Failed to roll back the transaction</error>\n");
+        }
+        throw $exception;
+      }
+
+      if ($this->inTransaction() && false === $this->commit() ) {
+        $this->output->writeln("<error>Failed to commit the transaction</error>\n");
+        return false;
+      }
+
+      if (false === $statement) {
         $progressBar->finish();
         $this->output->writeln("<error>Failed to execute the up.sql file for migration $migration</error>\n");
         return false;
@@ -79,20 +93,33 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
       $totalRowsAffected += $statement->rowCount();
 
       # Update the migrations table
-      $migrationsTableName = $this->getMigrationsTableName();
+      $migrationsTableName = self::getMigrationsTableName();
       $timestamp = date(DATE_ATOM);
       $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ('$migration', '$timestamp')";
 
-      if (false === $statement->closeCursor())
-      {
+      if (false === $statement->closeCursor()) {
         $progressBar->finish();
         $this->output->writeln("<error>Failed to close the cursor</error>\n");
         return false;
       }
-      $statement = $this->query($sql);
 
-      if (false === $statement)
-      {
+      $this->beginTransaction();
+
+      try {
+        $statement = $this->query($sql);
+      } catch (PDOException $exception) {
+        if (false === $this->rollBack()) {
+          $this->output->writeln("<error>Failed to roll back the transaction</error>\n");
+        }
+        throw $exception;
+      }
+
+      if ($this->inTransaction() && false === $this->commit()) {
+        $this->output->writeln("<error>Failed to commit the transaction</error>\n");
+        return false;
+      }
+
+      if (false === $statement) {
         $progressBar->finish();
         $this->output->writeln("<error>Failed to update the migrations table for migration $migration</error>\n");
         return false;
@@ -100,8 +127,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
 
       $successfulRuns++;
 
-      if ($index === $totalMigrationsToRun - 1)
-      {
+      if ($index === $totalMigrationsToRun - 1) {
         break;
       }
 
@@ -123,8 +149,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
     $successfulRollbacks = 0;
     $pendingRollbacks = $this->listRan();
 
-    if (empty($pendingRollbacks))
-    {
+    if (empty($pendingRollbacks)) {
       $this->output->writeln("No pending rollbacks");
       return 0;
     }
@@ -137,16 +162,14 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
     $progressBar->start();
 
     # Foreach migration in the pending migrations
-    foreach ($pendingRollbacks as $index => $pendingMigration)
-    {
+    foreach ($pendingRollbacks as $index => $pendingMigration) {
       $migration = $pendingMigration['migration'];
       $progressBar->setMessage("Rolling back migration $migration");
 
       # Get the down.sql file content
       $downFilePath = Path::join($this->getMigrationsDirectoryPath(), $migration, 'down.sql');
 
-      if (! file_exists($downFilePath) )
-      {
+      if (! file_exists($downFilePath) ) {
         $this->output->writeln("<error>The down.sql file for migration $migration does not exist</error>\n");
         $progressBar->finish();
         return false;
@@ -154,16 +177,32 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
       $downFileContent = file_get_contents($downFilePath);
 
       # Execute the down.sql file
-      if (empty($downFileContent))
-      {
+      if (empty($downFileContent)) {
         $formatter = new FormatterHelper();
         $this->output->writeln($formatter->formatBlock("WARNING:", 'comment') . " The down.sql file for migration <comment>$migration</comment> is empty\n", OutputInterface::VERBOSITY_VERBOSE);
         continue;
       }
-      $statement = $this->query($downFileContent);
 
-      if (false === $statement)
-      {
+      if (false === $this->beginTransaction()) {
+        $this->output->writeln(" <error>Failed to begin the transaction</error>\n", OutputInterface::VERBOSITY_VERBOSE);
+        return false;
+      }
+
+      try {
+        $statement = $this->query($downFileContent);
+      } catch (PDOException $exception) {
+        if (false === $this->rollBack()) {
+          $this->output->writeln(" <error>Failed to roll back the transaction</error>\n", OutputInterface::VERBOSITY_VERBOSE);
+        }
+        throw $exception;
+      }
+
+      if ($this->inTransaction() && false === $this->commit()) {
+        $this->output->writeln(" <error>Failed to commit the transaction</error>\n", OutputInterface::VERBOSITY_VERBOSE);
+        return false;
+      }
+
+      if (false === $statement) {
         $this->output->writeln(" <error>Failed to execute the down.sql file for migration $migration</error>\n", OutputInterface::VERBOSITY_VERBOSE);
         $progressBar->finish();
         return false;
@@ -172,26 +211,38 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
       $totalRowsAffected += $statement->rowCount();
 
       # Update the migrations table
-      $migrationsTableName = $this->getMigrationsTableName();
+      $migrationsTableName = self::getMigrationsTableName();
       $sql = "DELETE FROM $migrationsTableName WHERE migration='$migration'";
 
-      if (false === $statement->closeCursor())
-      {
+      if (false === $statement->closeCursor()) {
         $this->output->writeln(" <error>Failed to close the cursor</error>\n", OutputInterface::VERBOSITY_VERBOSE);
         return false;
       }
-      $statement = $this->query($sql);
 
-      if (false === $statement)
-      {
+      $this->beginTransaction();
+
+      try {
+        $statement = $this->query($sql);
+      } catch (PDOException $exception) {
+        if (false === $this->rollBack()) {
+          $this->output->writeln(" <error>Failed to roll back the transaction</error>\n", OutputInterface::VERBOSITY_VERBOSE);
+        }
+        throw $exception;
+      }
+
+      if ($this->inTransaction() && false === $this->commit()) {
+        $this->output->writeln(" <error>Failed to commit the transaction</error>\n", OutputInterface::VERBOSITY_VERBOSE);
+        return false;
+      }
+
+      if (false === $statement) {
         $this->output->writeln(" <error>Failed to update the migrations table for migration $migration</error>\n", OutputInterface::VERBOSITY_VERBOSE);
         return false;
       }
 
       $successfulRollbacks++;
 
-      if ($index === $totalMigrationsToRollback - 1)
-      {
+      if ($index === $totalMigrationsToRollback - 1) {
         break;
       }
 
@@ -294,7 +345,8 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
    */
   public function last(): string|false
   {
-    $query = "SELECT migration FROM {$this->getMigrationsTableName()} ORDER BY ran_at DESC LIMIT 1";
+    $migrationsTableName = self::getMigrationsTableName();
+    $query = "SELECT migration FROM $migrationsTableName ORDER BY ran_at DESC LIMIT 1";
     $statement = $this->query($query);
 
     if (false === $statement)
