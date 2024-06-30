@@ -103,10 +103,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
         return false;
       }
 
-      if (false === $this->beginTransaction()) {
-        $this->output->writeln("<error>Failed to begin the transaction</error>\n");
-        return false;
-      }
+      $this->beginTransaction();
 
       try {
         $statement = $this->query($sql);
@@ -222,10 +219,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
         return false;
       }
 
-      if (false === $this->beginTransaction()) {
-        $this->output->writeln(" <error>Failed to begin the transaction</error>\n", OutputInterface::VERBOSITY_VERBOSE);
-        return false;
-      }
+      $this->beginTransaction();
 
       try {
         $statement = $this->query($sql);
