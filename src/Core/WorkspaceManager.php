@@ -110,8 +110,7 @@ class WorkspaceManager
     ];
     $targetAssegaiConfigPath = Path::join($projectDirectory, 'assegai.json');
 
-    if (! file_put_contents($targetAssegaiConfigPath, json_encode($assegaiConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) )
-    {
+    if (! file_put_contents($targetAssegaiConfigPath, json_encode($assegaiConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) ) {
       $this->output->writeln("<error>\nFailed to create assegai.json file</error>");
       return Command::FAILURE;
     }
@@ -129,6 +128,7 @@ class WorkspaceManager
       "type" => $type,
       "scripts" => [
         "start" => "php -S localhost:5000 bootstrap.php",
+        "test"  => "vendor/bin/pest"
       ],
       "license" => "MIT",
       "autoload" => [
@@ -146,15 +146,13 @@ class WorkspaceManager
     ];
     $targetComposerConfigPath = Path::join($projectDirectory, 'composer.json');
 
-    if (! file_put_contents($targetComposerConfigPath, json_encode($composerConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) )
-    {
+    if (! file_put_contents($targetComposerConfigPath, json_encode($composerConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) ) {
       $this->output->writeln("<error>\nFailed to create composer.json file</error>");
       return Command::FAILURE;
     }
 
     # Update namespace in project files
-    if (($statusCode = $this->updateNamespace($projectDirectory, $namespace)) > 0)
-    {
+    if (($statusCode = $this->updateNamespace($projectDirectory, $namespace)) > 0) {
       $this->output->writeln("<error>\nFailed to update namespace in project files</error>");
       return $statusCode;
     }
