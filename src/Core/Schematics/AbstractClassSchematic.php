@@ -2,10 +2,10 @@
 
 namespace Assegai\Console\Core\Schematics;
 
-use Assegai\Console\Core\Formatting\InlineAttributePropertiesFormatter;
-use Assegai\Console\Core\Formatting\StackedAttributePropertiesFormatter;
 use Assegai\Console\Core\Interfaces\SchematicInterface;
 use Assegai\Console\Core\Schematics\Enumerations\ClassTemplate;
+use Assegai\Console\Core\Schematics\Traits\SchematicModuleManagementTrait;
+use Assegai\Console\Core\Schematics\Traits\SchematicPathIntrospectionTrait;
 use Assegai\Console\Util\Config\ComposerConfig;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
@@ -14,8 +14,16 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * Class AbstractClassSchematic. This class represents a class schematic.
+ *
+ * @package Assegai\Console\Core\Schematics
+ */
 abstract class AbstractClassSchematic implements SchematicInterface
 {
+  use SchematicPathIntrospectionTrait;
+  use SchematicModuleManagementTrait;
+
   /**
    * The namespace of the class
    *
@@ -104,24 +112,6 @@ abstract class AbstractClassSchematic implements SchematicInterface
   }
 
   /**
-   * For the AppModule.php file update.
-   *
-   * @return array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} The array of statements for the AppModule.php file
-   */
-  public function getModuleUpdates(): array
-  {
-    return [
-      'use' => [],
-      'declare' => [],
-      'provide' => [],
-      'control' => [],
-      'import' => [],
-      'export' => [],
-      'config' => [],
-    ];
-  }
-
-  /**
    * @inheritDoc
    */
   public function build(): int
@@ -144,71 +134,57 @@ namespace $this->namespace;
 
 PHP;
 
-    foreach ($this->regex as $regex)
-    {
+    foreach ($this->regex as $regex) {
       extract($regex);
       $content = preg_replace($pattern, $replacement, $content ?? '');
     }
 
     # Create the directory recursively if it doesn't exist
     $dir = dirname($this->getFilePath());
-    if (false === is_dir($dir) )
-    {
-      if (false === mkdir($dir, 0755, true) )
-      {
+    if (false === is_dir($dir) ) {
+      if (false === mkdir($dir, 0755, true) ) {
         $this->output->writeln("<error>Failed to create the directory: $dir</error>");
         return Command::FAILURE;
       }
     }
 
-    if (file_exists($this->getFilePath()) )
-    {
+    if (file_exists($this->getFilePath()) ) {
       $this->output->writeln("<error>File already exists: {$this->getRelativeFilename()}</error>");
       return Command::FAILURE;
     }
 
-    if (false === touch($this->getFilePath()) )
-    {
+    if (false === touch($this->getFilePath()) ) {
       $this->output->writeln("<error>Failed to create the file: $this->path</error>");
       return Command::FAILURE;
     }
 
     # Write to the file
-    if (! is_writable($this->getFilePath()) )
-    {
+    if (! is_writable($this->getFilePath()) ) {
       $this->output->writeln("<error>File is not writable: {$this->getFileName()}</error>");
       return Command::FAILURE;
     }
 
-    if (! is_file($this->getFilePath()) )
-    {
+    if (! is_file($this->getFilePath()) ) {
       $this->output->writeln("<error>File does not exist: {$this->getFileName()}</error>");
       return Command::FAILURE;
     }
 
     $bytes = file_put_contents($this->getFilePath(), $content);
 
-    if (false === $bytes)
-    {
+    if (false === $bytes) {
       $this->output->writeln("<error>Failed to write to the file: {$this->getFileName()}</error>");
       return Command::FAILURE;
     }
 
     $this->output->writeln("<info>CREATE</info> {$this->getRelativeFilename()} ($bytes bytes)");
 
-    if ($this->inspector->isValidWorkspace(getcwd() ?: ''))
-    {
-      if ($localModuleFilename = $this->getLocalModuleFilename())
-      {
-        if (($status = $this->updateLocalModule($localModuleFilename, $this->getModuleUpdates()) ) !== Command::SUCCESS)
-        {
+    if ($this->inspector->isValidWorkspace(getcwd() ?: '')) {
+      if ($localModuleFilename = $this->getLocalModuleFilename()) {
+        if (($status = $this->updateLocalModule($localModuleFilename, $this->getModuleUpdates()) ) !== Command::SUCCESS) {
           return $status;
         }
-      }
-      else
-      {
-        if (($status = $this->updateAppModule($this->getModuleUpdates()) ) !== Command::SUCCESS)
-        {
+      } else {
+        if (($status = $this->updateAppModule($this->getModuleUpdates()) ) !== Command::SUCCESS) {
           return $status;
         }
       }
@@ -222,21 +198,12 @@ PHP;
    */
   public function tearDown(): int
   {
-    if (false === unlink($this->path) )
-    {
+    if (false === unlink($this->path) ) {
       $this->output->writeln("<error>Failed to delete the file: $this->path</error>");
       return Command::FAILURE;
     }
 
     return Command::SUCCESS;
-  }
-
-  public function getClassName(): string
-  {
-    $prefix = $this->prefix ? $this->prefix . '-' : '';
-    $suffix = $this->suffix ? '-' . $this->suffix : '';
-
-    return (new Text($prefix . $this->name . $suffix))->pascalCase();
   }
 
   /**
@@ -389,113 +356,8 @@ PHP;
   }
 
   /**
-   * Get the file path.
-   *
-   * @return string The file path
+   * @return string
    */
-  protected function getFilePath(): string
-  {
-    return Path::join($this->path, $this->getRelativeFilename());
-  }
-
-  /**
-   * Get the filename.
-   *
-   * @return string The filename
-   */
-  protected function getFileName(): string
-  {
-    return $this->getClassName() . '.php';
-  }
-
-  /**
-   * Get the relative filename.
-   *
-   * @return string The relative filename
-   */
-  protected function getRelativeFilename(): string
-  {
-    $tail = '';
-
-    if ($this->inspector->isValidWorkspace(getcwd() ?: ''))
-    {
-      $tail = 'src';
-    }
-
-    if (! $this->isFlat )
-    {
-      if ($this->subdirectory)
-      {
-        $tokens = explode('/', $this->subdirectory);
-        foreach ($tokens as $token)
-        {
-          $tail = Path::join($tail, (new Text($token))->pascalCase());
-        }
-      }
-      $tail = Path::join($tail, $this->properName);
-    }
-
-    return Path::join($tail, $this->getFileName());
-  }
-
-  /**
-   * Get the relative local module filename.
-   *
-   * @return string The relative local module filename
-   */
-  protected function getRelativeLocalModuleFilePath(string $localModuleFilename): string
-  {
-    return Path::join(dirname($this->getRelativeFilename()), $localModuleFilename);
-  }
-
-  /**
-   * Update the AppModule.php file.
-   *
-   * @param array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} $props
-   * @return int The status of the update.
-   */
-  protected function updateAppModule(
-    array $props = [
-      'use' => [],
-      'declare' => [],
-      'provide' => [],
-      'control' => [],
-      'import' => [],
-      'export' => [],
-      'config' => [],
-    ]
-  ): int
-  {
-    // TODO: Implement updateAppModule() method.
-    $filename = Path::join('src', 'AppModule.php');
-    $filePath = Path::join(getcwd() ?: '', $filename);
-
-    if (! file_exists($filePath) )
-    {
-      $this->output->writeln("<error>File does not exist: $filename</error>");
-      return Command::FAILURE;
-    }
-    $content = file_get_contents($filePath);
-
-    if (! $content)
-    {
-      $this->output->writeln("<error>Could not read $filename</error>");
-      return Command::FAILURE;
-    }
-
-    $content = $this->getUpdatedAppModuleContent($content, $props);
-
-    $bytes = file_put_contents($filePath, $content);
-    if (false === $bytes)
-    {
-      $this->output->writeln("<error>Could not write to $filename</error>");
-      return Command::FAILURE;
-    }
-
-    $this->output->writeln("<fg=bright-blue>UPDATE</> src/AppModule.php ($bytes bytes)");
-    return Command::SUCCESS;
-  }
-
   protected function getClassAncestors(): string
   {
     $render = '';
@@ -511,160 +373,5 @@ PHP;
     }
 
     return $render;
-  }
-
-  /**
-   * Get the updated AppModule.php content.
-   *
-   * @param string $content The content of the AppModule.php file
-   * @param array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} $props The properties for the update
-   * @return string The updated content of the AppModule.php file
-   */
-  protected function getUpdatedAppModuleContent(string $content, array $props): string
-  {
-    $output = $content;
-
-    foreach ($props as $prop => $values)
-    {
-      if ($prop === 'use')
-      {
-        // TODO: Replace the use statements
-
-        continue;
-      }
-
-      $matches = [];
-      $pattern = "/$prop: \[([\w:,\s]*)]/";
-      $oldValues = [];
-      if (preg_match($pattern, $output ?? '', $matches))
-      {
-        $oldValues = explode(',', $matches[1] ?? '');
-      }
-
-      $newValues = [...$oldValues, ...$values];
-      if ((count($values) + count($oldValues)) > 3)
-      {
-        $replacements = "\n" . implode(",\n", array_map(fn($value) => "    $value", $newValues)) . "\n  ";
-      }
-      else
-      {
-        $replacements = implode(', ', $newValues);
-      }
-
-      $output = preg_replace($pattern, "$prop: [$replacements]", $output ?? '');
-    }
-
-    return $output ?? '';
-  }
-
-  /**
-   * Retrieve the local module filename if it exists.
-   *
-   * @return false|string The local module filename, or false if not found
-   */
-  private function getLocalModuleFilename(): false|string
-  {
-    $workingDirectory = dirname($this->getFilePath());
-    $localFiles = scandir($workingDirectory);
-
-    if (false === $localFiles)
-    {
-      $this->output->writeln("<error>Failed to scan the directory: $workingDirectory</error>");
-      return false;
-    }
-
-    foreach ($localFiles as $file)
-    {
-      if (str_ends_with($file, 'Module.php'))
-      {
-        return $file;
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * Update the local module file.
-   *
-   * @param string $localModuleFilename The local module filename
-   * @param array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} $props
-   * @return int The status of the update
-   */
-  protected function updateLocalModule(
-    string $localModuleFilename,
-    array $props
-  ): int
-  {
-    // TODO: Implement updateLocalModule() method.
-
-    $relativeLocalModuleFilename = $this->getRelativeLocalModuleFilePath($localModuleFilename);
-    $modulePropertyNameMap = [
-      'use' => 'use',
-      'declare' => 'declarations',
-      'provide' => 'providers',
-      'control' => 'controllers',
-      'import' => 'imports',
-      'export' => 'exports',
-    ];
-    $moduleFileContent = file_get_contents($relativeLocalModuleFilename) ?: '';
-
-    $bytes = 0;
-    foreach ($props as $prop => $values)
-    {
-      $propertyName = $modulePropertyNameMap[$prop] ?? '';
-      if ($prop === 'use')
-      {
-        // TODO: Fix the use statements
-        continue;
-      }
-
-      if (! $propertyName)
-      {
-        continue;
-      }
-
-      $formatter = new InlineAttributePropertiesFormatter($propertyName);
-      $oldValues = $formatter->extractValues($moduleFileContent ?? '');
-
-      if (count($oldValues) + count($values) > 3)
-      {
-        $formatter = new StackedAttributePropertiesFormatter($propertyName);
-      }
-
-      $formatter->addValues($values);
-      $moduleFileContent = preg_replace($formatter->getPattern(), $formatter->getFormatted($moduleFileContent ?? ''), $moduleFileContent ?? '');
-    }
-
-    $bytesToAdd = file_put_contents($relativeLocalModuleFilename, $moduleFileContent);
-    if (false === $bytesToAdd)
-    {
-      $this->output->writeln("<error>Failed to write to the file: $relativeLocalModuleFilename</error>");
-      return Command::FAILURE;
-    }
-    $bytes += $bytesToAdd;
-
-    $this->output->writeln("<fg=bright-blue>UPDATE</> $relativeLocalModuleFilename ($bytes bytes)");
-    return Command::SUCCESS;
-  }
-
-  /**
-   * Retrieve the resolved namespace suffix.
-   *
-   * @return string The resolved namespace suffix
-   */
-  public function getResolvedNamespaceSuffix(): string
-  {
-    $namespaceSuffix = '';
-    if ($this->subdirectory)
-    {
-      $tokens = explode('/', $this->subdirectory);
-      foreach ($tokens as $token)
-      {
-        $namespaceSuffix .= '\\' . (new Text($token))->pascalCase();
-      }
-    }
-
-    return $namespaceSuffix . '\\' . $this->properName;
   }
 }

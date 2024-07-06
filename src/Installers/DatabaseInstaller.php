@@ -65,7 +65,7 @@ class DatabaseInstaller extends AbstractInstaller
     foreach ($databaseChoices as $database)
     {
       $this->output->writeln('');
-      $this->output->writeln($this->formatter->formatBlock("Configuring $database database...", 'question'));
+      $this->output->writeln($this->formatter->formatBlock("Configuring $database database...", 'question', true));
       $this->output->writeln('');
 
       if ($missingExtensions = $this->checkForMissingExtensions($this->requiredExtensions[$database]))

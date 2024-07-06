@@ -110,8 +110,7 @@ class WorkspaceManager
     ];
     $targetAssegaiConfigPath = Path::join($projectDirectory, 'assegai.json');
 
-    if (! file_put_contents($targetAssegaiConfigPath, json_encode($assegaiConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) )
-    {
+    if (! file_put_contents($targetAssegaiConfigPath, json_encode($assegaiConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) ) {
       $this->output->writeln("<error>\nFailed to create assegai.json file</error>");
       return Command::FAILURE;
     }
@@ -123,12 +122,17 @@ class WorkspaceManager
     $defaultNamespace = Text::snakeCaseToPascalCase($vendor) . '\\' . Text::snakeCaseToPascalCase($package) . '\\';
     $namespace = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Namespace: <fg=gray>($defaultNamespace)</> ", $defaultNamespace));
 
+    if (! str_ends_with($namespace, '\\') ) {
+      $namespace .= '\\';
+    }
+
     $composerConfig = [
       "name" => $packageName,
       "description" => $description ,
       "type" => $type,
       "scripts" => [
         "start" => "php -S localhost:5000 bootstrap.php",
+        "test"  => "vendor/bin/pest"
       ],
       "license" => "MIT",
       "autoload" => [
@@ -146,15 +150,13 @@ class WorkspaceManager
     ];
     $targetComposerConfigPath = Path::join($projectDirectory, 'composer.json');
 
-    if (! file_put_contents($targetComposerConfigPath, json_encode($composerConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) )
-    {
+    if (! file_put_contents($targetComposerConfigPath, json_encode($composerConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) ) {
       $this->output->writeln("<error>\nFailed to create composer.json file</error>");
       return Command::FAILURE;
     }
 
     # Update namespace in project files
-    if (($statusCode = $this->updateNamespace($projectDirectory, $namespace)) > 0)
-    {
+    if (($statusCode = $this->updateNamespace($projectDirectory, $namespace)) > 0) {
       $this->output->writeln("<error>\nFailed to update namespace in project files</error>");
       return $statusCode;
     }
@@ -164,10 +166,8 @@ class WorkspaceManager
     if (
       is_installed('git') &&
       $this->questionHelper->ask($this->input, $this->output, $initGitQuestion)
-    )
-    {
-      if ( boolval($this->input->getOption('skip-git')) !== true )
-      {
+    ) {
+      if ( boolval($this->input->getOption('skip-git')) !== true ) {
         $this->output->writeln('');
         $this->output->writeln(
           $this->formatter->formatBlock('Initializing git repository...', 'question', true),
@@ -175,8 +175,7 @@ class WorkspaceManager
         );
         $gitInit = `cd $projectDirectory && git init`;
 
-        if (! str_contains($gitInit, 'Initialized empty Git repository') )
-        {
+        if (! str_contains($gitInit, 'Initialized empty Git repository') ) {
           $this->output->writeln("<error>\nFailed to initialize git repository</error>");
           return Command::FAILURE;
         }
