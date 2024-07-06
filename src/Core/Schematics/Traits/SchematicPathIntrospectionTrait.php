@@ -5,6 +5,11 @@ namespace Assegai\Console\Core\Schematics\Traits;
 use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
 
+/**
+ * The schematic path introspection trait.
+ *
+ * @package Assegai\Console\Core\Schematics\Traits
+ */
 trait SchematicPathIntrospectionTrait
 {
 
@@ -50,18 +55,14 @@ trait SchematicPathIntrospectionTrait
   {
     $tail = '';
 
-    if ($this->inspector->isValidWorkspace(getcwd() ?: ''))
-    {
+    if ($this->inspector->isValidWorkspace(getcwd() ?: '')) {
       $tail = 'src';
     }
 
-    if (! $this->isFlat )
-    {
-      if ($this->subdirectory)
-      {
+    if (property_exists($this, 'isFlat') && ! $this->isFlat ) {
+      if ($this->subdirectory) {
         $tokens = explode('/', $this->subdirectory);
-        foreach ($tokens as $token)
-        {
+        foreach ($tokens as $token) {
           $tail = Path::join($tail, (new Text($token))->pascalCase());
         }
       }
@@ -89,11 +90,9 @@ trait SchematicPathIntrospectionTrait
   public function getResolvedNamespaceSuffix(): string
   {
     $namespaceSuffix = '';
-    if ($this->subdirectory)
-    {
+    if ($this->subdirectory) {
       $tokens = explode('/', $this->subdirectory);
-      foreach ($tokens as $token)
-      {
+      foreach ($tokens as $token) {
         $namespaceSuffix .= '\\' . (new Text($token))->pascalCase();
       }
     }
