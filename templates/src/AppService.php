@@ -11,7 +11,7 @@ class AppService
 {
   public function home(): View
   {
-    return new View('index', [
+    return view('index', [
       'title' => 'Muli Bwanji',
       'subtitle' => '&ndash;&ndash; AssegaiPHP &ndash;&ndash;>',
       'welcomeLink' => Config::get('contact')['links']['assegai_website'],
