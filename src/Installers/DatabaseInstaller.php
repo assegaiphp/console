@@ -2,12 +2,11 @@
 
 namespace Assegai\Console\Installers;
 
-use Assegai\Console\Installers\AbstractInstaller;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Console\Question\Question;
+use function Laravel\Prompts\multiselect;
 
 /**
  * Class DatabaseInstaller. Installs the database.
@@ -54,13 +53,7 @@ class DatabaseInstaller extends AbstractInstaller
     $this->output->writeln('');
 
     // Ask what database to use.
-    $databaseChoiceQuestion = new ChoiceQuestion(
-      '<info>?</info> Which database do you want to use? <fg=gray>(comma separated)</> ',
-      $this->supportedDatabase,
-      0
-    );
-    $databaseChoiceQuestion->setMultiselect(true);
-    $databaseChoices = $this->questionHelper->ask($this->input, $this->output, $databaseChoiceQuestion);
+    $databaseChoices = multiselect('<info>?</info> Which database do you want to use? <fg=gray>(comma separated)</> ', $this->supportedDatabase, [$this->supportedDatabase[0]]);
 
     foreach ($databaseChoices as $database)
     {

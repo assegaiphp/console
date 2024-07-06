@@ -7,6 +7,7 @@ use Assegai\Console\Util\Config\AppConfig;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
+use Illuminate\Support\Collection;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\QuestionHelper;
@@ -14,7 +15,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\ChoiceQuestion;
+use function Laravel\Prompts\select;
 
 /**
  * Class MigrationCreate. This class is a command that creates a new migration.
@@ -92,9 +93,10 @@ class MigrationCreate extends Command
 
     if (! $dbName ) {
       $path = "databases.$type";
+
+      /** @var array<int|string, string>|Collection<int|string, string> $databases */
       $databases = array_keys($config->get($path, []));
-      $question = new ChoiceQuestion("<info>?</info> Which <question>$type</question> database would you like to create the migration for? ", $databases, 0);
-      $dbName = $helper->ask($input, $output, $question);
+      $dbName = select("<info>?</info> Which <question>$type</question> database would you like to create the migration for? ", $databases, 0);;
     }
 
     // Get the migration name
