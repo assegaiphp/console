@@ -29,7 +29,7 @@
     <img src="/images/logo.png" width="300" />
   </div>
   <h2 class="title"><?= $title ?? 'N/A'; ?></h2>
-  <h3 class="subtitle">Congratulations! <?= $name ?? 'N/A'; ?> is running. 🥳🎉🥳</h3>
+  <h3 class="subtitle"><?= $subtitle ?? 'N/A'; ?></h3>
   <br>
   <div class="row">
     <div class="spacer"></div>
