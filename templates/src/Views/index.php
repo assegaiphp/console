@@ -28,10 +28,9 @@
   <div class="row">
     <img src="/images/logo.png" width="300" />
   </div>
-  <br>
   <h2 class="title"><?= $title ?? 'N/A'; ?></h2>
+  <h3 class="subtitle">Congratulations! <?= $name ?? 'N/A'; ?> is running. 🥳🎉🥳</h3>
   <br>
-  <p>Congratulations! Your app, <?= $name ?? 'N/A'; ?> is running.</p>
   <div class="row">
     <div class="spacer"></div>
     <div class="col col-4">
