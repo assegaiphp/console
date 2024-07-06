@@ -2,8 +2,6 @@
 
 namespace Assegai\Console\Core\Schematics;
 
-use Assegai\Console\Core\Schematics\AbstractFileSchematic;
-
 /**
  * The stylesheet schematic.
  *
