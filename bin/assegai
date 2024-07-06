@@ -19,6 +19,7 @@ use Assegai\Console\Commands\Migration\MigrationSetup;
 use Assegai\Console\Commands\Migration\MigrationUp;
 use Assegai\Console\Commands\NewProject;
 use Assegai\Console\Commands\Serve;
+use Assegai\Console\Commands\Test;
 use Assegai\Console\Commands\Update;
 use Assegai\Console\Commands\Version;
 use Symfony\Component\Console\Application;
@@ -59,6 +60,7 @@ function bootstrap(): void
         new NewProject(),
         new Info(),
         new Serve(),
+        new Test(),
         new Update(),
         new Version(),
       ]);

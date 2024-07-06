@@ -122,6 +122,10 @@ class WorkspaceManager
     $defaultNamespace = Text::snakeCaseToPascalCase($vendor) . '\\' . Text::snakeCaseToPascalCase($package) . '\\';
     $namespace = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Namespace: <fg=gray>($defaultNamespace)</> ", $defaultNamespace));
 
+    if (! str_ends_with($namespace, '\\') ) {
+      $namespace .= '\\';
+    }
+
     $composerConfig = [
       "name" => $packageName,
       "description" => $description ,
@@ -162,10 +166,8 @@ class WorkspaceManager
     if (
       is_installed('git') &&
       $this->questionHelper->ask($this->input, $this->output, $initGitQuestion)
-    )
-    {
-      if ( boolval($this->input->getOption('skip-git')) !== true )
-      {
+    ) {
+      if ( boolval($this->input->getOption('skip-git')) !== true ) {
         $this->output->writeln('');
         $this->output->writeln(
           $this->formatter->formatBlock('Initializing git repository...', 'question', true),
@@ -173,8 +175,7 @@ class WorkspaceManager
         );
         $gitInit = `cd $projectDirectory && git init`;
 
-        if (! str_contains($gitInit, 'Initialized empty Git repository') )
-        {
+        if (! str_contains($gitInit, 'Initialized empty Git repository') ) {
           $this->output->writeln("<error>\nFailed to initialize git repository</error>");
           return Command::FAILURE;
         }
