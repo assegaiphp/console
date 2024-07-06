@@ -11,6 +11,7 @@ use Assegai\Console\Core\Migrations\MySQLDatabaseMigrator;
 use Assegai\Console\Util\Config\AppConfig;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
+use Illuminate\Support\Collection;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\QuestionHelper;
@@ -18,7 +19,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\ChoiceQuestion;
+use function Laravel\Prompts\select;
 
 #[AsCommand(
     name: 'migration:down',
@@ -74,8 +75,7 @@ class MigrationDown extends Command
       $databaseTypes = array_intersect($databaseTypes, $configuredTypes);
       $databaseTypeChoices = array_values($databaseTypes);
 
-      $question = new ChoiceQuestion('Select the type of the database', $databaseTypeChoices);
-      $databaseType = $helper->ask($input, $output, $question);
+      $databaseType = select('Select the type of the database', $databaseTypeChoices);
     }
 
     $databaseType = DatabaseType::tryFrom($databaseType);
@@ -94,9 +94,9 @@ class MigrationDown extends Command
     }
 
     if (! $dbName ) {
+      /** @var array<int|string, string>|Collection<int|string, string> $databaseChoices */
       $databaseChoices = array_keys($appConfig->get("databases.$databaseType->value", []));
-      $question = new ChoiceQuestion("<info>?</info> Which <question>$databaseType->value</question> database do you want to run the migrations on? ", $databaseChoices);
-      $dbName = $helper->ask($input, $output, $question);
+      $dbName = select("<info>?</info> Which <question>$databaseType->value</question> database do you want to run the migrations on? ", $databaseChoices);
     }
 
     if (! $this->isValidDbName($dbName, $databaseType->value, $input, $output) ) {

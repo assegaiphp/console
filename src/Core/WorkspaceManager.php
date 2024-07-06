@@ -220,13 +220,11 @@ class WorkspaceManager
     );
 
     // Run the database installer
-    if ($status = $databaseInstaller->install())
-    {
+    if ($status = $databaseInstaller->install()) {
       return $status;
     }
 
-    if ($status = $dependencyInstaller->install() )
-    {
+    if ($status = $dependencyInstaller->install() ) {
       return $status;
     }
 
