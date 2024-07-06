@@ -126,8 +126,7 @@ class Inspector
   public function getInstalledFrameworkVersion(?string $workingDirectory = null): string
   {
     $workingDirectory = $workingDirectory ?? getcwd();
-    if (false === $workingDirectory)
-    {
+    if (false === $workingDirectory) {
       return 'Not installed';
     }
 
@@ -149,17 +148,13 @@ class Inspector
     bool $isGlobal = false
   ): false|string
   {
-    if (! $this->packageIsInstalledGlobally($packageName) )
-    {
+    if (! $this->packageIsInstalledGlobally($packageName) ) {
       return false;
     }
 
-    try
-    {
+    try {
       return $this->installedVersions->getVersion($packageName) ?? false;
-    }
-    catch (OutOfBoundsException $e)
-    {
+    } catch (OutOfBoundsException $e) {
       return $e->getMessage();
     }
   }

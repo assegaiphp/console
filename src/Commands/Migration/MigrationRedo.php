@@ -49,14 +49,12 @@ class MigrationRedo extends Command
     $numberOfMigrations = $input->getOption('steps') ?? 1;
     $application = $this->getApplication();
 
-    if (!$application)
-    {
+    if (!$application) {
       $output->writeln("<error>Failed to get the application</error>");
       return Command::FAILURE;
     }
 
-    if (!is_numeric($numberOfMigrations))
-    {
+    if (!is_numeric($numberOfMigrations)) {
       $output->writeln("<error>The number of migrations must be a number</error>");
       return Command::FAILURE;
     }
@@ -66,11 +64,10 @@ class MigrationRedo extends Command
     $downInput = new ArrayInput([
       'command' => 'migration:down',
       'database' => $database,
-      '--migrations' => $numberOfMigrations,
+      '--steps' => $numberOfMigrations,
       '--database_type' => $databaseType
     ]);
-    if (Command::SUCCESS !== $application->doRun($downInput, $output))
-    {
+    if (Command::SUCCESS !== $application->doRun($downInput, $output)) {
       $output->writeln("<error>Failed to undo the migrations</error>");
       return Command::FAILURE;
     }
@@ -78,11 +75,10 @@ class MigrationRedo extends Command
     $upInput = new ArrayInput([
       'command' => 'migration:up',
       'database' => $database,
-      '--migrations' => $numberOfMigrations,
+      '--steps' => $numberOfMigrations,
       '--database_type' => $databaseType
     ]);
-    if (Command::SUCCESS !== $application->doRun($upInput, $output))
-    {
+    if (Command::SUCCESS !== $application->doRun($upInput, $output)) {
       $output->writeln("<error>Failed to redo the migrations</error>");
       return Command::FAILURE;
     }

@@ -4,8 +4,16 @@ namespace Assegai\Console\Core\Schematics;
 
 use Override;
 
+/**
+ * Class ControllerSchematic
+ *
+ * @package Assegai\Console\Core\Schematics
+ */
 class ControllerSchematic extends AbstractClassSchematic
 {
+  /**
+   * @inheritDoc
+   */
   public function configure(): void
   {
     $this->suffix = 'controller';

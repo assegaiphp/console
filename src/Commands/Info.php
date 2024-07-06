@@ -29,8 +29,7 @@ class Info extends Command
    */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
-    if ($headerContent = file_get_contents(__DIR__ . '/../../assets/header.txt') )
-    {
+    if ($headerContent = file_get_contents(__DIR__ . '/../../assets/header.txt') ) {
       $output->writeln("<fg=red>$headerContent</>");
     }
 
@@ -39,8 +38,7 @@ class Info extends Command
     $inspector = new Inspector($input, $output);
     $directory = $input->getOption('directory');
     $osFamily = PHP_OS_FAMILY;
-    if (PHP_EXTRA_VERSION)
-    {
+    if (PHP_EXTRA_VERSION) {
       $osFamily .= " (" . PHP_EXTRA_VERSION . ")";
     }
     $phpVersion = PHP_VERSION;
@@ -51,15 +49,13 @@ class Info extends Command
     $output->writeln("<info>PHP Version:</info> $phpVersion");
 
     # Output information about the application
-    if ($inspector->isValidWorkspace($directory))
-    {
+    if ($inspector->isValidWorkspace($directory)) {
       $assegaiVersion = $inspector->getInstalledFrameworkVersion($directory);
       $output->writeln("<info>Assegai Version:</info> $assegaiVersion");
     }
 
     # Output information about the framework
-    if ($inspector->packageIsInstalledGlobally(PACKAGE_NAME_CLI))
-    {
+    if ($inspector->packageIsInstalledGlobally(PACKAGE_NAME_CLI)) {
       $cliVersion = $inspector->getCLIVersion();
       $output->writeln("<info>CLI Version:</info> $cliVersion");
     }
