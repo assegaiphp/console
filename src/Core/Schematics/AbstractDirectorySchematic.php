@@ -135,18 +135,15 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
     // TODO: Implement the scaffold method
 
     // Create the root directory
-    if (! file_exists($this->directoryName) )
-    {
-      if (false === mkdir($this->directoryName) )
-      {
+    if (! file_exists($this->directoryName) ) {
+      if (false === mkdir($this->directoryName) ) {
         $this->output->writeln("<error>Failed creating directory $this->directoryName</error>");
         return false;
       }
     }
 
     // Walk through the structure and create the subdirectories and files
-    foreach ($this->structure as $name => $content)
-    {
+    foreach ($this->structure as $name => $content) {
       // Foreach key value pair in the structure array
 
       // If the value is an array, create a directory with the key name
