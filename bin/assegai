@@ -2,6 +2,7 @@
 
 <?php
 
+use Assegai\Console\Commands\Config;
 use Assegai\Console\Commands\Database\DatabaseConfigure;
 use Assegai\Console\Commands\Database\DatabaseLoad;
 use Assegai\Console\Commands\Database\DatabaseSeed;
@@ -11,11 +12,14 @@ use Assegai\Console\Commands\Generate;
 use Assegai\Console\Commands\Info;
 use Assegai\Console\Commands\Migration\MigrationCreate;
 use Assegai\Console\Commands\Migration\MigrationDown;
+use Assegai\Console\Commands\Migration\MigrationList;
+use Assegai\Console\Commands\Migration\MigrationRedo;
 use Assegai\Console\Commands\Migration\MigrationRefresh;
 use Assegai\Console\Commands\Migration\MigrationSetup;
 use Assegai\Console\Commands\Migration\MigrationUp;
 use Assegai\Console\Commands\NewProject;
 use Assegai\Console\Commands\Serve;
+use Assegai\Console\Commands\Test;
 use Assegai\Console\Commands\Update;
 use Assegai\Console\Commands\Version;
 use Symfony\Component\Console\Application;
@@ -39,6 +43,7 @@ function bootstrap(): void
     $app = new Application('Assegai CLI');
     $app
       ->addCommands([
+        new Config(),
         new DatabaseConfigure(),
         new DatabaseLoad(),
         new DatabaseSeed(),
@@ -46,13 +51,16 @@ function bootstrap(): void
         new DumpAutoload(),
         new Generate(),
         new MigrationCreate(),
+        new MigrationList(),
         new MigrationUp(),
         new MigrationDown(),
         new MigrationRefresh(),
         new MigrationSetup(),
+        new MigrationRedo(),
         new NewProject(),
         new Info(),
         new Serve(),
+        new Test(),
         new Update(),
         new Version(),
       ]);

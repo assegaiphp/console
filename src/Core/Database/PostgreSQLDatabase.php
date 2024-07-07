@@ -4,6 +4,7 @@ namespace Assegai\Console\Core\Database;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\Interfaces\DatabaseConnectionInterface;
+use Assegai\Console\Core\Database\Interfaces\SQLDatabaseConnectionInterface;
 use Assegai\Console\Tests\Mocks\MockInput;
 use Assegai\Console\Tests\Mocks\MockOutput;
 use Assegai\Console\Util\Config\DBConfig;
@@ -23,7 +24,7 @@ use Symfony\Component\Console\Question\Question;
  *
  * @package Assegai\Console\Core\Database
  */
-class PostgreSQLDatabase extends PDO implements DatabaseConnectionInterface
+class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 {
   /**
    * @var Inspector
@@ -198,7 +199,7 @@ class PostgreSQLDatabase extends PDO implements DatabaseConnectionInterface
   /**
    * @inheritDoc
    */
-  public static function setup(?string $name = null): int
+  public static function setup(string $name): int
   {
     $input = new MockInput();
     $output = new ConsoleOutput();
@@ -296,8 +297,62 @@ class PostgreSQLDatabase extends PDO implements DatabaseConnectionInterface
     return Command::SUCCESS;
   }
 
+  /**
+   * @inheritDoc
+   */
   public static function getMigrationsTableName(): string
   {
     return '__migrations';
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function hasTable(string $tableName): bool
+  {
+    $query = "SELECT EXISTS (
+      SELECT FROM information_schema.tables
+      WHERE table_schema = 'public'
+      AND table_name = '$tableName'
+    )";
+
+    $result = $this->query($query);
+
+    if (false === $result)
+    {
+      $this->output->writeln("<error>Failed to check if the table exists.</error>\n");
+      return false;
+    }
+
+    if (0 === $result->rowCount())
+    {
+      $this->output->writeln("<comment>Table $tableName does not exist.</comment>\n");
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function createMigrationsTable(): int
+  {
+    $migrationsTableName = self::getMigrationsTableName();
+    $query = "CREATE TABLE IF NOT EXISTS $migrationsTableName (
+      migration VARCHAR(255) NOT NULL PRIMARY KEY,
+      ran_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )";
+
+    $result = $this->exec($query);
+
+    if (false === $result)
+    {
+      $this->output->writeln("<error>Failed to create the migrations table.</error>\n");
+      return Command::FAILURE;
+    }
+
+    $this->output->writeln("<info>Migrations table created.</info>\n");
+    return Command::SUCCESS;
   }
 }

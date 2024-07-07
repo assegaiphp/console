@@ -86,7 +86,7 @@ class ComposerConfig implements ConfigInterface
    */
   public function has(string $path): bool
   {
-    // TODO: Implement has() method.
+    return $this->get($path) !== null;
   }
 
   /**
@@ -122,7 +122,7 @@ class ComposerConfig implements ConfigInterface
   public function commit(): int
   {
     $composerJsonPath = Path::join($this->workingDirectory ?? '', 'composer.json');
-    if (false === file_put_contents($composerJsonPath, json_encode($this->composerJson, JSON_PRETTY_PRINT)) )
+    if (false === file_put_contents($composerJsonPath, json_encode($this->composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) )
     {
       $this->output->writeln('<error>Failed to write to composer.json</error>');
       return Command::FAILURE;

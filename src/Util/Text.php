@@ -388,6 +388,16 @@ class Text implements Stringable
   }
 
   /**
+   * Returns the camel case of the word.
+   *
+   * @return string The camel case of the word.
+   */
+  public function camelCase(): string
+  {
+    return lcfirst($this->pascalCase());
+  }
+
+  /**
    * Returns the sentence case of the word.
    *
    * @return string The sentence case of the word.

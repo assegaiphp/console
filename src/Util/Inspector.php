@@ -88,11 +88,22 @@ class Inspector
     $bootstrapFilename = BOOTSTRAP_FILE;
     if (! file_exists(Path::join($workspaceDirectory, $bootstrapFilename)) )
     {
-      $this->output->writeln("Workspace $workspaceDirectory does not have an $bootstrapFilename file.", OutputInterface::VERBOSITY_VERBOSE);
+      $this->output->writeln("Workspace $workspaceDirectory does not have a $bootstrapFilename file.", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
 
     return true;
+  }
+
+  /**
+   * Check if the given path is not a valid project directory.
+   *
+   * @param string $workspaceDirectory The path to check.
+   * @return bool
+   */
+  public function isNotAValidWorkspace(string $workspaceDirectory): bool
+  {
+    return ! $this->isValidWorkspace($workspaceDirectory);
   }
 
   /**
@@ -115,8 +126,7 @@ class Inspector
   public function getInstalledFrameworkVersion(?string $workingDirectory = null): string
   {
     $workingDirectory = $workingDirectory ?? getcwd();
-    if (false === $workingDirectory)
-    {
+    if (false === $workingDirectory) {
       return 'Not installed';
     }
 
@@ -138,17 +148,13 @@ class Inspector
     bool $isGlobal = false
   ): false|string
   {
-    if (! $this->packageIsInstalledGlobally($packageName) )
-    {
+    if (! $this->packageIsInstalledGlobally($packageName) ) {
       return false;
     }
 
-    try
-    {
+    try {
       return $this->installedVersions->getVersion($packageName) ?? false;
-    }
-    catch (OutOfBoundsException $e)
-    {
+    } catch (OutOfBoundsException $e) {
       return $e->getMessage();
     }
   }

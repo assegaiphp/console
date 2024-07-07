@@ -4,8 +4,8 @@ namespace Assegai\Console\Installers;
 
 use Assegai\Console\Util\Config\ProjectConfig;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\Question;
+use function Laravel\Prompts\select;
 
 class SQLiteInstaller extends AbstractInstaller
 {
@@ -19,13 +19,11 @@ class SQLiteInstaller extends AbstractInstaller
 
     $connectionOptions = ['on-disk', 'in-memory', 'in-memory (persistent)'];
 
-    $connectionTypeQuestion = new ChoiceQuestion("<info>?</info> Connection type: ", $connectionOptions, 0);
-
     $dbNameQuestion = new Question("<info>?</info> Database name: ");
     $dbName = $this->questionHelper->ask($this->input, $this->output, $dbNameQuestion);
 
     $defaultPath = DEFAULT_SQLITE_PATH;
-    $path = 'sqlite:' . match ($connectionType = $this->questionHelper->ask($this->input, $this->output, $connectionTypeQuestion)) {
+    $path = 'sqlite:' . match (select("<info>?</info> Connection type: ", $connectionOptions, 0)) {
       'in-memory' => '',
       'in-memory (persistent)' => ':memory:',
       default => $this

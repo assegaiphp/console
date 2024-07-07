@@ -15,10 +15,10 @@ interface ConfigInterface
    * Get a value from the config file
    *
    * @param string $path The path to the value
-   * @param mixed $default The default value
-   * @return mixed
+   * @param mixed $default The default value. Default is null
+   * @return mixed The value or the default value
    */
-  public function get(string $path, mixed $default): mixed;
+  public function get(string $path, mixed $default = null): mixed;
 
   /**
    * Check if a value exists in the config file
