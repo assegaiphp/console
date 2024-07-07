@@ -75,13 +75,11 @@ function format_block(string $message, string $style): array
   $lines = explode("\n", $message);
   $longestLine = strlen($message);
 
-  foreach ($lines as $line)
-  {
+  foreach ($lines as $line) {
     $longestLine = max(strlen($line), $longestLine);
   }
 
-  foreach ($lines as $index => $line)
-  {
+  foreach ($lines as $index => $line) {
     // TODO: Implement the rest of the function
   }
 
@@ -97,4 +95,22 @@ function format_block(string $message, string $style): array
 function is_installed(string $programName): bool
 {
   return ! empty(`which $programName`);
+}
+
+if (! function_exists('format_bytes') ) {
+  function format_bytes(int $bytes): string
+  {
+    $units = ['bytes', 'kb', 'mb', 'gb', 'tb'];
+    $unit = ' bytes';
+
+    for ($exponent = 0; $exponent < count($units); $exponent++) {
+      if ($bytes < 1024) {
+        $unit = $units[$exponent];
+        break;
+      }
+      $bytes /= 1024;
+    }
+
+    return round($bytes, 2) . " $unit";
+  }
 }

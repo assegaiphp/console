@@ -22,3 +22,4 @@ const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_SQLITE_PATH = 'database.sqlite';
 const BOOTSTRAP_FILE = 'bootstrap.php';
 const DEFAULT_DATABASE_TYPE = DatabaseType::MYSQL->value;
+const DEFAULT_NAMESPACE = 'Assegai\App';
