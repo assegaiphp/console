@@ -12,7 +12,6 @@ use Assegai\Console\Util\Text;
  */
 trait SchematicPathIntrospectionTrait
 {
-
   /**
    * Get the class name.
    *
