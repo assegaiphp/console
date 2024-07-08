@@ -116,22 +116,8 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
     $this->loadNamespaceFromConfig();
 
     $outputStructure = $this->scaffold($this->structure);
-    if (false === $outputStructure ) {
-      $this->output->writeln(sprintf('<error>Failed to create %s</error>', $this->path), OutputInterface::VERBOSITY_VERBOSE);
-      return Command::FAILURE;
-    }
-
     $outputStructure = $this->resolvePathNames($outputStructure);
-    if (false === $outputStructure ) {
-      $this->output->writeln(sprintf('<error>Failed to resolve path names for %s</error>', $this->path), OutputInterface::VERBOSITY_VERBOSE);
-      return Command::FAILURE;
-    }
-
     $outputStructure = $this->resolveContent($outputStructure);
-    if (false === $outputStructure ) {
-      $this->output->writeln(sprintf('<error>Failed to resolve content for %s</error>', $this->path), OutputInterface::VERBOSITY_VERBOSE);
-      return Command::FAILURE;
-    }
 
     $this->totalWrites = 0;
     if (! $this->writeFiles($this->getRootDirectoryPath(), $outputStructure) ) {
@@ -190,9 +176,10 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
    * Scaffold the directory. This method should create the directory if it does not exist as well as any
    * subdirectories and files.
    *
-   * @return array|false Returns the structure of the directory if it was scaffolded successfully, false otherwise
+   * @param array<string, array<string, mixed>|string> $structure The structure of the directory
+   * @return array<string, array<string, mixed>|string> Returns the structure of the directory if it was scaffolded successfully, false otherwise
    */
-  private function scaffold(array $structure): array|false
+  private function scaffold(array $structure): array
   {
     $output = [];
 
@@ -206,10 +193,10 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
   /**
    * Resolves all the directory and file names in the path
    *
-   * @param array $structure The structure of the directory
-   * @return array|false Returns true if the path names were resolved successfully, false otherwise
+   * @param array<string, array<string, mixed>|string> $structure The structure of the directory
+   * @return array<string, array<string, mixed>|string> Returns true if the path names were resolved successfully, false otherwise
    */
-  private function resolvePathNames(array $structure): array|false
+  private function resolvePathNames(array $structure): array
   {
     $output = [];
 
@@ -227,10 +214,10 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
    * Resolves the content of the directory. This method performs any necessary operations to generate the content of
    * the directory.
    *
-   * @param array $structure The structure of the directory
-   * @return array|false Returns true if the content was resolved successfully, false otherwise
+   * @param array<string, array<string, mixed>|string> $structure The structure of the directory
+   * @return array<string, array<string, mixed>|string> Returns true if the content was resolved successfully, false otherwise
    */
-  private function resolveContent(array $structure): array|false
+  private function resolveContent(array $structure): array
   {
     $output = [];
 
@@ -264,7 +251,7 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
    * Write the output of the directory
    *
    * @param string $workingDirectory The working directory
-   * @param array $directoryStructure The directory structure
+   * @param array<string, array<string, mixed>|string> $directoryStructure The directory structure
    * @return bool Returns true if the output was written successfully, false otherwise
    */
   private function writeFiles(string $workingDirectory, array $directoryStructure): bool

@@ -57,7 +57,11 @@ class ResourceSchematic extends AbstractDirectorySchematic
         '/(use .+;\n)(\n+#\[)/',
         "$1$useStatement\n$2",
         $appModuleFileContent
-      );
+      ) ?? '';
+    }
+
+    if (! is_string($appModuleFileContent) ) {
+      $appModuleFileContent = '';
     }
 
     # Update the module imports list
@@ -81,7 +85,7 @@ class ResourceSchematic extends AbstractDirectorySchematic
           $multiline = str_contains($imports, "\n");
           $separator = $multiline ? ",\n    " : ", ";
           $imports = trim($imports, $separator);
-          $imports = preg_split('/,\s*/', $imports);
+          $imports = preg_split('/,\s*/', $imports) ?: [];
 
           $imports[] = "{$this->nameText->pascalCase()}Module::class,";
           $imports = array_unique($imports);

@@ -126,12 +126,12 @@ class Generate extends Command
       return Command::FAILURE;
     }
 
-    if (Command::SUCCESS !== $this->schematic?->build() ) {
+    if (Command::SUCCESS !== $this->schematic->build() ) {
       $output->writeln("<error>Failed to build the schematic</error>");
       return Command::FAILURE;
     }
 
-    if (Command::SUCCESS !== $this->schematic?->finalizeBuild() ) {
+    if (Command::SUCCESS !== $this->schematic->finalizeBuild() ) {
       $output->writeln("<error>Failed to finalize the build</error>");
       return Command::FAILURE;
     }
