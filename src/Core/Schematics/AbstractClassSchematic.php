@@ -4,11 +4,10 @@ namespace Assegai\Console\Core\Schematics;
 
 use Assegai\Console\Core\Interfaces\SchematicInterface;
 use Assegai\Console\Core\Schematics\Enumerations\ClassTemplate;
+use Assegai\Console\Core\Schematics\Traits\NamespaceReflectivityTrait;
 use Assegai\Console\Core\Schematics\Traits\SchematicModuleManagementTrait;
 use Assegai\Console\Core\Schematics\Traits\SchematicPathIntrospectionTrait;
-use Assegai\Console\Util\Config\ComposerConfig;
 use Assegai\Console\Util\Inspector;
-use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -23,6 +22,7 @@ abstract class AbstractClassSchematic implements SchematicInterface
 {
   use SchematicPathIntrospectionTrait;
   use SchematicModuleManagementTrait;
+  use NamespaceReflectivityTrait;
 
   /**
    * The namespace of the class
@@ -114,6 +114,15 @@ abstract class AbstractClassSchematic implements SchematicInterface
   /**
    * @inheritDoc
    */
+  public function prepareBuild(): int
+  {
+    // Override this method to prepare for the build
+    return Command::SUCCESS;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public function build(): int
   {
     $this->loadNamespaceFromConfig();
@@ -196,6 +205,24 @@ PHP;
   /**
    * @inheritDoc
    */
+  public function finalizeBuild(): int
+  {
+    // Override this method to finalize the build
+    return Command::SUCCESS;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function prepareTearDown(): int
+  {
+    // Override this method to prepare for the teardown
+    return Command::SUCCESS;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public function tearDown(): int
   {
     if (false === unlink($this->path) ) {
@@ -203,6 +230,15 @@ PHP;
       return Command::FAILURE;
     }
 
+    return Command::SUCCESS;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function finalizeTearDown(): int
+  {
+    // Override this method to finalize the teardown
     return Command::SUCCESS;
   }
 
@@ -328,31 +364,6 @@ PHP;
     }
 
     return $render;
-  }
-
-  /**
-   * Load the namespace from the configuration file.
-   *
-   * @return void
-   */
-  public function loadNamespaceFromConfig(): void
-  {
-    $config = new ComposerConfig($this->input, $this->output);
-    $config->load();
-
-    $namespaces = $config->get('autoload.psr-4');
-    foreach ($namespaces as $namespace => $path)
-    {
-      if ($path === 'src/')
-      {
-        $this->namespace = rtrim($namespace, '\\');
-        if ($this->namespaceSuffix)
-        {
-          $this->namespace .= '\\' . ltrim($this->namespaceSuffix, '\\');
-        }
-        break;
-      }
-    }
   }
 
   /**
