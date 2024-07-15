@@ -104,7 +104,7 @@ class WorkspaceManager
         "server" => [
           "host" => "localhost",
           "port" => 5000,
-          "openBrowser" => true
+          "openBrowser" => false
         ]
       ]
     ];

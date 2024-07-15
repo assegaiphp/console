@@ -283,7 +283,7 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
         $bytes = format_bytes($bytes);
 
         $filename = str_replace(Path::join($this->path, 'src') . DIRECTORY_SEPARATOR, '', $path);
-        $this->output->writeln("<info>CREATE</info> $filename ($bytes)", OutputInterface::VERBOSITY_VERBOSE);
+        $this->output->writeln("<info>CREATE</info> $filename ($bytes)");
       }
     }
 

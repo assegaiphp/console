@@ -437,10 +437,23 @@ class Text implements Stringable
    *
    * @return string The singular form of the word.
    */
-  public function getSingularForm(): string
+  public function getSingularForm(?string $prefixArticle = null): string
   {
     $inflector = new Inflector();
-    return @$inflector->singular($this->value);
+    $output = @$inflector->singular($this->value);
+    $vowels = ['a', 'e', 'i', 'o', 'u'];
+
+    if ($prefixArticle && in_array(strtolower($output[0]), $vowels)) {
+      $output = match($prefixArticle) {
+          'a' => "an ",
+          'A' => "An ",
+          'the' => "the ",
+          'The' => "The ",
+          default => "$prefixArticle "
+        } . "$output";
+    }
+
+    return trim($output);
   }
 
   /**

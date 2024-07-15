@@ -65,7 +65,7 @@ class MigrationSetup extends Command
 
     $migrationsDirectory = Path::join($migrationsDirectory, $databaseType, $databaseName);
 
-    $output->writeln("<comment>Setting up migrations for <info>$databaseName($databaseType)</info>...</comment>\n");
+    $output->writeln("<comment>Setting up migrations for <info>$databaseType:$databaseName</info>...</comment>\n");
 
     // Check if the migrations directory exists in the project root
     if (! is_dir($migrationsDirectory) )
