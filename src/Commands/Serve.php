@@ -47,7 +47,7 @@ class Serve extends Command
     $port = $input->getOption('port') ?? $this->projectConfig->get('development.server.port') ?? DEFAULT_DEV_SERVER_PORT;
     $host = $input->getOption('host') ?? $this->projectConfig->get('development.server.host') ?? DEFAULT_DEV_SERVER_HOST;
     $https = $input->getOption('https') ?? false;
-    $this->open = $input->getOption('open') ?? $this->projectConfig->get('development.server.openBrowser') ?? false;
+    $this->open = $input->getOption('open') ?: $this->projectConfig->get('development.server.openBrowser') ?? false;
     $router = Path::join($input->getOption('root') ?? getcwd(), 'index.php');
     $scheme = $https ? 'https' : 'http';
     $uri = "$host:$port";

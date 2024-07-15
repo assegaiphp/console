@@ -38,7 +38,7 @@ class ResourceSchematic extends AbstractDirectorySchematic
     $absolutePath = Path::join($this->path, 'src', $moduleFilename);
 
     # Get the AppModule.php file
-    if (! file_exists($absolutePath)) {
+    if (! file_exists($absolutePath) ) {
       $this->output->writeln("<error>$moduleFilename not found.</error>");
       return Command::FAILURE;
     }
@@ -83,16 +83,30 @@ class ResourceSchematic extends AbstractDirectorySchematic
         if ($totalMatches !== false && count($matches) > 1) {
           $imports = $matches[1][0] ?? '';
           $multiline = str_contains($imports, "\n");
-          $separator = $multiline ? ",\n    " : ", ";
+          $separator = $multiline ? "\n    " : " ";
           $imports = trim($imports, $separator);
           $imports = preg_split('/,\s*/', $imports) ?: [];
+          foreach ($imports as $index => $import) {
+            $imports[$index] = trim($import, " \n\r\t\v\0,");
+          }
 
-          $imports[] = "{$this->nameText->pascalCase()}Module::class,";
+          $imports[] = "{$this->nameText->pascalCase()}Module::class";
           $imports = array_unique($imports);
           $imports = array_filter($imports, fn($import) => !empty($import));
           sort($imports);
 
+          $separator = $multiline ? ",\n    " : ", ";
           $imports = implode($separator, $imports);
+          if ($multiline) {
+            if (! str_ends_with($imports, ',')) {
+              $imports .= ',';
+            }
+          } else {
+            if (str_ends_with($imports, ',')) {
+              $imports = substr($imports, 0, -1);
+            }
+          }
+
           $replacement = $multiline ? "imports: [\n    $imports\n  ]" : "imports: [$imports]";
           $appModuleFileContent = preg_replace(
             $importPattern,
@@ -166,10 +180,12 @@ PHP,
       'controller' => <<<PHP
 
 use Assegai\Core\Attributes\Controller;
+use Assegai\Core\Attributes\Http\Body;
 use Assegai\Core\Attributes\Http\Get;
 use Assegai\Core\Attributes\Http\Post;
 use Assegai\Core\Attributes\Http\Put;
 use Assegai\Core\Attributes\Http\Delete;
+use Assegai\Core\Attributes\Param;
 use $this->namespace\\$prefix\DTOs\Create__SINGULAR__DTO;
 use $this->namespace\\$prefix\DTOs\Update__SINGULAR__DTO;
 
@@ -203,7 +219,7 @@ readonly class {$prefix}Controller
    * @return string
    */
   #[Get(':id')]
-  public function findById(int \$id): string
+  public function findById(#[Param('id')] int \$id): string
   {
     return \$this->__CAMEL__Service->findById(\$id);
   }
@@ -215,7 +231,7 @@ readonly class {$prefix}Controller
    * @return string
    */
   #[Post]
-  public function create(Create__SINGULAR__Dto \$create__SINGULAR__Dto): string
+  public function create(#[Body] Create__SINGULAR__Dto \$create__SINGULAR__Dto): string
   {
     return \$this->__CAMEL__Service->create(\$create__SINGULAR__Dto);
   }
@@ -228,7 +244,10 @@ readonly class {$prefix}Controller
    * @return string
    */
   #[Put(':id')]
-  public function updateById(int \$id, Update__SINGULAR__Dto \$update__SINGULAR__Dto): string
+  public function updateById(
+    #[Param('id')] int \$id,
+    #[Body] Update__SINGULAR__Dto \$update__SINGULAR__Dto
+  ): string
   {
     return \$this->__CAMEL__Service->updateById(\$id, \$update__SINGULAR__Dto);
   }
@@ -240,7 +259,7 @@ readonly class {$prefix}Controller
    * @return string
    */
   #[Delete(':id')]
-  public function deleteById(int \$id): string
+  public function deleteById(#[Param('id')] int \$id): string
   {
     return \$this->__CAMEL__Service->deleteById(\$id);
   }
@@ -268,8 +287,8 @@ class __NAME__Service
   /**
    * Finds __NAME__ by ID. 
    * 
-   * @param int $\$id
-   * @return void
+   * @param int \$id
+   * @return string
    */
   public function findById(int \$id): string
   {
@@ -279,18 +298,31 @@ class __NAME__Service
   /**
    * Creates a new __SINGULAR__.
    * 
+   * @param Create__SINGULAR__Dto \$create__SINGULAR__Dto
    * @return string
    */
   public function create(Create__SINGULAR__Dto \$create__SINGULAR__Dto): string
   {
     return 'This action creates a new __SINGULAR__!';
   }
-  
+
+  /**
+   * Updates a __SINGULAR__.
+   * 
+   * @parm int \$id
+   * @param Update__SINGULAR__Dto \$update__SINGULAR__Dto
+   * @return string
+   */
   public function updateById(int \$id, Update__SINGULAR__Dto \$update__SINGULAR__Dto): string
   {
     return "This action updates #\$id __SINGULAR__!";
   }
   
+  /**
+   * Removes a(n) __SINGULAR__.
+   * 
+   * @return string
+   */
   public function deleteById(int \$id): string
   {
     return "This action deletes #\$id __SINGULAR__!";

@@ -139,8 +139,7 @@ class MigrationUp extends Command
       return Command::FAILURE;
     }
 
-    if ($numberOfSuccessfulMigrations === 0)
-    {
+    if ($numberOfSuccessfulMigrations === 0) {
       return Command::SUCCESS;
     }
 
