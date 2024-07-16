@@ -23,7 +23,10 @@ class ComponentSchematic extends AbstractClassSchematic
     $styleUrl = './' . $name->pascalCase() . 'Component.css';
     $this->suffix = 'component';
     $this->namespaceSuffix = $this->getResolvedNamespaceSuffix();
-    $this->imports = ['Assegai\Core\Attributes\Component'];
+    $this->imports = [
+      'Assegai\Core\Attributes\Component',
+      'Assegai\Core\Components\AssegaiComponent'
+    ];
     $this->attributes = [<<<COMPONENT
 Component(
   selector: '$selector',
@@ -31,6 +34,7 @@ Component(
   styleUrls: ['$styleUrl'])
 COMPONENT
 ];
+    $this->parent = 'AssegaiComponent';
   }
 
   /**
