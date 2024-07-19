@@ -187,6 +187,14 @@ PHP;
 
     $this->output->writeln("<info>CREATE</info> {$this->getRelativeFilename()} ($bytes bytes)");
 
+    return Command::SUCCESS;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public function finalizeBuild(): int
+  {
     if ($this->inspector->isValidWorkspace(getcwd() ?: '')) {
       if ($localModuleFilename = $this->getLocalModuleFilename()) {
         if (($status = $this->updateLocalModule($localModuleFilename, $this->getModuleUpdates()) ) !== Command::SUCCESS) {
@@ -199,15 +207,6 @@ PHP;
       }
     }
 
-    return Command::SUCCESS;
-  }
-
-  /**
-   * @inheritDoc
-   */
-  public function finalizeBuild(): int
-  {
-    // Override this method to finalize the build
     return Command::SUCCESS;
   }
 

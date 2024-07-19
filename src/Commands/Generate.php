@@ -12,6 +12,7 @@ use Assegai\Console\Core\Schematics\GuardSchematic;
 use Assegai\Console\Core\Schematics\InterceptorSchematic;
 use Assegai\Console\Core\Schematics\InterfaceSchematic;
 use Assegai\Console\Core\Schematics\ModuleSchematic;
+use Assegai\Console\Core\Schematics\PageSchematic;
 use Assegai\Console\Core\Schematics\PipeSchematic;
 use Assegai\Console\Core\Schematics\ResourceSchematic;
 use Assegai\Console\Core\Schematics\ServiceSchematic;
@@ -44,6 +45,7 @@ class Generate extends Command
     'ic'          => 'interceptor',
     'i'           => 'interface',
     'm'           => 'module',
+    'pg'          => 'page',
     'p'           => 'pipe',
     'r'           => 'resource',
     's'           => 'service'
@@ -72,13 +74,14 @@ class Generate extends Command
         "    │ <fg=blue>Schematic</>     │ <fg=blue>Alias</>       │ <fg=blue>Description</>                                  │",
         "    ├───────────────┼─────────────┼──────────────────────────────────────────────┤",
         "    │ <fg=green>application</>   │ <comment>application</comment> │ Generate a new application workspace         │",
-        "    │ <fg=green>component</>     │ <comment>cm</comment>          │ Generate a component declaration            │",
+        "    │ <fg=green>component</>     │ <comment>cm</comment>          │ Generate a component declaration             │",
         "    │ <fg=green>controller</>    │ <comment>c</comment>           │ Generate a controller declaration            │",
         "    │ <fg=green>class</>         │ <comment>cl</comment>          │ Generate a new class                         │",
         "    │ <fg=green>guard</>         │ <comment>g</comment>           │ Generate a guard declaration                 │",
         "    │ <fg=green>interceptor</>   │ <comment>ic</comment>          │ Generate an interceptor                      │",
         "    │ <fg=green>interface</>     │ <comment>i</comment>           │ Generate an interface                        │",
         "    │ <fg=green>module</>        │ <comment>m</comment>           │ Generate a module declaration                │",
+        "    │ <fg=green>page</>          │ <comment>pg</comment>          │ Generate a page declaration                  │",
         "    │ <fg=green>pipe</>          │ <comment>p</comment>           │ Generate a pipe declaration                  │",
         "    │ <fg=green>resource</>      │ <comment>r</comment>           │ Generate a new CRUD resource                 │",
         "    │ <fg=green>service</>       │ <comment>s</comment>           │ Generate a service declaration               │",
@@ -111,6 +114,7 @@ class Generate extends Command
       'interceptor' => new InterceptorSchematic($input, $output, $name, $directory, $subdirectory),
       'interface'   => new InterfaceSchematic($input, $output, $name, $directory, $subdirectory),
       'module'      => new ModuleSchematic($input, $output, $name, $directory, $subdirectory),
+      'page'        => new PageSchematic($input, $output, $name, $directory, $subdirectory),
       'pipe'        => new PipeSchematic($input, $output, $name, $directory, $subdirectory),
       'resource'    => new ResourceSchematic($input, $output, $name, $directory, $subdirectory),
       'service'     => new ServiceSchematic($input, $output, $name, $directory, $subdirectory)

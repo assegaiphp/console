@@ -105,8 +105,6 @@ abstract class AbstractFileSchematic implements SchematicInterface
 
     $this->output->writeln("<info>CREATE</info> {$this->getRelativeFilename()} ($bytes bytes)");
 
-    $this->afterBuild();
-
     return Command::SUCCESS;
   }
 
@@ -126,9 +124,9 @@ abstract class AbstractFileSchematic implements SchematicInterface
   /**
    * @inheritDoc
    */
-  public function afterBuild(): int
+  public function finalizeBuild(): int
   {
-    // Do nothing
+    // Override this method to perform any necessary operations after the build
     return Command::SUCCESS;
   }
 
