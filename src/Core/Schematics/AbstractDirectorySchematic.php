@@ -202,6 +202,7 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
 
     foreach ($structure as $name => $value) {
       $path = str_replace('__NAME__', $this->nameText->pascalCase(), $name);
+      $path = str_replace('__SINGULAR_LC__', strtolower($this->singularName->pascalCase()), $path);
       $path = str_replace('__SINGULAR__', $this->singularName->pascalCase(), $path);
 
       $output[$path] = is_array($value) ? $this->resolvePathNames($value) : $value;
@@ -228,6 +229,7 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
         $content = str_replace('__NAME__', $this->nameText->pascalCase(), $content);
         $content = str_replace('__KEBAB__', $this->nameText->kebabCase(), $content);
         $content = str_replace('__CAMEL__', $this->nameText->camelCase(), $content);
+        $content = str_replace('__SINGULAR_LC__', strtolower($this->singularName->pascalCase()), $content);
         $content = str_replace('__SINGULAR__', $this->singularName->pascalCase(), $content);
       }
 

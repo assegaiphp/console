@@ -34,100 +34,11 @@ class ResourceSchematic extends AbstractDirectorySchematic
   #[Override]
   public function finalizeBuild(): int
   {
-    $moduleFilename = 'AppModule.php';
-    $absolutePath = Path::join($this->path, 'src', $moduleFilename);
-
-    # Get the AppModule.php file
-    if (! file_exists($absolutePath) ) {
-      $this->output->writeln("<error>$moduleFilename not found.</error>");
-      return Command::FAILURE;
-    }
-    $appModuleFileContent = file_get_contents($absolutePath);
-
-    if (false === $appModuleFileContent) {
-      $this->output->writeln("<error>Failed to read $moduleFilename.</error>");
-      return Command::FAILURE;
-    }
-
-    # Update the use statements
-    $useStatement = "use $this->namespace\\{$this->nameText->pascalCase()}\\{$this->nameText->pascalCase()}Module;";
-
-    if (! str_contains($appModuleFileContent, $useStatement)) {
-      $appModuleFileContent = preg_replace(
-        '/(use .+;\n)(\n+#\[)/',
-        "$1$useStatement\n$2",
-        $appModuleFileContent
-      ) ?? '';
-    }
-
-    if (! is_string($appModuleFileContent) ) {
-      $appModuleFileContent = '';
-    }
-
-    # Update the module imports list
-    $className = "{$this->nameText->pascalCase()}Module::class";
-
-    if (! str_contains($appModuleFileContent, $className) ) {
-      # Get imports list
-      if (str_contains($appModuleFileContent, 'imports: []')) {
-        $appModuleFileContent = str_replace(
-          'imports: []',
-          "imports: [$className]",
-          $appModuleFileContent
-        );
-      } else {
-        $matches = [];
-        $importPattern = '/imports: \[([\w:\s,]*)]/';
-        $totalMatches = preg_match_all($importPattern, $appModuleFileContent, $matches);
-
-        if ($totalMatches !== false && count($matches) > 1) {
-          $imports = $matches[1][0] ?? '';
-          $multiline = str_contains($imports, "\n");
-          $separator = $multiline ? "\n    " : " ";
-          $imports = trim($imports, $separator);
-          $imports = preg_split('/,\s*/', $imports) ?: [];
-          foreach ($imports as $index => $import) {
-            $imports[$index] = trim($import, " \n\r\t\v\0,");
-          }
-
-          $imports[] = "{$this->nameText->pascalCase()}Module::class";
-          $imports = array_unique($imports);
-          $imports = array_filter($imports, fn($import) => !empty($import));
-          sort($imports);
-
-          $separator = $multiline ? ",\n    " : ", ";
-          $imports = implode($separator, $imports);
-          if ($multiline) {
-            if (! str_ends_with($imports, ',')) {
-              $imports .= ',';
-            }
-          } else {
-            if (str_ends_with($imports, ',')) {
-              $imports = substr($imports, 0, -1);
-            }
-          }
-
-          $replacement = $multiline ? "imports: [\n    $imports\n  ]" : "imports: [$imports]";
-          $appModuleFileContent = preg_replace(
-            $importPattern,
-            $replacement,
-            $appModuleFileContent
-          );
-        }
-      }
-
-      $bytes = file_put_contents($absolutePath, $appModuleFileContent);
-
-      if (false === $bytes) {
-        $this->output->writeln("<error>Failed to update $moduleFilename.</error>");
-        return Command::FAILURE;
-      }
-
-      $bytes = format_bytes($bytes);
-      $this->output->writeln("<fg=blue>UPDATE</> $moduleFilename ($bytes)");
-    }
-
-    return Command::SUCCESS;
+    $moduleName = '\\' . $this->nameText->pascalCase() . '\\' . $this->nameText->pascalCase() . 'Module';
+    return update_module_file([
+      'use' => [$this->namespace . $moduleName],
+      'imports' => ["{$this->nameText->pascalCase()}Module::class"],
+    ]);
   }
 
   /**
@@ -281,7 +192,7 @@ class __NAME__Service
    */
   public function findAll(): string
   {
-    return 'This action returns all __NAME__!';
+    return 'This action returns all __KEBAB__!';
   }
   
   /**
@@ -292,7 +203,7 @@ class __NAME__Service
    */
   public function findById(int \$id): string
   {
-    return "This action returns #\$id __SINGULAR__!";
+    return "This action returns the #\$id __SINGULAR_LC__!";
   }
   
   /**
@@ -303,7 +214,7 @@ class __NAME__Service
    */
   public function create(Create__SINGULAR__Dto \$create__SINGULAR__Dto): string
   {
-    return 'This action creates a new __SINGULAR__!';
+    return 'This action creates a new __SINGULAR_LC__!';
   }
 
   /**
@@ -315,7 +226,7 @@ class __NAME__Service
    */
   public function updateById(int \$id, Update__SINGULAR__Dto \$update__SINGULAR__Dto): string
   {
-    return "This action updates #\$id __SINGULAR__!";
+    return "This action updates the #\$id __SINGULAR_LC__!";
   }
   
   /**
@@ -325,7 +236,7 @@ class __NAME__Service
    */
   public function deleteById(int \$id): string
   {
-    return "This action deletes #\$id __SINGULAR__!";
+    return "This action deletes #\$id __SINGULAR_LC__!";
   }
 }
 PHP,

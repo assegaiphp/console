@@ -2,6 +2,8 @@
 
 namespace Assegai\Console\Core\Schematics;
 
+use Override;
+
 class ModuleSchematic extends AbstractClassSchematic
 {
   public function configure(): void
@@ -16,5 +18,17 @@ Module(
   imports: [],
 )
 PHP];
+  }
+
+  /**
+   * @inheritDoc
+   */
+  #[Override]
+  public function finalizeBuild(): int
+  {
+    return update_module_file([
+      'use' => ["$this->namespace\\{$this->properName}Module"],
+      'imports' => ["{$this->properName}Module::class"],
+    ]);
   }
 }
