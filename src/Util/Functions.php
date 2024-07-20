@@ -98,14 +98,14 @@ if (! function_exists('update_module_file') ) {
   /**
    * Updates the module file.
    *
-   * @param array{use: string[], declarations: string[], imports: string[], controllers: string[], providers: string[], exports: string[], config: string[]} $data The data to update the module file with.
+   * @param array{use?: ?string[], declarations?: ?string[], imports?: ?string[], controllers?: ?string[], providers?: ?string[], exports?: ?string[], config?: ?string[]} $data The data to update the module file with.
    * @param string $filename The name of the module file to update. Defaults to 'AppModule'.
    * @return int Returns a status code.
    */
   function update_module_file(array $data, string $filename = 'AppModule'): int
   {
     $output = new ConsoleOutput();
-    $filename = preg_replace('/.php$/', '', $filename);
+    $filename = preg_replace('/.php$/', '', $filename) ?? throw new RuntimeException("Failed to remove .php from $filename.");
     $filename = Path::join(getcwd() ?: '', 'src', $filename) . '.php';
 
     if (! file_exists($filename) ) {
@@ -118,9 +118,10 @@ if (! function_exists('update_module_file') ) {
     $originalBytes = strlen($contents);
 
     # Replace the use statements
-    foreach ($data['use'] as $import) {
+    foreach ($data['use'] ?? [] as $import) {
+      /** @var string $contents */
       if (! str_contains($contents, $import)) {
-        $contents = preg_replace('/(use .*;\n)\n/', "$1use $import;\n\n", $contents);
+        $contents = preg_replace('/(use .*;\n)\n/', "$1use $import;\n\n", $contents) ?? throw new RuntimeException("Failed to replace use statements in $filename.");
       }
     }
 
@@ -135,6 +136,7 @@ if (! function_exists('update_module_file') ) {
       $matches = [];
 
       # If the property is not found, add it
+      /** @var string $contents */
       if (! str_contains($contents, $propertyName) ) {
         $newEntriesString = implode(',', $newEntries);
         $contents = preg_replace('/#\[Module\(([\w\W]*)\)/', "#[Module($1  $propertyName: [$newEntriesString],\n)", $contents);

@@ -41,6 +41,7 @@ COMPONENT
 
   /**
    * @inheritDoc
+   * @return array{use?: ?string[], declarations?: ?string[], imports?: ?string[], controllers?: ?string[], providers?: ?string[], exports?: ?string[], config?: ?string[]} $data The data to update the module file with.
    */
   #[Override]
   public function getModuleUpdates(): array
