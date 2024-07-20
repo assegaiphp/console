@@ -26,13 +26,8 @@ class ServiceSchematic extends AbstractClassSchematic
   public function getModuleUpdates(): array
   {
     return [
-      'use' => [],
-      'declare' => [],
-      'provide' => [$this->getClassName() . '::class'],
-      'control' => [],
-      'import' => [],
-      'export' => [],
-      'config' => [],
+      'use' => [$this->namespace . '\\' . $this->getClassName()],
+      'providers' => [$this->getClassName() . '::class'],
     ];
   }
 }

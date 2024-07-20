@@ -127,81 +127,89 @@ if (! function_exists('update_module_file') ) {
     $modulePropertyNames = ['declarations', 'imports', 'controllers', 'providers', 'exports', 'config'];
 
     foreach ($modulePropertyNames as $propertyName) {
-      if (! array_key_exists($propertyName, $data)) {
+      if (! array_key_exists($propertyName, $data) || empty($data[$propertyName])) {
         continue;
       }
 
       $newEntries = $data[$propertyName];
       $matches = [];
-      $pattern = "/$propertyName: \[([a-zA-Z0-9:,\s]*)(,?)\]/";
 
-      if (false === preg_match_all($pattern, $contents, $matches)) {
-        $output->writeln("<error>Failed to match $propertyName in $filename.</error>");
-        return Command::FAILURE;
-      }
+      # If the property is not found, add it
+      if (! str_contains($contents, $propertyName) ) {
+        $newEntriesString = implode(',', $newEntries);
+        $contents = preg_replace('/#\[Module\(([\w\W]*)\)/', "#[Module($1  $propertyName: [$newEntriesString],\n)", $contents);
+      } else {
 
-      if (empty($matches) || empty($matches[0]) || empty($matches[1])) {
-        $output->writeln("<error>No matches found for $propertyName in $filename.</error>");
-        return Command::FAILURE;
-      }
+        $pattern = "/$propertyName: \[([a-zA-Z0-9:,\s]*)(,?)\]/";
 
-      [$wholeMatch, $currentEntries] = $matches;
-
-      $withNewLines = str_contains($wholeMatch[0], "\n");
-
-      $currentEntries = trim($currentEntries[0]);
-      if (str_ends_with($currentEntries, ',')) {
-        $currentEntries = substr($currentEntries, 0, -1);
-      }
-
-      $currentEntries = explode(',', $currentEntries);
-
-      $replacement = '';
-      $tail = $withNewLines ? ",\n" : ',';
-      $totalCurrentEntries = count($currentEntries);
-
-      foreach ($currentEntries as $index => $entry) {
-        $entry = trim($entry, $tail);
-        if (empty($entry)) {
-          continue;
-        }
-        $replacement .= "$entry";
-
-        if ($totalCurrentEntries === $index + 1) {
-          $replacement = trim($replacement);
+        if (false === preg_match_all($pattern, $contents, $matches)) {
+          $output->writeln("<error>Failed to match $propertyName in $filename.</error>");
+          return Command::FAILURE;
         }
 
-        $replacement .= ',';
-      }
-
-      foreach ($newEntries as $entry) {
-        if (empty($entry)) {
-          continue;
+        if (empty($matches) || empty($matches[0]) || empty($matches[1])) {
+          $output->writeln("<error>No matches found for $propertyName in $filename.</error>");
+          return Command::FAILURE;
         }
 
-        if (str_contains($replacement, $entry)) {
-          continue;
+        [$wholeMatch, $currentEntries] = $matches;
+
+        $withNewLines = str_contains($wholeMatch[0], "\n");
+
+        $currentEntries = trim($currentEntries[0]);
+        if (str_ends_with($currentEntries, ',')) {
+          $currentEntries = substr($currentEntries, 0, -1);
         }
 
-        $prefix = $withNewLines ? "    " : ' ';
-        $replacement .= "$prefix$entry,";
-      }
+        $currentEntries = explode(',', $currentEntries);
 
-      if ($withNewLines) {
-        $replacement = str_replace(',', ",\n", $replacement);
-      } elseif (str_ends_with($replacement, ',')) {
-        $replacement = substr($replacement, 0, -1);
-      }
+        $replacement = '';
+        $tail = $withNewLines ? ",\n" : ',';
+        $totalCurrentEntries = count($currentEntries);
 
-      if ($withNewLines) {
-        $replacement = "\n    $replacement  ";
-      }
+        foreach ($currentEntries as $index => $entry) {
+          $entry = trim($entry, $tail);
+          if (empty($entry)) {
+            continue;
+          }
+          $replacement .= "$entry";
 
-      $contents = preg_replace($pattern, "$propertyName: [$replacement]", $contents);
+          if ($totalCurrentEntries === $index + 1) {
+            $replacement = trim($replacement);
+          }
 
-      if (is_null($contents)) {
-        $output->writeln("<error>Failed to replace $propertyName in $filename.</error>");
-        return Command::FAILURE;
+          $replacement .= ',';
+        }
+
+        foreach ($newEntries as $entry) {
+          if (empty($entry)) {
+            continue;
+          }
+
+          if (str_contains($replacement, $entry)) {
+            continue;
+          }
+
+          $prefix = $withNewLines ? "    " : ' ';
+          $replacement .= "$prefix$entry,";
+        }
+
+        if ($withNewLines) {
+          $replacement = str_replace(',', ",\n", $replacement);
+        } elseif (str_ends_with($replacement, ',')) {
+          $replacement = substr($replacement, 0, -1);
+        }
+
+        if ($withNewLines) {
+          $replacement = "\n    $replacement  ";
+        }
+
+        $contents = preg_replace($pattern, "$propertyName: [$replacement]", $contents);
+
+        if (is_null($contents)) {
+          $output->writeln("<error>Failed to replace $propertyName in $filename.</error>");
+          return Command::FAILURE;
+        }
       }
     }
 

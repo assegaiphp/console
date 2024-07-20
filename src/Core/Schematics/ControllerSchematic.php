@@ -30,11 +30,11 @@ class ControllerSchematic extends AbstractClassSchematic
   {
     return [
       'use' => [$this->namespace . '\\' . $this->getClassName()],
-      'declare' => [],
-      'provide' => [],
-      'control' => [$this->getClassName() . '::class'],
-      'import' => [],
-      'export' => [],
+      'declarations' => [],
+      'providers' => [],
+      'controllers' => [$this->getClassName() . '::class'],
+      'imports' => [],
+      'exports' => [],
       'config' => [],
     ];
   }

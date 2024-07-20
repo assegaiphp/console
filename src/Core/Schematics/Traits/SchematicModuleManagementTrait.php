@@ -12,17 +12,17 @@ trait SchematicModuleManagementTrait
   /**
    * For the AppModule.php file update.
    *
-   * @return array{use: string[], declare: string[], provide: string[], control: string[], import: string[], export: string[], config: string[]} The array of statements for the AppModule.php file
+   * @return array{use: string[], declarations: string[], providers: string[], controllers: string[], imports: string[], exports: string[], config: string[]} The array of statements for the AppModule.php file
    */
   public function getModuleUpdates(): array
   {
     return [
       'use' => [],
-      'declare' => [],
-      'provide' => [],
-      'control' => [],
-      'import' => [],
-      'export' => [],
+      'declarations' => [],
+      'providers' => [],
+      'controllers' => [],
+      'imports' => [],
+      'exports' => [],
       'config' => [],
     ];
   }
@@ -81,17 +81,15 @@ trait SchematicModuleManagementTrait
     $workingDirectory = dirname($this->getFilePath());
     $localFiles = scandir($workingDirectory);
 
-    if (false === $localFiles)
-    {
+    if (false === $localFiles) {
       $this->output->writeln("<error>Failed to scan the directory: $workingDirectory</error>");
       return false;
     }
 
-    foreach ($localFiles as $file)
-    {
-      if (str_ends_with($file, 'Module.php'))
-      {
-        return $file;
+    foreach ($localFiles as $file) {
+      if (str_ends_with($file, 'Module.php')) {
+        $filename = Path::join($workingDirectory, $file);
+        return str_replace(Path::join(getcwd() ?: '', 'src'), '', $filename);
       }
     }
 
@@ -110,56 +108,7 @@ trait SchematicModuleManagementTrait
     array $props
   ): int
   {
-    // TODO: Implement updateLocalModule() method.
-
-    $relativeLocalModuleFilename = $this->getRelativeLocalModuleFilePath($localModuleFilename);
-    $modulePropertyNameMap = [
-      'use' => 'use',
-      'declare' => 'declarations',
-      'provide' => 'providers',
-      'control' => 'controllers',
-      'import' => 'imports',
-      'export' => 'exports',
-    ];
-    $moduleFileContent = file_get_contents($relativeLocalModuleFilename) ?: '';
-
-    $bytes = 0;
-    foreach ($props as $prop => $values)
-    {
-      $propertyName = $modulePropertyNameMap[$prop] ?? '';
-      if ($prop === 'use')
-      {
-        // TODO: Fix the use statements
-        continue;
-      }
-
-      if (! $propertyName)
-      {
-        continue;
-      }
-
-      $formatter = new InlineAttributePropertiesFormatter($propertyName);
-      $oldValues = $formatter->extractValues($moduleFileContent ?? '');
-
-      if (count($oldValues) + count($values) > 3)
-      {
-        $formatter = new StackedAttributePropertiesFormatter($propertyName);
-      }
-
-      $formatter->addValues($values);
-      $moduleFileContent = preg_replace($formatter->getPattern(), $formatter->getFormatted($moduleFileContent ?? ''), $moduleFileContent ?? '');
-    }
-
-    $bytesToAdd = file_put_contents($relativeLocalModuleFilename, $moduleFileContent);
-    if (false === $bytesToAdd)
-    {
-      $this->output->writeln("<error>Failed to write to the file: $relativeLocalModuleFilename</error>");
-      return Command::FAILURE;
-    }
-    $bytes += $bytesToAdd;
-
-    $this->output->writeln("<fg=bright-blue>UPDATE</> $relativeLocalModuleFilename ($bytes bytes)");
-    return Command::SUCCESS;
+    return update_module_file($props, $localModuleFilename);
   }
 
   /**
@@ -180,34 +129,6 @@ trait SchematicModuleManagementTrait
     ]
   ): int
   {
-    // TODO: Implement updateAppModule() method.
-    $filename = Path::join('src', 'AppModule.php');
-    $filePath = Path::join(getcwd() ?: '', $filename);
-
-    if (! file_exists($filePath) )
-    {
-      $this->output->writeln("<error>File does not exist: $filename</error>");
-      return Command::FAILURE;
-    }
-    $content = file_get_contents($filePath);
-
-    if (! $content)
-    {
-      $this->output->writeln("<error>Could not read $filename</error>");
-      return Command::FAILURE;
-    }
-
-    $content = $this->getUpdatedAppModuleContent($content, $props);
-
-    $bytes = file_put_contents($filePath, $content);
-    if (false === $bytes)
-    {
-      $this->output->writeln("<error>Could not write to $filename</error>");
-      return Command::FAILURE;
-    }
-
-    $this->output->writeln("<fg=bright-blue>UPDATE</> src/AppModule.php ($bytes bytes)");
-    return Command::SUCCESS;
+    return update_module_file($props);
   }
-
 }

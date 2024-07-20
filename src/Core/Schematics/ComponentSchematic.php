@@ -47,12 +47,7 @@ COMPONENT
   {
     return [
       'use' => [$this->namespace . '\\' . $this->getClassName()],
-      'declare' => [$this->getClassName() . '::class'],
-      'provide' => [],
-      'control' => [],
-      'import' => [],
-      'export' => [],
-      'config' => [],
+      'declarations' => [$this->getClassName() . '::class'],
     ];
   }
 
