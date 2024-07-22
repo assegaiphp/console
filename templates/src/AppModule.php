@@ -2,8 +2,8 @@
 
 namespace Assegai\App;
 
-use Assegai\Console\Util\Config\ProjectConfig;
 use Assegai\Core\Attributes\Modules\Module;
+use Assegai\Core\Config\ProjectConfig;
 
 #[Module(
   providers: [
