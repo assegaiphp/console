@@ -154,7 +154,7 @@ if (! function_exists('update_module_file') ) {
           return Command::FAILURE;
         }
 
-        if (empty($matches) || empty($matches[0]) || empty($matches[1])) {
+        if (empty($matches[0]) || empty($matches[1])) {
           $output->writeln("<error>No matches found for $propertyName in $filename.</error>");
           return Command::FAILURE;
         }
@@ -255,7 +255,7 @@ if (! function_exists('get_datasource_name') ) {
       return false;
     }
 
-    $dataSourceChoices = array_keys($appConfig->get("databases.$datasourceType", []));
+    $dataSourceChoices = array_map(fn(string $choice) => $choice, $appConfig->get("databases.$datasourceType", []));
 
     if (! $dataSourceChoices) {
       $output->writeln("<error>No $datasourceType databases found</error>");
