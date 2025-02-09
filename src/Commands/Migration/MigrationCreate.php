@@ -75,8 +75,8 @@ class MigrationCreate extends Command
     }
 
     // Create migration subdirectory if it does not exist
-    $type = $input->getOption('database_type');
-    $dbName = $input->getOption('database');
+    $type = get_datasource_type($input, $output);
+    $dbName = get_datasource_name($input, $output, $type);
 
     if (!DatabaseType::isValid($type)) {
       $output->writeln("<error>Invalid database type.</error>\n");

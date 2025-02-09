@@ -39,10 +39,12 @@ class MigrationRefresh extends Command
    */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
+    $databaseType = get_datasource_type($input, $output);
+
     $input = new ArrayInput([
       'command' => 'migration:redo',
       'database' => $input->getArgument('database'),
-      '--database_type' => $input->getOption('database_type'),
+      '--database_type' => $databaseType,
       '--migrations' => -1,
       '--' . DatabaseType::MYSQL->value => $input->getOption(DatabaseType::MYSQL->value),
       '--' . DatabaseType::POSTGRESQL->value => $input->getOption(DatabaseType::POSTGRESQL->value),

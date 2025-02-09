@@ -2,7 +2,6 @@
 
 namespace Assegai\Console\Core\Schematics;
 
-use Assegai\Console\Core\Interfaces\ConfigurableInterface;
 use Assegai\Console\Core\Interfaces\SchematicInterface;
 use Assegai\Console\Core\Schematics\Traits\NamespaceReflectivityTrait;
 use Assegai\Console\Util\Path;
@@ -38,7 +37,6 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
    * @var string
    */
   protected string $directoryName = '';
-
   /**
    * The structure of the directory
    *

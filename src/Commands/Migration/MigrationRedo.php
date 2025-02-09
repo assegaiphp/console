@@ -39,7 +39,7 @@ class MigrationRedo extends Command
    */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
-    $databaseType = $input->getOption('database_type');
+    $databaseType = get_datasource_type($input, $output);
 
     if (!DatabaseType::isValid($databaseType)) {
       $output->writeln("<error>Invalid database type $databaseType</error>");

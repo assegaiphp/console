@@ -66,8 +66,8 @@ class MigrationDown extends Command
       return Command::FAILURE;
     }
 
-    $databaseType = $input->getOption('database_type');
-    $dbName = $input->getArgument('database');
+    $databaseType = get_datasource_type($input, $output);
+    $dbName = get_datasource_name($input, $output, $databaseType);
 
     if (! $databaseType || ! DatabaseType::isValid($databaseType)) {
       $databaseTypes = DatabaseType::toArray();

@@ -1,8 +1,13 @@
 <?php
 
+use Assegai\Console\Core\Database\Enumerations\DatabaseType;
+use Assegai\Console\Util\Config\AppConfig;
 use Assegai\Console\Util\Path;
 use Laravel\Prompts\Output\ConsoleOutput;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+use function Laravel\Prompts\select;
 
 /**
  * Copies a directory recursively.
@@ -225,5 +230,57 @@ if (! function_exists('update_module_file') ) {
       $output->writeln("<fg=blue>UPDATE</> $relativeFilename ($bytes)");
     }
     return Command::SUCCESS;
+  }
+}
+
+if (! function_exists('get_datasource_type') ) {
+  function get_datasource_type(InputInterface $input, OutputInterface $output, string $optionName = 'database_type'): string|false
+  {
+    return match(true) {
+      $input->hasOption(DatabaseType::MYSQL->value) => DatabaseType::MYSQL->value,
+      $input->hasOption(DatabaseType::POSTGRESQL->value) => DatabaseType::POSTGRESQL->value,
+      $input->hasOption(DatabaseType::SQLITE->value) => DatabaseType::SQLITE->value,
+      default => $input->getOption($optionName) ?? select("Which type of data source do you want to use?", DatabaseType::toArray())
+    };
+  }
+}
+
+if (! function_exists('get_datasource_name') ) {
+  function get_datasource_name(InputInterface $input, OutputInterface $output, string $datasourceType, string $optionName = 'database'): string|false
+  {
+    $appConfig = new AppConfig($input, $output);
+
+    if ($appConfig->load() !== Command::SUCCESS) {
+      $output->writeln('<error>Failed to load the configuration file</error>');
+      return false;
+    }
+
+    $dataSourceChoices = array_keys($appConfig->get("databases.$datasourceType", []));
+
+    if (! $dataSourceChoices) {
+      $output->writeln("<error>No $datasourceType databases found</error>");
+      return false;
+    }
+
+    $dataSourceName = '';
+
+    if ( $input->hasArgument($optionName) ) {
+      $dataSourceName = $input->getArgument($optionName);
+    };
+
+    if ( $input->hasOption($optionName) ) {
+      $dataSourceName = $input->getOption($optionName);
+    }
+
+    if (! $dataSourceName ) {
+      $dataSourceName = select("Which $datasourceType data source do you want to use? ", $dataSourceChoices);
+    }
+
+    if (! $dataSourceName ) {
+      $output->writeln("<error>Invalid database name</error>\n");
+      return false;
+    }
+
+    return $dataSourceName;
   }
 }

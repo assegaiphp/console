@@ -1,4 +1,4 @@
-: Options -Indexes -MultiViews
+Options -Indexes -MultiViews
 Header set Access-Control-Allow-Credentials "true"
 Header set Access-Control-Allow-Headers "Origin,X-Requested-With,Content-Type,Accept,X-Access-Token,Authorization,x-api-key"
 Header set Access-Control-Allow-Methods "GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE"
