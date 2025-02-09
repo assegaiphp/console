@@ -63,20 +63,15 @@ HELP);
   public function execute(InputInterface $input, OutputInterface $output): int
   {
     $databaseType = get_datasource_type($input, $output);
-    $databaseName = get_datasource_name($input, $output, $databaseType);
 
-    if (false === $databaseName) {
-      return Command::FAILURE;
-    }
-    
-    $status = $input->getOption('status');
-
-    if (! DatabaseType::isValid($databaseType) ) {
+    if (false === $databaseType || ! DatabaseType::isValid($databaseType) ) {
       $output->writeln('<error>Invalid database type</error>');
       return Command::FAILURE;
     }
 
     $databaseType = DatabaseType::tryFrom($databaseType);
+
+    $status = $input->getOption('status');
 
     if ($input->getOption(DatabaseType::MYSQL->value)) {
       $databaseType = DatabaseType::MYSQL;
@@ -84,6 +79,17 @@ HELP);
       $databaseType = DatabaseType::POSTGRESQL;
     } elseif ($input->getOption(DatabaseType::SQLITE->value)) {
       $databaseType = DatabaseType::SQLITE;
+    }
+
+    if (! $databaseType) {
+      $output->writeln('<error>Invalid database type</error>');
+      return Command::FAILURE;
+    }
+
+    $databaseName = get_datasource_name($input, $output, $databaseType->value);
+
+    if (false === $databaseName) {
+      return Command::FAILURE;
     }
 
     /** @var MigratorInterface $migrator */

@@ -67,7 +67,6 @@ class MigrationDown extends Command
     }
 
     $databaseType = get_datasource_type($input, $output);
-    $dbName = get_datasource_name($input, $output, $databaseType);
 
     if (! $databaseType || ! DatabaseType::isValid($databaseType)) {
       $databaseTypes = DatabaseType::toArray();
@@ -80,11 +79,6 @@ class MigrationDown extends Command
 
     $databaseType = DatabaseType::tryFrom($databaseType);
 
-    if (! $databaseType ) {
-      $output->writeln("<error>Invalid database type</error>\n");
-      return Command::FAILURE;
-    }
-
     if ($input->getOption(DatabaseType::MYSQL->value)) {
       $databaseType = DatabaseType::MYSQL;
     } elseif ($input->getOption(DatabaseType::POSTGRESQL->value)) {
@@ -93,10 +87,22 @@ class MigrationDown extends Command
       $databaseType = DatabaseType::SQLITE;
     }
 
+    if (! $databaseType ) {
+      $output->writeln("<error>Invalid database type</error>\n");
+      return Command::FAILURE;
+    }
+
+    $dbName = get_datasource_name($input, $output, $databaseType->value);
+
     if (! $dbName ) {
       /** @var array<int|string, string>|Collection<int|string, string> $databaseChoices */
       $databaseChoices = array_keys($appConfig->get("databases.$databaseType->value", []));
       $dbName = select("<info>?</info> Which <question>$databaseType->value</question> database do you want to run the migrations on? ", $databaseChoices);
+    }
+
+    if (! is_string($dbName) ) {
+      $output->writeln("<error>Invalid database name</error>\n");
+      return Command::FAILURE;
     }
 
     if (! $this->isValidDbName($dbName, $databaseType->value, $input, $output) ) {

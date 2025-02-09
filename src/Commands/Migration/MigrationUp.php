@@ -67,7 +67,6 @@ class MigrationUp extends Command
     }
 
     $databaseType = get_datasource_type($input, $output);
-    $dbName = get_datasource_name($input, $output, $databaseType);
 
     if (! $databaseType || ! DatabaseType::isValid($databaseType)) {
       $databaseTypes = DatabaseType::toArray();
@@ -93,10 +92,17 @@ class MigrationUp extends Command
       $databaseType = DatabaseType::SQLITE;
     }
 
+    $dbName = get_datasource_name($input, $output, $databaseType->value);
+
     if (! $dbName ) {
       /** @var array<int|string, string>|Collection<int|string, string> $databaseChoices */
       $databaseChoices = array_keys($appConfig->get("databases.$databaseType->value", []));
       $dbName = select("<info>?</info> Which <question>$databaseType->value</question> database do you want to run the migrations on? ", $databaseChoices);
+    }
+
+    if (! is_string($dbName) ) {
+      $output->writeln("<error>Invalid database name</error>\n");
+      return Command::FAILURE;
     }
 
     if (! $this->isValidDbName($dbName, $databaseType->value, $input, $output) ) {

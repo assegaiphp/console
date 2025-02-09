@@ -41,7 +41,7 @@ class MigrationRedo extends Command
   {
     $databaseType = get_datasource_type($input, $output);
 
-    if (!DatabaseType::isValid($databaseType)) {
+    if (false === $databaseType || !DatabaseType::isValid($databaseType)) {
       $output->writeln("<error>Invalid database type $databaseType</error>");
       return Command::FAILURE;
     }
