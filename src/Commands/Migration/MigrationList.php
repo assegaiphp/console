@@ -36,7 +36,7 @@ class MigrationList extends Command
 
   public function configure(): void
   {
-    $this->addArgument('database', InputArgument::REQUIRED, 'The name of the database');
+    $this->addArgument('database', InputArgument::OPTIONAL, 'The name of the database');
     $this
       ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
@@ -62,17 +62,16 @@ HELP);
 
   public function execute(InputInterface $input, OutputInterface $output): int
   {
-    $databaseName = $input->getArgument('database');
-    $databaseType = $input->getOption('database_type');
-    $status = $input->getOption('status');
+    $databaseType = get_datasource_type($input, $output);
 
-    if (! DatabaseType::isValid($databaseType) )
-    {
+    if (false === $databaseType || ! DatabaseType::isValid($databaseType) ) {
       $output->writeln('<error>Invalid database type</error>');
       return Command::FAILURE;
     }
 
     $databaseType = DatabaseType::tryFrom($databaseType);
+
+    $status = $input->getOption('status');
 
     if ($input->getOption(DatabaseType::MYSQL->value)) {
       $databaseType = DatabaseType::MYSQL;
@@ -80,6 +79,17 @@ HELP);
       $databaseType = DatabaseType::POSTGRESQL;
     } elseif ($input->getOption(DatabaseType::SQLITE->value)) {
       $databaseType = DatabaseType::SQLITE;
+    }
+
+    if (! $databaseType) {
+      $output->writeln('<error>Invalid database type</error>');
+      return Command::FAILURE;
+    }
+
+    $databaseName = get_datasource_name($input, $output, $databaseType->value);
+
+    if (false === $databaseName) {
+      return Command::FAILURE;
     }
 
     /** @var MigratorInterface $migrator */
@@ -114,9 +124,9 @@ HELP);
     $ranMigrations = $migrator->listRan();
 
     $output->writeln(<<<TABLE
-┌───┬────────────────────────┬──────────────────────────────────────────────┐
-│   │ <fg=blue>Created At</>             │ <fg=blue>Description</>                                  │
-├───┼────────────────────────┼──────────────────────────────────────────────┤
+ ┌───┬────────────────────────┬──────────────────────────────────────────────┐
+ │   │ <fg=blue>Created At</>             │ <fg=blue>Description</>                                  │
+ ├───┼────────────────────────┼──────────────────────────────────────────────┤
 TABLE
 );
     foreach ($migrations ?: [] as $migration) {
@@ -133,12 +143,12 @@ TABLE
       $migrationDescription = new Text($name);
       $formattedDescription = sprintf('%-44s', $migrationDescription->titleCase());
       $output->writeln(<<<TABLE
-│ $executed │ <info>$createdAt</info>    │ <info>$formattedDescription</info> │
+ │ $executed │ <info>$createdAt</info>    │ <info>$formattedDescription</info> │
 TABLE
 );
     }
 
-    $output->writeln('└───┴────────────────────────┴──────────────────────────────────────────────┘');
+    $output->writeln(' └───┴────────────────────────┴──────────────────────────────────────────────┘');
 
     return Command::SUCCESS;
   }

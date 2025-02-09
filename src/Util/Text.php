@@ -2,7 +2,7 @@
 
 namespace Assegai\Console\Util;
 
-use plejus\PhpPluralize\Inflector;
+use Atatusoft\Plural\Plural;
 use Stringable;
 
 /**
@@ -19,6 +19,7 @@ class Text implements Stringable
    */
   public function __construct(protected string $value)
   {
+    Plural::loadLanguage('en');
   }
 
   /**
@@ -427,9 +428,7 @@ class Text implements Stringable
    */
   public function getPluralForm(): string
   {
-    $inflector = new Inflector();
-    /* Suppress warning about alphanumeric delimiter in preg_match */
-    return @$inflector->plural($this->value);
+    return Plural::pluralize($this->value);
   }
 
   /**
@@ -439,8 +438,7 @@ class Text implements Stringable
    */
   public function getSingularForm(?string $prefixArticle = null): string
   {
-    $inflector = new Inflector();
-    $output = @$inflector->singular($this->value);
+    $output = Plural::singularize($this->value);
     $vowels = ['a', 'e', 'i', 'o', 'u'];
 
     if ($prefixArticle && in_array(strtolower($output[0]), $vowels)) {

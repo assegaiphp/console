@@ -75,8 +75,12 @@ class MigrationCreate extends Command
     }
 
     // Create migration subdirectory if it does not exist
-    $type = $input->getOption('database_type');
-    $dbName = $input->getOption('database');
+    $type = get_datasource_type($input, $output);
+
+    if (false === $type) {
+      $output->writeln("<error>Failed to get database type.</error>\n");
+      return Command::FAILURE;
+    }
 
     if (!DatabaseType::isValid($type)) {
       $output->writeln("<error>Invalid database type.</error>\n");
@@ -91,12 +95,19 @@ class MigrationCreate extends Command
       $type = DatabaseType::SQLITE->value;
     }
 
+    $dbName = get_datasource_name($input, $output, $type);
+
     if (! $dbName ) {
       $path = "databases.$type";
 
       /** @var array<int|string, string>|Collection<int|string, string> $databases */
       $databases = array_keys($config->get($path, []));
       $dbName = select("<info>?</info> Which <question>$type</question> database would you like to create the migration for? ", $databases, 0);;
+    }
+
+    if (! $dbName || !is_string($dbName) ) {
+      $output->writeln("<error>Invalid database name.</error>\n");
+      return Command::FAILURE;
     }
 
     // Get the migration name

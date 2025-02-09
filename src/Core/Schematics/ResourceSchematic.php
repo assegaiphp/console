@@ -220,7 +220,7 @@ class __NAME__Service
   /**
    * Updates a __SINGULAR__.
    * 
-   * @parm int \$id
+   * @param int \$id
    * @param Update__SINGULAR__Dto \$update__SINGULAR__Dto
    * @return string
    */
@@ -232,6 +232,7 @@ class __NAME__Service
   /**
    * Removes a(n) __SINGULAR__.
    * 
+   * @param int \$id
    * @return string
    */
   public function deleteById(int \$id): string

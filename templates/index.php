@@ -17,6 +17,12 @@ header("Access-Control-Allow-Headers: Origin,X-Requested-With,Content-Type,Accep
 header("Access-Control-Allow-Methods: GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE");
 header("Access-Control-Allow-Origin: *");
 
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+  http_response_code(200);
+  exit();
+}
+
 /*
  * Set the path to the request URI.
  */

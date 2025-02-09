@@ -16,6 +16,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\Question;
 
@@ -32,7 +33,10 @@ class MigrationSetup extends Command
       ->setHelp('This command sets up the migrations table in the database and creates the migrations directory ' .
       'in the project root')
       ->addArgument('database', InputArgument::REQUIRED, 'The name of the database')
-      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray());
+      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
+      ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
+      ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
@@ -54,9 +58,14 @@ class MigrationSetup extends Command
 
     // Create a migrations directory for the specific database type
     $defaultDatabaseType = 'mysql';
-    $databaseType =
-      $input->getOption('database_type') ??
-      $helper->ask($input, $output, new Question("<info>?</info> Enter the database type: <fg=gray>($defaultDatabaseType)</> ", 'mysql'));;
+    $databaseType = match(true)  {
+      $input->getOption(DatabaseType::MYSQL->value) => DatabaseType::MYSQL->value,
+      $input->getOption(DatabaseType::POSTGRESQL->value) => DatabaseType::POSTGRESQL->value,
+      $input->getOption(DatabaseType::SQLITE->value) => DatabaseType::SQLITE->value,
+      default =>
+        $input->getOption('database_type') ??
+        $helper->ask($input, $output, new Question("<info>?</info> Enter the database type: <fg=gray>($defaultDatabaseType)</> ", 'mysql'))
+    };
 
     // Create a migrations directory for the specific database
     $databaseName =

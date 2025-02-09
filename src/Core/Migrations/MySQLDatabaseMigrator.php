@@ -40,6 +40,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
     }
     $totalPendingMigrations = count($pendingMigrations);
     $totalMigrationsToRun = min($runs ?: $totalPendingMigrations, $totalPendingMigrations);
+    $pendingMigrations = array_slice($pendingMigrations, 0, $totalMigrationsToRun);
 
     $totalRowsAffected = 0;
     $progressBar = new ProgressBar($this->output, $totalMigrationsToRun);
