@@ -117,7 +117,7 @@ class NewProject extends Command
     foreach ($thankYouMessage as $line)
     {
       $lineLength = strlen($line);
-      $offset = ($terminalWidth / 2) - ($lineLength / 2);
+      $offset = intval(($terminalWidth / 2) - ($lineLength / 2));
       $padding = str_repeat(' ', $offset);
       $thankYouMessageLines[] = $padding . $line;
     }
