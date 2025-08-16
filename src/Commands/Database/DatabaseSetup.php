@@ -7,6 +7,7 @@ use Assegai\Console\Core\Database\Interfaces\DatabaseConnectionInterface;
 use Assegai\Console\Core\Database\MySQLDatabase;
 use Assegai\Console\Core\Database\PostgreSQLDatabase;
 use Assegai\Console\Core\Database\SQLiteDatabase;
+use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
 use Exception;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -14,6 +15,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 
@@ -30,8 +32,11 @@ class DatabaseSetup extends Command
   public function configure(): void
   {
     $this
-      ->addArgument('name', InputArgument::REQUIRED, 'The name of the database')
-      ->addOption('type', 't', InputArgument::OPTIONAL, 'The type of the database', 'mysql');
+      ->addArgument(ParameterKey::DB_NAME->value, InputArgument::REQUIRED, 'The name of the database')
+      ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
+      ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
+      ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
@@ -41,18 +46,16 @@ class DatabaseSetup extends Command
     /** @var QuestionHelper $helper */
     $helper = $this->getHelper('question');
 
-    if (! $inspector->isValidWorkspace(getcwd() ?: '') )
-    {
+    if (! $inspector->isValidWorkspace(getcwd() ?: '') ) {
       $output->writeln("<error>Invalid workspace.</error>\n");
       return Command::FAILURE;
     }
 
     // Check if the database configuration exists
-    $name = $input->getArgument('name');
-    $type = $input->getOption('type');
+    $name = $input->getArgument(ParameterKey::DB_NAME->value);
+    $type = get_datasource_type($input, $output);
 
-    if (! DatabaseType::isValid($type) )
-    {
+    if (! DatabaseType::isValid($type) ) {
       $output->writeln("<error>Invalid database type.</error>\n");
       return Command::FAILURE;
     }
@@ -64,28 +67,23 @@ class DatabaseSetup extends Command
       default => MySQLDatabase::class
     };
 
-    if ($type === DatabaseType::POSTGRESQL->value)
-    {
+    if ($type === DatabaseType::POSTGRESQL->value) {
       // Not implemented
       $output->writeln("<error>PostgreSQL not implemented.</error>\n");
       return Command::SUCCESS;
     }
 
     // Create the database
-    if (Command::SUCCESS !== $databaseClass::setup($name))
-    {
+    if (Command::SUCCESS !== $databaseClass::setup($name)) {
       $output->writeln("<error>Failed to create the database.</error>\n");
       return Command::FAILURE;
     }
 
-    try
-    {
+    try {
       // Check if the database connection is successful
       /** @var DatabaseConnectionInterface $database */
       $database = new $databaseClass($name, $input, $output);
-    }
-    catch (Exception $exception)
-    {
+    } catch (Exception $exception) {
       $message = match ($exception->getCode() ) {
         MySQLDatabase::ERROR_UNKNOWN_DATABASE => 'Database not found',
         MySQLDatabase::ERROR_INVALID_CREDENTIALS => 'Invalid credentials',

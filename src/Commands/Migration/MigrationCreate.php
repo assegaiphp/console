@@ -4,6 +4,7 @@ namespace Assegai\Console\Commands\Migration;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Util\Config\AppConfig;
+use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
@@ -36,8 +37,8 @@ class MigrationCreate extends Command
   {
     $this
       ->setHelp('This command creates a new migration file in the migrations directory.')
-      ->addArgument('name', InputArgument::REQUIRED, 'The name of the migration')
-      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the migration', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
+      ->addArgument(ParameterKey::MIGRATION_NAME->value, InputArgument::REQUIRED, 'The name of the migration')
+      ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The database type of the migration', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
       ->addOption('database', 'db', InputArgument::OPTIONAL, 'The name of the database')
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
@@ -68,8 +69,7 @@ class MigrationCreate extends Command
       return Command::FAILURE;
     }
 
-    if (Command::SUCCESS !== $config->load())
-    {
+    if (Command::SUCCESS !== $config->load()) {
       $output->writeln("<error>Failed to load configuration.</error>\n");
       return Command::FAILURE;
     }
@@ -111,7 +111,7 @@ class MigrationCreate extends Command
     }
 
     // Get the migration name
-    $migrationName = $this->getMigrationName($input->getArgument('name'));
+    $migrationName = $this->getMigrationName($input->getArgument(ParameterKey::MIGRATION_NAME->value));
     $path = Path::join($migrationDirectory, $type, $dbName, $migrationName);
 
     if (!file_exists($path)) {

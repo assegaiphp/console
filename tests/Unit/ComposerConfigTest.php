@@ -17,6 +17,7 @@ describe("ComposerConfig", function() {
     [
       "input" => $input,
       "output" => $output,
+      "workingDirectory" => null
     ]
   ]);
 
@@ -27,6 +28,7 @@ describe("ComposerConfig", function() {
     [
       "input" => $input,
       "output" => $output,
+      "workingDirectory" => null
     ]
   ]);
 
@@ -38,6 +40,7 @@ describe("ComposerConfig", function() {
     [
       "input" => $input,
       "output" => $output,
+      "workingDirectory" => null
     ]
   ]);
 
@@ -49,6 +52,7 @@ describe("ComposerConfig", function() {
     [
       "input" => $input,
       "output" => $output,
+      "workingDirectory" => null
     ]
   ]);
 
@@ -60,6 +64,7 @@ describe("ComposerConfig", function() {
     [
       "input" => $input,
       "output" => $output,
+      "workingDirectory" => null
     ]
   ]);
 
@@ -71,6 +76,7 @@ describe("ComposerConfig", function() {
     [
       "input" => $input,
       "output" => $output,
+      "workingDirectory" => null
     ]
   ]);
 
@@ -84,6 +90,7 @@ describe("ComposerConfig", function() {
     [
       "input" => $input,
       "output" => $output,
+      "workingDirectory" => null
     ]
   ]);
 });

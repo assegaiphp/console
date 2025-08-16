@@ -3,6 +3,7 @@
 namespace Assegai\Console\Commands\Migration;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
+use Assegai\Console\Util\Enumerations\ParameterKey;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -26,8 +27,8 @@ class MigrationRefresh extends Command
   {
     $this
       ->setHelp('This command refreshes the migrations. It rolls back the migrations and then runs them again.')
-      ->addArgument('database', InputArgument::REQUIRED, 'The database to refresh the migrations on')
-      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DatabaseType::MYSQL->value, DatabaseType::toArray())
+      ->addArgument(ParameterKey::DB_NAME->value, InputArgument::REQUIRED, 'The database to refresh the migrations on')
+      ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DatabaseType::MYSQL->value, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use a MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null,  InputOption::VALUE_NONE, 'Use a PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'User an SQLite database');;
@@ -40,11 +41,13 @@ class MigrationRefresh extends Command
   public function execute(InputInterface $input, OutputInterface $output): int
   {
     $databaseType = get_datasource_type($input, $output);
+    $databaseNameParamKey = ParameterKey::DB_NAME->value;
+    $databaseTypeParamKey = ParameterKey::DB_TYPE->value;
 
     $input = new ArrayInput([
       'command' => 'migration:redo',
-      'database' => $input->getArgument('database'),
-      '--database_type' => $databaseType,
+      $databaseNameParamKey => $input->getArgument($databaseNameParamKey),
+      "--$databaseTypeParamKey" => $databaseType,
       '--migrations' => -1,
       '--' . DatabaseType::MYSQL->value => $input->getOption(DatabaseType::MYSQL->value),
       '--' . DatabaseType::POSTGRESQL->value => $input->getOption(DatabaseType::POSTGRESQL->value),

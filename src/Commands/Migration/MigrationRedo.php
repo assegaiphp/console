@@ -3,6 +3,7 @@
 namespace Assegai\Console\Commands\Migration;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
+use Assegai\Console\Util\Enumerations\ParameterKey;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -25,9 +26,9 @@ class MigrationRedo extends Command
   public function configure(): void
   {
     $this
-      ->addArgument('database', InputArgument::REQUIRED, 'The database to redo the migration on')
+      ->addArgument(ParameterKey::DB_NAME->value, InputArgument::REQUIRED, 'The database to redo the migration on')
       ->addOption('steps', 's', InputArgument::OPTIONAL, 'The number of migrations to redo', 1)
-      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DatabaseType::MYSQL->value, DatabaseType::toArray())
+      ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DatabaseType::MYSQL->value, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use a MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null,  InputOption::VALUE_NONE, 'Use a PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'User an SQLite database');
@@ -59,14 +60,15 @@ class MigrationRedo extends Command
       return Command::FAILURE;
     }
 
-    $database = $input->getArgument('database');
+    $database = $input->getArgument(ParameterKey::DB_NAME->value);
 
     $downInput = new ArrayInput([
       'command' => 'migration:down',
-      'database' => $database,
+      ParameterKey::DB_NAME->value => $database,
       '--steps' => $numberOfMigrations,
       '--database_type' => $databaseType
     ]);
+
     if (Command::SUCCESS !== $application->doRun($downInput, $output)) {
       $output->writeln("<error>Failed to undo the migrations</error>");
       return Command::FAILURE;
@@ -74,10 +76,11 @@ class MigrationRedo extends Command
 
     $upInput = new ArrayInput([
       'command' => 'migration:up',
-      'database' => $database,
+      ParameterKey::DB_NAME->value => $database,
       '--steps' => $numberOfMigrations,
       '--database_type' => $databaseType
     ]);
+
     if (Command::SUCCESS !== $application->doRun($upInput, $output)) {
       $output->writeln("<error>Failed to redo the migrations</error>");
       return Command::FAILURE;

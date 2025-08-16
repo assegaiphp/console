@@ -20,7 +20,7 @@ class DatabaseSeed extends Command
 
   public function execute(InputInterface $input, OutputInterface $output): int
   {
-
+    $output->writeln("<info>No database seeding implemented yet.</info>");
     return Command::SUCCESS;
   }
 }
