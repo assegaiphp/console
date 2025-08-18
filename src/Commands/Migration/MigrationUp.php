@@ -9,6 +9,7 @@ use Assegai\Console\Core\Database\Traits\DatabaseNameValidatorTrait;
 use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
 use Assegai\Console\Core\Migrations\MySQLDatabaseMigrator;
 use Assegai\Console\Util\Config\AppConfig;
+use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
 use Illuminate\Support\Collection;
@@ -36,8 +37,8 @@ class MigrationUp extends Command
   public function configure(): void
   {
     $this
-      ->addArgument('database', InputArgument::REQUIRED, 'The database to rollback the migrations on')
-      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE)
+      ->addArgument(ParameterKey::DB_NAME->value, InputArgument::REQUIRED, 'The database to rollback the migrations on')
+      ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE)
       ->addOption('steps', 's', InputArgument::OPTIONAL, 'The number of migrations to rollback')
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Run the migrations on a MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Run the migrations on a PostgreSQL database')
