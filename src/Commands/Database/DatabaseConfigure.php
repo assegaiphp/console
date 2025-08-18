@@ -3,6 +3,7 @@
 namespace Assegai\Console\Commands\Database;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
+use Assegai\Console\Exceptions\AssegaiConsoleException;
 use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
@@ -49,12 +50,15 @@ class DatabaseConfigure extends Command
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
   }
 
+  /**
+   * @throws AssegaiConsoleException
+   */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
     $inspector = new Inspector($input, $output);
     $workingDirectory = getcwd() ?: '';
     $configFilename = Path::join($workingDirectory, 'config', 'local.php');
-    $type = get_datasource_type($input, $output);
+    $type = get_datasource_type($input, $output) ?: throw new AssegaiConsoleException("Database type is not specified. Use the --db-type option to specify the database type.");
 
     if (! $inspector->isValidWorkspace($workingDirectory)) {
       $output->writeln([
@@ -80,19 +84,6 @@ class DatabaseConfigure extends Command
 
     /** @var QuestionHelper $questionHelper */
     $questionHelper = $this->getHelper('question');
-
-    if (! DatabaseType::isValid($type) ) {
-      $output->writeln([
-        '',
-        '<error>Invalid database type.</error>',
-        ''
-      ]);
-      $type = select('<info>?</info> Database type: ', DatabaseType::toArray(), 0);
-      $output->writeln([
-        "Selected database type: <info>$type</info>",
-        ''
-      ]);
-    }
 
     $name = $input->getArgument(ParameterKey::DB_NAME->value);
 
