@@ -39,6 +39,9 @@ class DatabaseSetup extends Command
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
   }
 
+  /**
+   * @throws Exception
+   */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
     // Check if the workspace is valid
@@ -53,7 +56,8 @@ class DatabaseSetup extends Command
 
     // Check if the database configuration exists
     $name = $input->getArgument(ParameterKey::DB_NAME->value);
-    $type = get_datasource_type($input, $output);
+    $type = get_datasource_type($input, $output)
+      ?: throw new Exception("Database type is not specified. Use the --db-type option to specify the database type.");;
 
     if (! DatabaseType::isValid($type) ) {
       $output->writeln("<error>Invalid database type.</error>\n");

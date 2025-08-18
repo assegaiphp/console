@@ -3,6 +3,7 @@
 namespace Assegai\Console\Commands\Database;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
+use Assegai\Console\Exceptions\AssegaiConsoleException;
 use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -30,11 +31,14 @@ class DatabaseLoad extends Command
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
   }
 
+  /**
+   * @throws AssegaiConsoleException
+   */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
     $database = $input->getArgument(ParameterKey::DB_NAME->value);
     $file = $input->getArgument('file');
-    $type = get_datasource_type($input, $output);
+    $type = get_datasource_type($input, $output) ?: throw new AssegaiConsoleException("Database type is not specified. Use the --db-type option to specify the database type.");
 
     if (! file_exists($file)) {
       $output->writeln('<error>File not found</error>');
