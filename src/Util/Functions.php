@@ -2,6 +2,7 @@
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Util\Config\AppConfig;
+use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Path;
 use Laravel\Prompts\Output\ConsoleOutput;
 use Symfony\Component\Console\Command\Command;
@@ -237,16 +238,16 @@ if (! function_exists('get_datasource_type') ) {
   function get_datasource_type(InputInterface $input, OutputInterface $output, string $optionName = 'database_type'): string|false
   {
     return match(true) {
-      $input->hasOption(DatabaseType::MYSQL->value) => DatabaseType::MYSQL->value,
-      $input->hasOption(DatabaseType::POSTGRESQL->value) => DatabaseType::POSTGRESQL->value,
-      $input->hasOption(DatabaseType::SQLITE->value) => DatabaseType::SQLITE->value,
+      $input->hasOption(DatabaseType::MYSQL->value) && $input->getOption(DatabaseType::MYSQL->value) => DatabaseType::MYSQL->value,
+      $input->hasOption(DatabaseType::POSTGRESQL->value) && $input->getOption(DatabaseType::POSTGRESQL->value)  => DatabaseType::POSTGRESQL->value,
+      $input->hasOption(DatabaseType::SQLITE->value) && $input->getOption(DatabaseType::SQLITE->value)  => DatabaseType::SQLITE->value,
       default => $input->getOption($optionName) ?? select("Which type of data source do you want to use?", DatabaseType::toArray())
     };
   }
 }
 
 if (! function_exists('get_datasource_name') ) {
-  function get_datasource_name(InputInterface $input, OutputInterface $output, string $datasourceType, string $optionName = 'database'): string|false
+  function get_datasource_name(InputInterface $input, OutputInterface $output, string $datasourceType, string $optionName = ParameterKey::DB_NAME->value): string|false
   {
     $appConfig = new AppConfig($input, $output);
 

@@ -206,8 +206,7 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $type = DatabaseType::POSTGRESQL->value;
     $dbConfig = new DBConfig($input, $output, $name, $type);
-    if (Command::SUCCESS !== $dbConfig->load())
-    {
+    if (Command::SUCCESS !== $dbConfig->load()) {
       $output->writeln('<error>Failed to load database configuration.</error>');
       return Command::FAILURE;
     }
@@ -217,10 +216,8 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
     $username = $dbConfig->get("$type.$name.username") ?? $dbConfig->get("$type.$name.user", DEFAULT_MYSQL_USER);
     $password = $dbConfig->get("$type.$name.password") ?? '';
 
-    if (! self::exists($name) )
-    {
-      if (! self::$sudoUser)
-      {
+    if (! self::exists($name) ) {
+      if (! self::$sudoUser) {
         $helper = new QuestionHelper();
         self::$sudoUser = $helper->ask($input, $output, new Question('<info>?</info> Sudo user: ', 'postgres'));
       }
@@ -230,34 +227,28 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       $sudoUser = self::$sudoUser;
       $createResult = @`sudo -u $sudoUser psql -h $host -p $port -c "CREATE DATABASE $name;" 2>$errorOutputPath`;
 
-      if (false === $createResult)
-      {
+      if (false === $createResult) {
         $output->writeln("<error>Failed to create the database.</error>\n");
         return Command::FAILURE;
       }
 
       $errorCount = self::scanErrorOutput($errorOutputPath, $output);
 
-      if (false === $errorCount)
-      {
+      if (false === $errorCount) {
         $output->writeln("<error>Error scanning $errorOutputPath file</error>\n");
         return Command::FAILURE;
       }
 
-      if ($errorCount)
-      {
+      if ($errorCount) {
         $output->writeln("<error>Errors found! Check $errorOutputPath for more details.</error>\n");
         return Command::FAILURE;
       }
 
-      if (false === unlink($errorOutputPath))
-      {
+      if (false === unlink($errorOutputPath)) {
         $output->writeln("<error>Error deleting $errorOutputPath file</error>\n");
         return Command::FAILURE;
       }
-    }
-    else
-    {
+    } else {
       $output->writeln("<comment>Database $name already exists.</comment>\n");
       exit(Command::SUCCESS);
     }
@@ -271,8 +262,7 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $database = new self($name, $input, $output);
 
-    if (false === $database->exec($query) )
-    {
+    if (false === $database->exec($query) ) {
       $output->writeln("<error>Failed to create the migrations table.</error>\n");
       return Command::FAILURE;
     }
@@ -288,8 +278,7 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
   {
     $result = $this->query("DROP DATABASE $this->name");
 
-    if (false === $result)
-    {
+    if (false === $result) {
       return Command::FAILURE;
     }
 
@@ -318,14 +307,12 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $result = $this->query($query);
 
-    if (false === $result)
-    {
+    if (false === $result) {
       $this->output->writeln("<error>Failed to check if the table exists.</error>\n");
       return false;
     }
 
-    if (0 === $result->rowCount())
-    {
+    if (0 === $result->rowCount()) {
       $this->output->writeln("<comment>Table $tableName does not exist.</comment>\n");
       return false;
     }
@@ -346,8 +333,7 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $result = $this->exec($query);
 
-    if (false === $result)
-    {
+    if (false === $result) {
       $this->output->writeln("<error>Failed to create the migrations table.</error>\n");
       return Command::FAILURE;
     }

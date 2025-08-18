@@ -9,6 +9,7 @@ use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
 use Assegai\Console\Core\Migrations\MySQLDatabaseMigrator;
 use Assegai\Console\Core\Migrations\PostgreSQLDatabaseMigrator;
 use Assegai\Console\Core\Migrations\SQLiteDatabaseMigrator;
+use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -36,9 +37,8 @@ class MigrationList extends Command
 
   public function configure(): void
   {
-    $this->addArgument('database', InputArgument::OPTIONAL, 'The name of the database');
-    $this
-      ->addOption('database_type', 'dt', InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
+    $this->addArgument(ParameterKey::DB_NAME->value, InputArgument::OPTIONAL, 'The name of the database')
+      ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database')
