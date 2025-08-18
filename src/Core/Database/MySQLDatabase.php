@@ -45,8 +45,7 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
   {
     $this->inspector = new Inspector($this->input, $this->output);
 
-    if (! $this->inspector->isValidWorkspace(getcwd() ?: '') )
-    {
+    if (! $this->inspector->isValidWorkspace(getcwd() ?: '') ) {
       $this->output->writeln('<error>Failed to load MySQL config. Invalid workspace.</error>');
       exit(Command::FAILURE);
     }
@@ -63,12 +62,9 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $dsn = "mysql:host=$host;port=$port;dbname=$this->name";
 
-    try
-    {
+    try {
       parent::__construct($dsn, $username, $password);
-    }
-    catch (Exception $exception)
-    {
+    } catch (Exception $exception) {
       $message = match((int)$exception->getCode()) {
         self::ERROR_UNKNOWN_DATABASE => 'Database not found',
         self::ERROR_INVALID_CREDENTIALS => 'Invalid credentials',
@@ -89,13 +85,11 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
     $output = new ConsoleOutput();
     $type = DatabaseType::MYSQL->value;
 
-    try
-    {
+    try {
       $inspector = new Inspector($input, $output);
       $workingDirectory = getcwd() ?: '';
 
-      if (! $inspector->isValidWorkspace($workingDirectory) )
-      {
+      if (! $inspector->isValidWorkspace($workingDirectory) ) {
         $output->writeln('<error>This is not a valid workspace.</error>');
         return false;
       }
@@ -104,8 +98,7 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       $dbConfig->load();
       $configPath = "$type.$name";
 
-      if ( is_null($dbConfig->get($configPath)) )
-      {
+      if ( is_null($dbConfig->get($configPath)) ) {
         $output->writeln([
           "<error>Database config for $name not found.</error>",
           "\n<comment>Run `assegai database:configure $name` to configure the database.</comment>"
@@ -124,29 +117,24 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       // Scan the error output for errors. If there are any, log them otherwise delete the log file
       $errorCount = self::scanErrorOutput($errorOutputPath, $output);
 
-      if (false === $errorCount)
-      {
+      if (false === $errorCount) {
         $output->writeln("<error>Error scanning $errorOutputPath file</error>");
         return false;
       }
 
-      if ($errorCount)
-      {
+      if ($errorCount) {
         $output->writeln("<error>Errors found! Check $errorOutputPath for more details.</error>");
         return false;
       }
 
-      if (false === unlink($errorOutputPath))
-      {
+      if (false === unlink($errorOutputPath)) {
         $output->writeln("<error>Error deleting $errorOutputPath file</error>");
         return false;
       }
 
-      $database = preg_grep("/$name/", explode("\n", $result));
+      $database = preg_grep("/$name/", explode("\n", $result ?? ''));
       return ! empty($database);
-    }
-    catch (Exception)
-    {
+    } catch (Exception) {
       $output->writeln('<error>Failed to check if the database exists.</error>');
       return false;
     }
@@ -172,24 +160,20 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
     $errorOutput = file($errorOutputPath);
     $errorsFound = 0;
 
-    if (false === $errorOutput)
-    {
+    if (false === $errorOutput) {
       $output->writeln("<error>Error reading $errorOutputPath file</error>");
       return false;
     }
 
-    foreach ($errorOutput as $line)
-    {
+    foreach ($errorOutput as $line) {
       $matchResult = preg_match('/ERROR/', $line);
 
-      if (false === $matchResult)
-      {
+      if (false === $matchResult) {
         $output->writeln("<error>Error scanning $errorOutputPath file</error>");
         return false;
       }
 
-      if ($matchResult)
-      {
+      if ($matchResult) {
         $output->writeln("<error>$line</error>");
         $errorsFound++;
       }
@@ -208,8 +192,7 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $type = DatabaseType::MYSQL->value;
     $dbConfig = new DBConfig($input, $output, $name, $type);
-    if (Command::SUCCESS !== $dbConfig->load())
-    {
+    if (Command::SUCCESS !== $dbConfig->load()) {
       $output->writeln('<error>Failed to load database configuration.</error>');
       return Command::FAILURE;
     }
@@ -219,40 +202,33 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
     $username = $dbConfig->get("$type.$name.username") ?? $dbConfig->get("$type.$name.user", DEFAULT_MYSQL_USER);
     $password = $dbConfig->get("$type.$name.password") ?? '';
 
-    if (! self::exists($name))
-    {
+    if (! self::exists($name)) {
       $workingDirectory = getcwd() ?: '';
       $errorOutputPath = Path::join($workingDirectory, time() . '.error.log');
       $createResult = @`mysql -u $username -p$password -h $host -P $port -e "CREATE DATABASE $name;" 2>$errorOutputPath`;
 
-      if (false === $createResult)
-      {
+      if (false === $createResult) {
         $output->writeln("<error>Failed to create the database.</error>\n");
         return Command::FAILURE;
       }
 
       $errorCount = self::scanErrorOutput($errorOutputPath, $output);
 
-      if (false === $errorCount)
-      {
+      if (false === $errorCount) {
         $output->writeln("<error>Error scanning $errorOutputPath file</error>\n");
         return Command::FAILURE;
       }
 
-      if ($errorCount)
-      {
+      if ($errorCount) {
         $output->writeln("<error>Errors found! Check $errorOutputPath for more details.</error>\n");
         return Command::FAILURE;
       }
 
-      if (false === unlink($errorOutputPath))
-      {
+      if (false === unlink($errorOutputPath)) {
         $output->writeln("<error>Error deleting $errorOutputPath file</error>\n");
         return Command::FAILURE;
       }
-    }
-    else
-    {
+    } else {
       $output->writeln("<comment>Database $name already exists.</comment>\n");
       exit(Command::SUCCESS);
     }
@@ -266,8 +242,7 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $database = new self($name, $input, $output);
 
-    if (false === $database->exec($query) )
-    {
+    if (false === $database->exec($query) ) {
       $output->writeln("<error>Failed to create the migrations table.</error>\n");
       return Command::FAILURE;
     }
@@ -283,8 +258,7 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
   {
     $result = $this->query("DROP DATABASE $this->name");
 
-    if (false === $result)
-    {
+    if (false === $result) {
       $this->output->writeln('<error>Failed to drop the database.</error>');
       return Command::FAILURE;
     }
@@ -310,14 +284,12 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $result = $this->query($query);
 
-    if (false === $result)
-    {
+    if (false === $result) {
       $this->output->writeln("<error>Failed to check if the table exists.</error>\n");
       return false;
     }
 
-    if (0 === $result->rowCount())
-    {
+    if (0 === $result->rowCount()) {
       $this->output->writeln("<comment>Table $tableName does not exist.</comment>\n");
       return false;
     }
@@ -339,8 +311,7 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $result = $this->exec($query);
 
-    if (false === $result)
-    {
+    if (false === $result) {
       $this->output->writeln("<error>Failed to create the migrations table.</error>\n");
       return Command::FAILURE;
     }

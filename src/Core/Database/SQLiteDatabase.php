@@ -42,25 +42,21 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
   {
     $inspector = new Inspector($this->input, $this->output);
 
-    if (! $inspector->isValidWorkspace(getcwd() ?: '') )
-    {
+    if (! $inspector->isValidWorkspace(getcwd() ?: '') ) {
       $this->output->writeln('<error>Failed to load MySQL config. Invalid workspace.</error>');
       exit(Command::FAILURE);
     }
 
     $dbConfig = new DBConfig($this->input, $this->output, $this->name, DatabaseType::MYSQL->value);
-    if (Command::SUCCESS !== $dbConfig->load())
-    {
+    if (Command::SUCCESS !== $dbConfig->load()) {
       $this->output->writeln('<error>Database configuration not found.</error>');
       exit(Command::FAILURE);
     }
 
     $this->path = Path::join(Path::getWorkingDirectory() ?: '', $dbConfig->get("sqlite.$this->name.path") ?? exit(Command::FAILURE));
     $dataDirectory = Path::join(Path::getWorkingDirectory() ?: '', '.data');
-    if (! is_dir($dataDirectory) )
-    {
-      if (false === mkdir($dataDirectory))
-      {
+    if (! is_dir($dataDirectory) ) {
+      if (false === mkdir($dataDirectory)) {
         $this->output->writeln('<error>Failed to create data directory.</error>');
         exit(Command::FAILURE);
       }
@@ -79,16 +75,14 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
     $output = new ConsoleOutput();
 
     $dbConfig = new DBConfig($input, $output, $name, DatabaseType::SQLITE->value);
-    if (Command::SUCCESS !== $dbConfig->load())
-    {
+    if (Command::SUCCESS !== $dbConfig->load()) {
       $output->writeln('<error>Database configuration not found.</error>');
       return false;
     }
 
     $path = $dbConfig->get("sqlite.$name.path");
 
-    if (!$path)
-    {
+    if (!$path) {
       $output->writeln('<error>Database path not defined.</error>');
       return false;
     }
@@ -115,29 +109,25 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
     $type = DatabaseType::SQLITE->value;
     $dbConfig = new DBConfig($input, $output, $name, $type);
 
-    if (Command::SUCCESS !== $dbConfig->load())
-    {
+    if (Command::SUCCESS !== $dbConfig->load()) {
       $output->writeln("<error>Failed to load database configuration.</error>\n");
       return Command::FAILURE;
     }
 
     $path = $dbConfig->get("sqlite.$name.path");
 
-    if (!$path)
-    {
+    if (!$path) {
       $output->writeln("<error>Database path not defined.</error>\n");
       return Command::FAILURE;
     }
 
     $path = Path::join(Path::getWorkingDirectory() ?: '', $path);
 
-    if (! file_exists($path) )
-    {
+    if (! file_exists($path) ) {
       $helper = new QuestionHelper();
       $confirmQuestion = new ConfirmationQuestion("<info>?</info> Do you want to create the database? <fg=gray>(Y/n)</>", true);
 
-      if (! $helper->ask($input, $output, $confirmQuestion) )
-      {
+      if (! $helper->ask($input, $output, $confirmQuestion) ) {
         return Command::FAILURE;
       }
     }
@@ -145,20 +135,15 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
     $migrationsTableName = self::getMigrationsTableName();
     $query = "CREATE TABLE $migrationsTableName (migration TEXT PRIMARY KEY, ran_at TEXT)";
 
-    try
-    {
+    try {
       $database = new self($name, $input, $output);
 
-      if (false === $database->exec($query))
-      {
+      if (false === $database->exec($query)) {
         $output->writeln("<error>Failed to create the migrations table.</error>\n");
         return Command::FAILURE;
       }
-    }
-    catch (Exception $exception)
-    {
-      if (! str_contains($exception->getMessage(), 'already exists'))
-      {
+    } catch (Exception $exception) {
+      if (! str_contains($exception->getMessage(), 'already exists')) {
         $output->writeln("<error>({$exception->getCode()}): {$exception->getMessage()}</error>\n");
         return Command::FAILURE;
       }
@@ -196,8 +181,7 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $statement = $this->query($query);
 
-    if (false === $statement)
-    {
+    if (false === $statement) {
       $this->output->writeln("<error>Failed to check if table exists.</error>\n");
       return false;
     }
@@ -213,8 +197,7 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
     $migrationsTableName = self::getMigrationsTableName();
     $query = "CREATE TABLE IF NOT EXISTS $migrationsTableName (migration TEXT PRIMARY KEY, ran_at TEXT)";
 
-    if (false === $this->exec($query))
-    {
+    if (false === $this->exec($query)) {
       $this->output->writeln("<error>Failed to create the migrations table.</error>\n");
       return Command::FAILURE;
     }
