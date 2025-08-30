@@ -2,6 +2,7 @@
 
 namespace Assegai\Console\Util\Config;
 
+use Assegai\Console\Util\Config\Interfaces\ConfigInterface;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Command\Command;
@@ -13,12 +14,12 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * @package Assegai\Console\Util\Config
  */
-class AppConfig implements Interfaces\ConfigInterface
+class AppConfig implements ConfigInterface
 {
   /**
    * @var string[] $possibleConfigFilenames The configuration filenames.
    */
-  protected array $possibleConfigFilenames = ['secure.php', 'dev.php', 'local.php', 'default.php'];
+  protected array $possibleConfigFilenames = ['default.php', 'dev.php', 'local.php', 'secure.php'];
 
   /**
    * @var array<string, mixed> $config The configuration array.
@@ -55,24 +56,20 @@ class AppConfig implements Interfaces\ConfigInterface
   public function load(): int
   {
     $workingDirectory = getcwd() ?: '';
-    if (! $this->inspector->isValidWorkspace($workingDirectory) )
-    {
+    if (! $this->inspector->isValidWorkspace($workingDirectory) ) {
       $this->output->writeln('<error>Invalid workspace</error>');
       return Command::FAILURE;
     }
 
-    foreach ($this->possibleConfigFilenames as $configFilename)
-    {
+    foreach ($this->possibleConfigFilenames as $configFilename) {
       $filename = Path::join($workingDirectory, 'config', $configFilename);
-      if (file_exists($filename))
-      {
+      if (file_exists($filename)) {
         $this->path = $filename;
         break;
       }
     }
 
-    if (empty($this->path))
-    {
+    if (empty($this->path)) {
       $this->output->writeln('<error>Configuration file not found</error>');
       return Command::FAILURE;
     }
@@ -93,10 +90,8 @@ class AppConfig implements Interfaces\ConfigInterface
 
     $value = $this->config ?? [];
 
-    foreach ($tokens as $token)
-    {
-      if (! array_key_exists($token, $value))
-      {
+    foreach ($tokens as $token) {
+      if (! array_key_exists($token, $value)) {
         return $default;
       }
 
@@ -123,10 +118,8 @@ class AppConfig implements Interfaces\ConfigInterface
 
     $target = &$this->config;
 
-    foreach ($tokens as $token)
-    {
-      if (! array_key_exists($token, $target))
-      {
+    foreach ($tokens as $token) {
+      if (! array_key_exists($token, $target)) {
         $target[$token] = [];
       }
 
@@ -149,8 +142,7 @@ class AppConfig implements Interfaces\ConfigInterface
 return $data;
 PHP
     );
-    if (false === $bytes )
-    {
+    if (false === $bytes ) {
       $this->output->writeln('<error>Failed to write to configuration file</error>');
       return Command::FAILURE;
     }
