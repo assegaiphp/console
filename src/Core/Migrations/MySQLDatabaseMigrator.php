@@ -11,6 +11,9 @@ use Assegai\Console\Core\Migrations\Listers\AllMigrationsLister;
 use Assegai\Console\Core\Migrations\Listers\PendingMigrationsLister;
 use Assegai\Console\Core\Migrations\Listers\RanMigrationsLister;
 use Assegai\Console\Util\Path;
+use DateMalformedStringException;
+use DateTimeImmutable;
+use DateTimeZone;
 use PDO;
 use PDOException;
 use Symfony\Component\Console\Helper\FormatterHelper;
@@ -27,6 +30,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
   /**
    * @inheritDoc
    * @noinspection DuplicatedCode
+   * @throws DateMalformedStringException
    */
   public function up(?int $runs = null): int|false
   {
@@ -95,7 +99,8 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
 
       # Update the migrations table
       $migrationsTableName = self::getMigrationsTableName();
-      $timestamp = date(DATE_ATOM);
+      $timestamp =
+        (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s');
       $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ('$migration', '$timestamp')";
 
       if (false === $statement->closeCursor()) {
