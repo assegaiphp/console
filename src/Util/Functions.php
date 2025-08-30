@@ -256,9 +256,9 @@ if (! function_exists('get_datasource_name') ) {
       return false;
     }
 
-    /** @var array<int|string, string> $datasourceTypes */
-    $datasourceTypes = $appConfig->get("databases.$datasourceType", []);
-    $dataSourceChoices = array_map(fn($choice) => $choice, $datasourceTypes);
+    /** @var array<string, array<string, mixed>> $dataSources */
+    $dataSources = $appConfig->get("databases.$datasourceType", []);
+    $dataSourceChoices = array_keys($dataSources);
 
     if (! $dataSourceChoices) {
       $output->writeln("<error>No $datasourceType databases found</error>");
