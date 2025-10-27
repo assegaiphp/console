@@ -30,6 +30,7 @@ use function Laravel\Prompts\select;
 )]
 class MigrationCreate extends Command
 {
+  const string OPTION_DB_NAME = 'database';
   /**
    * @inheritDoc
    */
@@ -39,7 +40,7 @@ class MigrationCreate extends Command
       ->setHelp('This command creates a new migration file in the migrations directory.')
       ->addArgument(ParameterKey::MIGRATION_NAME->value, InputArgument::REQUIRED, 'The name of the migration')
       ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The database type of the migration', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
-      ->addOption('database', 'db', InputArgument::OPTIONAL, 'The name of the database')
+      ->addOption(self::OPTION_DB_NAME, 'db', InputArgument::OPTIONAL, 'The name of the database')
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
@@ -95,7 +96,7 @@ class MigrationCreate extends Command
       $type = DatabaseType::SQLITE->value;
     }
 
-    $dbName = get_datasource_name($input, $output, $type);
+    $dbName = get_datasource_name($input, $output, $type, self::OPTION_DB_NAME);
 
     if (! $dbName ) {
       $path = "databases.$type";

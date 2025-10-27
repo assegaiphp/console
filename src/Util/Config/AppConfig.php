@@ -19,7 +19,7 @@ class AppConfig implements ConfigInterface
   /**
    * @var string[] $possibleConfigFilenames The configuration filenames.
    */
-  protected array $possibleConfigFilenames = ['default.php', 'dev.php', 'local.php', 'secure.php'];
+  protected array $possibleConfigFilenames = ['secure.php', 'local.php', 'dev.php', 'default.php'];
 
   /**
    * @var array<string, mixed> $config The configuration array.
