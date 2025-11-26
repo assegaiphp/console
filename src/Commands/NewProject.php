@@ -47,8 +47,7 @@ class NewProject extends Command
     $questionHelper = $this->getHelper('question');
     $workspaceManager = new WorkspaceManager($input, $output, $formatter, $questionHelper);
 
-    if ($errorCode = $workspaceManager->init($projectName, $projectDirectory))
-    {
+    if ($errorCode = $workspaceManager->init($projectName, $projectDirectory)) {
       $output->writeln($formatter->formatBlock('Failed to create project', 'error', true));
       return $errorCode;
     }
@@ -56,8 +55,7 @@ class NewProject extends Command
     $workspaceManager->setProjectPath(Path::join($projectDirectory, $projectName));
 
     $output->writeln('');
-    if ($errorCode = $workspaceManager->install())
-    {
+    if ($errorCode = $workspaceManager->install()) {
       $output->writeln($formatter->formatBlock('Failed to install project', 'error', true));
       return $errorCode;
     }

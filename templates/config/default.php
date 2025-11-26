@@ -32,7 +32,7 @@ return [
     'DEFAULT_SKIP' => 0,
   ],
   'authentication' => [
-    'secret' => 'SECRET_KEY',
+    'secret' => env("APP_SECRET_KEY", "your-secret-key"),
     'strategies' => [
       'local' => 'Assegai\\Core\\Authentication\\Strategies\\LocalStrategy',
       'jwt' => 'Assegai\\Core\\Authentication\\Strategies\\JWTStrategy',

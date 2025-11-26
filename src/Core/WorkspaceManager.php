@@ -15,6 +15,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Console\Question\Question;
+use Throwable;
 
 /**
  * Class WorkspaceManager. Manages the workspace.
@@ -58,28 +59,24 @@ class WorkspaceManager
     $this->output->writeln($this->formatter->formatBlock("Initializing the project...", 'question', true));
     $this->output->writeln('');
 
-    if (! $projectName )
-    {
+    if (! $projectName ) {
       $projectNameQuestion = new Question("<info>?</info> Project name: <fg=gray>($defaultProjectName)</> ", $defaultProjectName);
       $projectName = $this->questionHelper->ask($this->input, $this->output, $projectNameQuestion);
     }
     $projectNameText = new Text($projectName);
     $projectDirectory = Path::join($workingDirectory ?: '', $projectNameText->kebabCase());
 
-    if ( file_exists($projectDirectory) )
-    {
+    if ( file_exists($projectDirectory) ) {
       $this->output->writeln("<error>Project directory already exists: $projectDirectory</error>");
       return Command::FAILURE;
     }
 
-    if (! mkdir($projectDirectory, 0777, true) )
-    {
+    if (! mkdir($projectDirectory, 0777, true) ) {
       $this->output->writeln("<error>\nFailed to create project directory: $projectDirectory</error>");
       return Command::FAILURE;
     }
 
-    if (! copy_directory($templatePath, $projectDirectory) )
-    {
+    if (! copy_directory($templatePath, $projectDirectory) ) {
       $this->output->writeln("<error>\nFailed to copy project template</error>");
       return Command::FAILURE;
     }
@@ -159,6 +156,23 @@ class WorkspaceManager
     if (($statusCode = $this->updateNamespace($projectDirectory, $namespace)) > 0) {
       $this->output->writeln("<error>\nFailed to update namespace in project files</error>");
       return $statusCode;
+    }
+
+    # Copy .env.example to .env
+    $envExamplePath = Path::join($projectDirectory, '.env.example');
+    $envPath = Path::join($projectDirectory, '.env');
+    if ( file_exists($envExamplePath) ) {
+      if (! copy($envExamplePath, $envPath) ) {
+        $this->output->writeln("<error>\nFailed to create .env file</error>");
+        return Command::FAILURE;
+      }
+    }
+
+    if (Command::SUCCESS !== $this->generateApplicationSecretKey($envPath)) {
+      $this->output->writeln([
+        "<error>\nFailed to generate application secret key</error>",
+        "<comment>Please generate one manually and set it in the .env file</comment>"
+      ]);
     }
 
     # Initialize the git repository
@@ -293,5 +307,42 @@ class WorkspaceManager
     }
 
     return Command::SUCCESS;
+  }
+
+  /**
+   * Generate the application secret key and update the .env file
+   *
+   * @param string $envPath The path to the .env file
+   * @return int The command status
+   */
+  private function generateApplicationSecretKey(string $envPath): int
+  {
+    try {
+      $keyLength = 32;
+      $binaryKey = random_bytes($keyLength);
+      $secretKey = bin2hex($binaryKey);
+
+      # Update .env file with the secret key
+      if ( file_exists($envPath) ) {
+        $envContent = file_get_contents($envPath);
+
+        # Check if APP_SECRET_KEY already exists
+        if (str_contains($envContent ?: '', 'APP_SECRET_KEY') === false) {
+          $envContent .= "\nAPP_SECRET_KEY=[YOUR_SECRET_KEY]\n";
+        }
+
+        $envContent = preg_replace('/APP_SECRET_KEY=.*/', "APP_SECRET_KEY=$secretKey", $envContent ?: '');
+
+        if (false === file_put_contents($envPath, $envContent) ) {
+          $this->output->writeln("<error>\nFailed to update .env file with secret key</error>");
+          return Command::FAILURE;
+        }
+      }
+
+      return Command::SUCCESS;
+    } catch (Throwable $exception) {
+      $this->output->writeln("<error>$exception</error>", OutputInterface::VERBOSITY_VERBOSE);
+      return Command::FAILURE;
+    }
   }
 }
