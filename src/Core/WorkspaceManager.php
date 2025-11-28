@@ -187,7 +187,8 @@ class WorkspaceManager
           $this->formatter->formatBlock('Initializing git repository...', 'question', true),
           OutputInterface::VERBOSITY_VERBOSE
         );
-        $gitInit = `cd $projectDirectory && git init`;
+        $gitInitCommand = "cd " . escapeshellarg($projectDirectory) . " && git init";
+        $gitInit = shell_exec($gitInitCommand);
 
         if (! str_contains($gitInit, 'Initialized empty Git repository') ) {
           $this->output->writeln("<error>\nFailed to initialize git repository</error>");

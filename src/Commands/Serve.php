@@ -56,7 +56,7 @@ class Serve extends Command
 
     $output->writeln($formatter->formatBlock([
       "Assegai app listening on $scheme://$uri",
-      'CTRL+C to stop the server'
+      "CTRL+C to stop the server"
     ], 'question', true));
     $output->writeln('');
     $resultCode = 0;
@@ -108,7 +108,7 @@ class Serve extends Command
       return false;
     }
 
-    if (false === `which sensible-browser`) {
+    if (false === shell_exec("which sensible-browser")) {
       $output->writeln("<error>Failed to find the sensible-browser command</error>", OutputInterface::VERBOSITY_VERBOSE);
       return false;
     }
