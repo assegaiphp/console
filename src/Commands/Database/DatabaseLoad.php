@@ -59,7 +59,14 @@ class DatabaseLoad extends Command
     $output->writeln('');
     switch ($type) {
       case DatabaseType::MYSQL->value:
-        if (false === `mysql -u $user -h $host -P $port -p$password $database < $file`) {
+        $mysqlLoadCommand = "mysql " .
+          "-u " . escapeshellarg($user) . " " .
+          "-h " . escapeshellarg($host) . " " .
+          "-P " . escapeshellarg($port) . " " .
+          "-p" . escapeshellarg($password) . " " .
+          escapeshellarg($database) . " " .
+          "< " . escapeshellarg($file);
+        if (false === shell_exec($mysqlLoadCommand)) {
           $output->writeln('<error>Failed to load the schema.sql file</error>');
           return Command::FAILURE;
         }
@@ -69,13 +76,23 @@ class DatabaseLoad extends Command
         $port = $config->get('port', DEFAULT_POSTGRES_PORT);
         $user = $config->get('user', DEFAULT_POSTGRES_USER);
 
-        if (false === `PGPASSWORD=$password psql -U $user -h $host -p $port $database < $file`) {
+        $postresqlLoadCommand = "PGPASSWORD=" . escapeshellarg($password) . " " .
+          "psql " .
+          "-U " . escapeshellarg($user) . " " .
+          "-h " . escapeshellarg($host) . " " .
+          "-p " . escapeshellarg($port) . " " .
+          escapeshellarg($database) . " " .
+          "< " . escapeshellarg($file);
+        if (false === shell_exec($postresqlLoadCommand)) {
           $output->writeln('<error>Failed to load the schema.sql file</error>');
           return Command::FAILURE;
         }
         break;
       case DatabaseType::SQLITE->value:
-        if (false === `sqlite3 $database < $file`) {
+        $sqliteLoadCommand = "sqlite3 " .
+          escapeshellarg($database) . " " .
+          "< " . escapeshellarg($file);
+        if (false === shell_exec($sqliteLoadCommand)) {
           $output->writeln('<error>Failed to load the schema.sql file</error>');
           return Command::FAILURE;
         }

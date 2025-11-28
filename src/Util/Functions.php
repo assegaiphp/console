@@ -73,7 +73,9 @@ function array_to_string(array $array): false|string
  */
 function is_installed(string $programName): bool
 {
-  return ! empty(`which $programName`);
+  $command = (PHP_OS_FAMILY === 'Windows') ? 'where' : 'which';
+  $command = $command . ' ' . escapeshellarg($programName);
+  return ! empty(shell_exec($command));
 }
 
 if (! function_exists('format_bytes') ) {

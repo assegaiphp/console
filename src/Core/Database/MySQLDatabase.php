@@ -112,7 +112,14 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       $host = $dbConfig->get("$configPath.host", DEFAULT_MYSQL_HOST);
       $port = $dbConfig->get("$configPath.port", DEFAULT_MYSQL_PORT);
 
-      $result = @`mysql -u $user -p$password -h $host -P $port -e "SHOW DATABASES LIKE '$name';" 2>$errorOutputPath`;
+      $showDatabaseSQL = "SHOW DATABASES LIKE " . escapeshellarg($name) . ";";
+      $showDatabaseCommand = "mysql -u " . escapeshellarg($user) .
+        " -p" . escapeshellarg($password) .
+        " -h " . escapeshellarg($host) .
+        " -P " . escapeshellarg($port) .
+        " -e " . escapeshellarg($showDatabaseSQL) .
+        " 2>" . escapeshellarg($errorOutputPath);
+      $result = @shell_exec($showDatabaseCommand);
 
       // Scan the error output for errors. If there are any, log them otherwise delete the log file
       $errorCount = self::scanErrorOutput($errorOutputPath, $output);
@@ -205,7 +212,14 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
     if (! self::exists($name)) {
       $workingDirectory = getcwd() ?: '';
       $errorOutputPath = Path::join($workingDirectory, time() . '.error.log');
-      $createResult = @`mysql -u $username -p$password -h $host -P $port -e "CREATE DATABASE $name;" 2>$errorOutputPath`;
+      $createDatabaseSQL = "CREATE DATABASE " . escapeshellarg($name) . ";";
+      $createDatabaseCommand = "mysql -u " . escapeshellarg($username) .
+        " -p" . escapeshellarg($password) .
+        " -h " . escapeshellarg($host) .
+        " -P " . escapeshellarg($port) .
+        " -e " . escapeshellarg($createDatabaseSQL) .
+        " 2>" . escapeshellarg($errorOutputPath);
+      $createResult = @shell_exec($createDatabaseCommand);
 
       if (false === $createResult) {
         $output->writeln("<error>Failed to create the database.</error>\n");
