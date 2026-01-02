@@ -26,7 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 /*
  * Set the path to the request URI.
  */
-$_GET['path'] = trim($_SERVER['REQUEST_URI'], '/');
+if (!isset($_GET['path']) || $_GET['path'] === '') {
+  $_GET['path'] = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+}
 
 /*
  * This is the entry point of the application.

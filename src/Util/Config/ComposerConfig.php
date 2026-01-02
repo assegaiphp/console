@@ -37,15 +37,13 @@ class ComposerConfig implements ConfigInterface
    */
   public function load(): int
   {
-    if (is_null($this->workingDirectory))
-    {
+    if (is_null($this->workingDirectory)) {
       $this->workingDirectory = getcwd() ?: '';
     }
 
     $composerJsonPath = Path::join($this->workingDirectory, 'composer.json');
 
-    if (! file_exists($composerJsonPath))
-    {
+    if (! file_exists($composerJsonPath)) {
       $this->output->writeln('<error>composer.json not found</error>');
       return Command::FAILURE;
     }
@@ -68,10 +66,8 @@ class ComposerConfig implements ConfigInterface
 
     $value = $this->composerJson;
 
-    foreach ($tokens as $token)
-    {
-      if (! array_key_exists($token, $value))
-      {
+    foreach ($tokens as $token) {
+      if (! array_key_exists($token, $value)) {
         return $default;
       }
 
@@ -101,10 +97,8 @@ class ComposerConfig implements ConfigInterface
 
     $target = &$this->composerJson;
 
-    foreach ($tokens as $token)
-    {
-      if (! array_key_exists($token, $target))
-      {
+    foreach ($tokens as $token) {
+      if (! array_key_exists($token, $target)) {
         $target[$token] = [];
       }
 
@@ -122,8 +116,7 @@ class ComposerConfig implements ConfigInterface
   public function commit(): int
   {
     $composerJsonPath = Path::join($this->workingDirectory ?? '', 'composer.json');
-    if (false === file_put_contents($composerJsonPath, json_encode($this->composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) )
-    {
+    if (false === file_put_contents($composerJsonPath, json_encode($this->composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) ) {
       $this->output->writeln('<error>Failed to write to composer.json</error>');
       return Command::FAILURE;
     }
