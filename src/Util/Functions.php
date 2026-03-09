@@ -125,13 +125,22 @@ if (! function_exists('update_module_file') ) {
     $contents = file_get_contents($filename) ?: throw new RuntimeException("Failed to read file $filename.");
     $originalBytes = strlen($contents);
 
-    # Replace the use statements
-    foreach ($data['use'] ?? [] as $import) {
-      /** @var string $contents */
-      if (! str_contains($contents, $import)) {
-        $contents = preg_replace('/(use .*;\n)\n/', "$1use $import;\n\n", $contents) ?? throw new RuntimeException("Failed to replace use statements in $filename.");
-      }
+    $contents = append_module_use_statements($contents, $data['use'] ?? []);
+
+    $moduleAttributePattern = '/#\[Module\((?<body>[\s\S]*?)\)\]/';
+    $moduleMatches = [];
+
+    if (false === preg_match($moduleAttributePattern, $contents, $moduleMatches, PREG_OFFSET_CAPTURE)) {
+      $output->writeln("<error>Failed to parse the Module attribute in $filename.</error>");
+      return Command::FAILURE;
     }
+
+    if (! isset($moduleMatches['body'][0], $moduleMatches['body'][1])) {
+      $output->writeln("<error>Failed to locate the Module attribute body in $filename.</error>");
+      return Command::FAILURE;
+    }
+
+    $moduleBody = $moduleMatches['body'][0];
 
     $modulePropertyNames = ['declarations', 'imports', 'controllers', 'providers', 'exports', 'config'];
 
@@ -140,88 +149,20 @@ if (! function_exists('update_module_file') ) {
         continue;
       }
 
-      $newEntries = $data[$propertyName];
-      $matches = [];
-
-      # If the property is not found, add it
-      /** @var string $contents */
-      if (! str_contains($contents, $propertyName) ) {
-        $newEntriesString = implode(',', $newEntries);
-        $contents = preg_replace('/#\[Module\(([\w\W]*)\)/', "#[Module($1  $propertyName: [$newEntriesString],\n)", $contents);
-      } else {
-
-        $pattern = "/$propertyName: \[([a-zA-Z0-9:,\s]*)(,?)\]/";
-
-        if (false === preg_match_all($pattern, $contents, $matches)) {
-          $output->writeln("<error>Failed to match $propertyName in $filename.</error>");
-          return Command::FAILURE;
-        }
-
-        if (empty($matches[0]) || empty($matches[1])) {
-          $output->writeln("<error>No matches found for $propertyName in $filename.</error>");
-          return Command::FAILURE;
-        }
-
-        [$wholeMatch, $currentEntries] = $matches;
-
-        $withNewLines = str_contains($wholeMatch[0], "\n");
-
-        $currentEntries = trim($currentEntries[0]);
-        if (str_ends_with($currentEntries, ',')) {
-          $currentEntries = substr($currentEntries, 0, -1);
-        }
-
-        $currentEntries = explode(',', $currentEntries);
-
-        $replacement = '';
-        $tail = $withNewLines ? ",\n" : ',';
-        $totalCurrentEntries = count($currentEntries);
-
-        foreach ($currentEntries as $index => $entry) {
-          $entry = trim($entry, $tail);
-          if (empty($entry)) {
-            continue;
-          }
-          $replacement .= "$entry";
-
-          if ($totalCurrentEntries === $index + 1) {
-            $replacement = trim($replacement);
-          }
-
-          $replacement .= ',';
-        }
-
-        foreach ($newEntries as $entry) {
-          if (empty($entry)) {
-            continue;
-          }
-
-          if (str_contains($replacement, $entry)) {
-            continue;
-          }
-
-          $prefix = $withNewLines ? "    " : ' ';
-          $replacement .= "$prefix$entry,";
-        }
-
-        if ($withNewLines) {
-          $replacement = str_replace(',', ",\n", $replacement);
-        } elseif (str_ends_with($replacement, ',')) {
-          $replacement = substr($replacement, 0, -1);
-        }
-
-        if ($withNewLines) {
-          $replacement = "\n    $replacement  ";
-        }
-
-        $contents = preg_replace($pattern, "$propertyName: [$replacement]", $contents);
-
-        if (is_null($contents)) {
-          $output->writeln("<error>Failed to replace $propertyName in $filename.</error>");
-          return Command::FAILURE;
-        }
-      }
+      $moduleBody = update_module_attribute_property(
+        $moduleBody,
+        $propertyName,
+        $data[$propertyName] ?? [],
+        $contents
+      );
     }
+
+    $contents = substr_replace(
+      $contents,
+      $moduleBody,
+      $moduleMatches['body'][1],
+      strlen($moduleMatches['body'][0])
+    );
 
     # Write the file
     $bytes = file_put_contents($filename, $contents) ?: throw new RuntimeException("Failed to write file $filename.");
@@ -233,6 +174,351 @@ if (! function_exists('update_module_file') ) {
       $output->writeln("<fg=blue>UPDATE</> $relativeFilename ($bytes)");
     }
     return Command::SUCCESS;
+  }
+}
+
+if (! function_exists('append_module_use_statements') ) {
+  /**
+   * Appends missing use statements while preserving the file's newline style.
+   *
+   * @param string[] $imports
+   */
+  function append_module_use_statements(string $contents, array $imports): string
+  {
+    $imports = array_values(array_filter($imports, fn(string $import): bool => $import !== ''));
+
+    if (empty($imports)) {
+      return $contents;
+    }
+
+    $missingImports = [];
+
+    foreach ($imports as $import) {
+      if (! str_contains($contents, "use $import;")) {
+        $missingImports[] = $import;
+      }
+    }
+
+    if (empty($missingImports)) {
+      return $contents;
+    }
+
+    $newline = str_contains($contents, "\r\n") ? "\r\n" : "\n";
+    $renderedImports = implode($newline, array_map(
+      fn(string $import): string => "use $import;",
+      $missingImports
+    ));
+
+    $useMatches = [];
+    if (false !== preg_match_all('/^use\s+[^;]+;$/m', $contents, $useMatches, PREG_OFFSET_CAPTURE) && ! empty($useMatches[0])) {
+      $lastUse = end($useMatches[0]);
+
+      if ($lastUse !== false) {
+        return substr_replace(
+          $contents,
+          $newline . $renderedImports,
+          $lastUse[1] + strlen($lastUse[0]),
+          0
+        );
+      }
+    }
+
+    $namespaceMatch = [];
+    if (false !== preg_match('/^namespace\s+[^;]+;$/m', $contents, $namespaceMatch, PREG_OFFSET_CAPTURE) && isset($namespaceMatch[0])) {
+      return substr_replace(
+        $contents,
+        $newline . $renderedImports,
+        $namespaceMatch[0][1] + strlen($namespaceMatch[0][0]),
+        0
+      );
+    }
+
+    return $renderedImports . $newline . $contents;
+  }
+}
+
+if (! function_exists('update_module_attribute_property') ) {
+  /**
+   * Updates or inserts a Module attribute property while preserving its formatting.
+   *
+   * @param string[] $newEntries
+   */
+  function update_module_attribute_property(
+    string $moduleBody,
+    string $propertyName,
+    array $newEntries,
+    string $context
+  ): string
+  {
+    $newEntries = array_values(array_filter($newEntries, fn(string $entry): bool => $entry !== ''));
+
+    if (empty($newEntries)) {
+      return $moduleBody;
+    }
+
+    $pattern = '/(?P<indent>^[ \t]*)' . preg_quote($propertyName, '/') . '(?P<afterName>\s*:\s*)\[(?P<body>.*?)\](?P<comma>,?)/ms';
+    $matches = [];
+
+    if (false !== preg_match($pattern, $moduleBody, $matches, PREG_OFFSET_CAPTURE) && isset($matches[0])) {
+      $existingEntries = parse_module_attribute_entries($matches['body'][0] ?? '');
+      $updatedEntries = $existingEntries;
+
+      foreach ($newEntries as $entry) {
+        if (! in_array($entry, $updatedEntries, true)) {
+          $updatedEntries[] = $entry;
+        }
+      }
+
+      if ($updatedEntries === $existingEntries) {
+        return $moduleBody;
+      }
+
+      $replacement = render_module_attribute_property(
+        $propertyName,
+        $matches['indent'][0] ?? '',
+        $matches['afterName'][0] ?? ': ',
+        $updatedEntries,
+        $matches['comma'][0] ?? '',
+        $matches['body'][0] ?? '',
+        $context
+      );
+
+      return substr_replace(
+        $moduleBody,
+        $replacement,
+        $matches[0][1],
+        strlen($matches[0][0])
+      );
+    }
+
+    return insert_module_attribute_property($moduleBody, $propertyName, $newEntries, $context);
+  }
+}
+
+if (! function_exists('insert_module_attribute_property') ) {
+  /**
+   * Inserts a missing Module attribute property using the module's existing style.
+   *
+   * @param string[] $entries
+   */
+  function insert_module_attribute_property(
+    string $moduleBody,
+    string $propertyName,
+    array $entries,
+    string $context
+  ): string
+  {
+    $entries = array_values(array_filter($entries, fn(string $entry): bool => $entry !== ''));
+
+    if (empty($entries)) {
+      return $moduleBody;
+    }
+
+    $newline = str_contains($context, "\r\n") ? "\r\n" : "\n";
+    $format = detect_module_property_format($moduleBody, $context);
+    $property = render_module_attribute_property(
+      $propertyName,
+      $format['indent'],
+      $format['after_name'],
+      $entries,
+      $format['trailing_comma'],
+      $format['sample_body'],
+      $context
+    );
+
+    $trimmedBody = rtrim($moduleBody);
+    $trailingWhitespace = substr($moduleBody, strlen($trimmedBody));
+
+    if ($trimmedBody === '') {
+      $leadingBreak = '';
+      if (preg_match('/^\R/', $moduleBody, $leadingBreakMatch) && isset($leadingBreakMatch[0])) {
+        $leadingBreak = $leadingBreakMatch[0];
+        $trailingWhitespace = substr($moduleBody, strlen($leadingBreak));
+      }
+
+      return $leadingBreak . $property . $trailingWhitespace;
+    }
+
+    if (! str_ends_with($trimmedBody, ',')) {
+      $trimmedBody .= ',';
+    }
+
+    return $trimmedBody . $newline . $property . $trailingWhitespace;
+  }
+}
+
+if (! function_exists('render_module_attribute_property') ) {
+  /**
+   * Renders a Module attribute property using an existing property's layout as the sample.
+   *
+   * @param string[] $entries
+   */
+  function render_module_attribute_property(
+    string $propertyName,
+    string $indent,
+    string $afterName,
+    array $entries,
+    string $trailingComma,
+    string $sampleBody,
+    string $context
+  ): string
+  {
+    $newline = str_contains($context, "\r\n") ? "\r\n" : "\n";
+
+    if (str_contains($sampleBody, "\n") || str_contains($sampleBody, "\r")) {
+      $entryIndent = detect_module_array_entry_indent($sampleBody, $indent, $context);
+      $renderedEntries = implode($newline, array_map(
+        fn(string $entry): string => $entryIndent . $entry . ',',
+        $entries
+      ));
+      $body = $newline . $renderedEntries . $newline . $indent;
+
+      return $indent . $propertyName . $afterName . '[' . $body . ']' . $trailingComma;
+    }
+
+    $leadingWhitespace = '';
+    if (preg_match('/^\s*/', $sampleBody, $leadingWhitespaceMatch) && isset($leadingWhitespaceMatch[0])) {
+      $leadingWhitespace = $leadingWhitespaceMatch[0];
+    }
+
+    $trailingWhitespace = '';
+    if (preg_match('/\s*$/', $sampleBody, $trailingWhitespaceMatch) && isset($trailingWhitespaceMatch[0])) {
+      $trailingWhitespace = $trailingWhitespaceMatch[0];
+    }
+
+    $separator = ', ';
+    if (preg_match('/,(?<spacing>\s*)/', $sampleBody, $separatorMatch) && isset($separatorMatch['spacing'])) {
+      $separator = ',' . $separatorMatch['spacing'];
+    } elseif (str_contains($sampleBody, ',')) {
+      $separator = ',';
+    }
+
+    $body = $leadingWhitespace . implode($separator, $entries) . $trailingWhitespace;
+
+    return $indent . $propertyName . $afterName . '[' . $body . ']' . $trailingComma;
+  }
+}
+
+if (! function_exists('parse_module_attribute_entries') ) {
+  /**
+   * @return string[]
+   */
+  function parse_module_attribute_entries(string $body): array
+  {
+    $trimmedBody = trim($body);
+
+    if ($trimmedBody === '') {
+      return [];
+    }
+
+    $entries = array_map('trim', explode(',', $trimmedBody));
+
+    return array_values(array_filter($entries, fn(string $entry): bool => $entry !== ''));
+  }
+}
+
+if (! function_exists('detect_module_property_format') ) {
+  /**
+   * @return array{indent: string, after_name: string, sample_body: string, trailing_comma: string}
+   */
+  function detect_module_property_format(string $moduleBody, string $context): array
+  {
+    $matches = [];
+    $pattern = '/(?P<indent>^[ \t]*)(?:declarations|imports|controllers|providers|exports|config)(?P<after_name>\s*:\s*)\[(?P<body>.*?)\](?P<comma>,?)/ms';
+
+    if (false !== preg_match($pattern, $moduleBody, $matches) && ! empty($matches)) {
+      $trimmedModuleBody = rtrim($moduleBody);
+
+      return [
+        'indent' => $matches['indent'] ?? '',
+        'after_name' => $matches['after_name'] ?? ': ',
+        'sample_body' => $matches['body'] ?? '',
+        'trailing_comma' => str_ends_with($trimmedModuleBody, ',') ? ',' : '',
+      ];
+    }
+
+    return [
+      'indent' => detect_indent_unit($context),
+      'after_name' => ': ',
+      'sample_body' => '',
+      'trailing_comma' => '',
+    ];
+  }
+}
+
+if (! function_exists('detect_module_array_entry_indent') ) {
+  /**
+   * Detect the indentation used for array entries inside a Module property.
+   */
+  function detect_module_array_entry_indent(string $sampleBody, string $propertyIndent, string $context): string
+  {
+    $matches = [];
+
+    if (false !== preg_match('/\R([ \t]*)\S/', $sampleBody, $matches) && isset($matches[1])) {
+      return $matches[1];
+    }
+
+    return $propertyIndent . detect_indent_unit($context, $propertyIndent);
+  }
+}
+
+if (! function_exists('detect_indent_unit') ) {
+  /**
+   * Detect the prevailing indentation unit in a document.
+   */
+  function detect_indent_unit(string $context, string $referenceIndent = ''): string
+  {
+    if ($referenceIndent !== '') {
+      if (str_starts_with($referenceIndent, "\t")) {
+        return "\t";
+      }
+
+      if (str_starts_with($referenceIndent, ' ')) {
+        return str_repeat(' ', max(1, greatest_common_divisor(strlen($referenceIndent), 8)));
+      }
+    }
+
+    $matches = [];
+
+    if (false === preg_match_all('/^(?<indent>[ \t]+)\S/m', $context, $matches) || empty($matches['indent'])) {
+      return '  ';
+    }
+
+    foreach ($matches['indent'] as $indent) {
+      if (str_starts_with($indent, "\t")) {
+        return "\t";
+      }
+    }
+
+    $lengths = array_values(array_unique(array_map('strlen', $matches['indent'])));
+
+    if (empty($lengths)) {
+      return '  ';
+    }
+
+    $unitLength = array_shift($lengths) ?: 2;
+
+    foreach ($lengths as $length) {
+      $unitLength = greatest_common_divisor($unitLength, $length);
+    }
+
+    return str_repeat(' ', max(1, $unitLength));
+  }
+}
+
+if (! function_exists('greatest_common_divisor') ) {
+  /**
+   * Calculates the greatest common divisor between two integers.
+   */
+  function greatest_common_divisor(int $left, int $right): int
+  {
+    while ($right !== 0) {
+      $remainder = $left % $right;
+      $left = $right;
+      $right = $remainder;
+    }
+
+    return abs($left);
   }
 }
 

@@ -115,7 +115,7 @@ describe('Generate resource', function () {
       expect($workspace . '/src/Profiles')->not->toBeDirectory();
       expect(file_get_contents($generatedModule))->toContain('namespace Assegai\App\Users\Profiles;');
       expect(file_get_contents($parentModule))->toContain('use Assegai\App\Users\Profiles\ProfilesModule;');
-      expect(file_get_contents($parentModule))->toContain('imports: [ ProfilesModule::class]');
+      expect(file_get_contents($parentModule))->toContain('imports: [ProfilesModule::class]');
       expect(file_get_contents($appModule))->not->toContain('ProfilesModule::class');
     } finally {
       chdir($previousWorkingDirectory);
