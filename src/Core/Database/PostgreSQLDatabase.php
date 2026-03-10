@@ -61,11 +61,14 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
     // Check if the database configuration exists
     $dbConfig = new DBConfig($this->input, $this->output, $this->name, DatabaseType::POSTGRESQL->value);
     $dbConfig->load();
+    $configPath = DatabaseType::POSTGRESQL->value . ".$this->name";
+    $host = $dbConfig->get("$configPath.host") ?? DEFAULT_POSTGRES_HOST;
+    $port = $dbConfig->get("$configPath.port") ?? DEFAULT_POSTGRES_PORT;
+    $username = $dbConfig->get("$configPath.username") ?? $dbConfig->get("$configPath.user") ?? DEFAULT_POSTGRES_USER;
+    $password = $dbConfig->get("$configPath.password") ?? '';
 
     // Create the DSN
-    $dsn = "pgsql:host=localhost;port=5432;dbname=$this->name";
-    $username = $dbConfig->get('username') ?? '';
-    $password = $dbConfig->get('password') ?? '';
+    $dsn = "pgsql:host=$host;port=$port;dbname=$this->name";
 
     // Construct the parent class
     parent::__construct($dsn, $username, $password);
@@ -105,10 +108,10 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       }
 
       $errorOutputPath = Path::join($workingDirectory, time() . '.error.log');
-      $user = $dbConfig->get("$configPath.username") ?? $dbConfig->get("$configPath.user", DEFAULT_MYSQL_USER);
+      $user = $dbConfig->get("$configPath.username") ?? $dbConfig->get("$configPath.user", DEFAULT_POSTGRES_USER);
       $password = $dbConfig->get("$configPath.password") ?? '';
-      $host = $dbConfig->get("$configPath.host", DEFAULT_MYSQL_HOST);
-      $port = $dbConfig->get("$configPath.port", DEFAULT_MYSQL_PORT);
+      $host = $dbConfig->get("$configPath.host", DEFAULT_POSTGRES_HOST);
+      $port = $dbConfig->get("$configPath.port", DEFAULT_POSTGRES_PORT);
 
       if (! self::$sudoUser)
       {
@@ -117,7 +120,7 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       }
 
       $sudoUser = self::$sudoUser;
-      $result = @`sudo -u $sudoUser psql -l 2>$errorOutputPath`;
+      $result = @shell_exec("sudo -u $sudoUser psql -l 2>$errorOutputPath");
 
       // Scan the error output for errors. If there are any, log them otherwise delete the log file
       $errorCount = self::scanErrorOutput($errorOutputPath, $output);
@@ -211,9 +214,9 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       return Command::FAILURE;
     }
 
-    $host = $dbConfig->get("$type.$name.host", DEFAULT_MYSQL_HOST);
-    $port = $dbConfig->get("$type.$name.port", DEFAULT_MYSQL_PORT);
-    $username = $dbConfig->get("$type.$name.username") ?? $dbConfig->get("$type.$name.user", DEFAULT_MYSQL_USER);
+    $host = $dbConfig->get("$type.$name.host", DEFAULT_POSTGRES_HOST);
+    $port = $dbConfig->get("$type.$name.port", DEFAULT_POSTGRES_PORT);
+    $username = $dbConfig->get("$type.$name.username") ?? $dbConfig->get("$type.$name.user", DEFAULT_POSTGRES_USER);
     $password = $dbConfig->get("$type.$name.password") ?? '';
 
     if (! self::exists($name) ) {
@@ -225,7 +228,7 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       $workingDirectory = getcwd() ?: '';
       $errorOutputPath = Path::join($workingDirectory, time() . '.error.log');
       $sudoUser = self::$sudoUser;
-      $createResult = @`sudo -u $sudoUser psql -h $host -p $port -c "CREATE DATABASE $name;" 2>$errorOutputPath`;
+      $createResult = @shell_exec("sudo -u $sudoUser psql -h $host -p $port -c \"CREATE DATABASE $name;\" 2>$errorOutputPath");
 
       if (false === $createResult) {
         $output->writeln("<error>Failed to create the database.</error>\n");
@@ -267,7 +270,7 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       return Command::FAILURE;
     }
 
-    $output->writeln("<info>MySQL database successfully set up.</info>\n", OutputInterface::VERBOSITY_VERBOSE);
+    $output->writeln("<info>PostgreSQL database successfully set up.</info>\n", OutputInterface::VERBOSITY_VERBOSE);
     return Command::SUCCESS;
   }
 

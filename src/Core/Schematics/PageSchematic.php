@@ -2,6 +2,7 @@
 
 namespace Assegai\Console\Core\Schematics;
 
+use Override;
 use Symfony\Component\Console\Command\Command;
 
 /**
@@ -18,6 +19,7 @@ class PageSchematic extends AbstractDirectorySchematic
 
   public function configure(): void
   {
+    $this->namespaceSuffix = $this->getResolvedNamespaceSuffix();
     $this->structure = [
       '__NAME__Component.css' => "/* __NAME__Component.css */\n",
       '__NAME__Component.php' => $this->getComponentTemplateContent(),
@@ -152,12 +154,19 @@ PHP;
   /**
    * @inheritDoc
    */
-  public function finalizeBuild(): int
+  #[Override]
+  protected function getModuleUpdates(): array
   {
-    $moduleName = '\\' . $this->nameText->pascalCase() . '\\' . $this->nameText->pascalCase() . 'Module';
-    return update_module_file([
-      'use' => [$this->namespace . $moduleName],
-      'imports' => ["{$this->nameText->pascalCase()}Module::class"],
-    ]);
+    $moduleName = $this->nameText->pascalCase() . 'Module';
+
+    return [
+      'use' => ["{$this->namespace}\\{$this->nameText->pascalCase()}\\$moduleName"],
+      'declarations' => [],
+      'providers' => [],
+      'controllers' => [],
+      'imports' => ["$moduleName::class"],
+      'exports' => [],
+      'config' => [],
+    ];
   }
 }

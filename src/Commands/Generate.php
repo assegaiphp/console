@@ -94,7 +94,8 @@ class Generate extends Command
    */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
-    $name = basename($input->getArgument('name'));
+    $requestedName = trim(str_replace('\\', '/', $input->getArgument('name')), '/');
+    $name = basename($requestedName);
     $directory = $input->getOption('directory');
 
     if (false === $directory) {
@@ -102,7 +103,10 @@ class Generate extends Command
       return Command::FAILURE;
     }
 
-    $subdirectory = dirname($input->getArgument('name')) ?: '';
+    $subdirectory = dirname($requestedName);
+    if ($subdirectory === '.') {
+      $subdirectory = '';
+    }
 
     $this->addAllSchematics([
       'application' => new ApplicationSchematic($input, $output, $name, $directory, $subdirectory),
