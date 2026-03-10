@@ -103,9 +103,10 @@ class DatabaseInstaller extends AbstractInstaller
     {
       $userResourceQuestion = new Question("<info>?</info> What is the name of the users' resource? <fg=gray>(Users)</> ", 'Users');
       $userServiceName = $this->questionHelper->ask($this->input, $this->output, $userResourceQuestion);
-      $command = "cd $this->projectPath && assegai generate resource $userServiceName";
+      $command = $this->buildGenerateResourceCommand((string)$userServiceName);
+      $statusCode = $this->runCommand($command);
 
-      if ( false === passthru($command) )
+      if ($statusCode !== Command::SUCCESS)
       {
         $this->output->writeln([
           '',
@@ -116,7 +117,9 @@ class DatabaseInstaller extends AbstractInstaller
       }
     }
 
-    $ormInstallationCommand = `cd $this->projectPath && composer --ansi require assegaiphp/orm`;
+    $ormInstallationCommand = shell_exec(
+      sprintf('cd %s && composer --ansi require assegaiphp/orm', escapeshellarg($this->projectPath))
+    );
 
     if (false === $ormInstallationCommand)
     {
@@ -135,6 +138,28 @@ class DatabaseInstaller extends AbstractInstaller
     ]);
 
     return Command::SUCCESS;
+  }
+
+  /**
+   * Build the command used to generate the default users resource.
+   */
+  protected function buildGenerateResourceCommand(string $resourceName): string
+  {
+    return sprintf(
+      'cd %s && assegai --ansi generate resource %s',
+      escapeshellarg($this->projectPath),
+      escapeshellarg($resourceName)
+    );
+  }
+
+  /**
+   * Run a shell command and return its exit status.
+   */
+  protected function runCommand(string $command): int
+  {
+    passthru($command, $statusCode);
+
+    return $statusCode;
   }
 
   /**

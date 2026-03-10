@@ -2,9 +2,7 @@
 
 namespace Assegai\Console\Core\Schematics;
 
-use Assegai\Console\Util\Path;
 use Override;
-use Symfony\Component\Console\Command\Command;
 
 /**
  * A resource schematic is a directory schematic that contains
@@ -14,6 +12,7 @@ class ResourceSchematic extends AbstractDirectorySchematic
 {
   public function configure(): void
   {
+    $this->namespaceSuffix = $this->getResolvedNamespaceSuffix();
     $this->structure = [
       'DTOs' => [
         'Create__SINGULAR__DTO.php' => $this->getTemplateContent('dto', 'Create'),
@@ -32,13 +31,19 @@ class ResourceSchematic extends AbstractDirectorySchematic
    * @inheritDoc
    */
   #[Override]
-  public function finalizeBuild(): int
+  protected function getModuleUpdates(): array
   {
-    $moduleName = '\\' . $this->nameText->pascalCase() . '\\' . $this->nameText->pascalCase() . 'Module';
-    return update_module_file([
-      'use' => [$this->namespace . $moduleName],
-      'imports' => ["{$this->nameText->pascalCase()}Module::class"],
-    ]);
+    $moduleName = $this->nameText->pascalCase() . 'Module';
+
+    return [
+      'use' => ["{$this->namespace}\\{$this->nameText->pascalCase()}\\$moduleName"],
+      'declarations' => [],
+      'providers' => [],
+      'controllers' => [],
+      'imports' => ["$moduleName::class"],
+      'exports' => [],
+      'config' => [],
+    ];
   }
 
   /**
