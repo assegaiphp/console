@@ -69,4 +69,30 @@ describe('ProjectConfig database updates', function () {
       deleteProjectConfigWorkspace($workspace);
     }
   });
+
+  it('writes sqlite paths without escaping forward slashes', function () {
+    $workspace = createProjectConfigWorkspace();
+
+    try {
+      $projectConfig = new ProjectConfig(new MockInput(), new MockOutput());
+
+      $bytes = $projectConfig->updateDatabaseConfig([
+        'databases' => [
+          'sqlite' => [
+            'users' => [
+              'path' => '.data/users.sq3',
+            ],
+          ],
+        ],
+      ], $workspace);
+
+      expect($bytes)->not->toBeFalse();
+
+      $contents = file_get_contents($workspace . '/config/default.php');
+      expect($contents)->toContain('.data/users.sq3');
+      expect($contents)->not->toContain('.data\\/users.sq3');
+    } finally {
+      deleteProjectConfigWorkspace($workspace);
+    }
+  });
 });

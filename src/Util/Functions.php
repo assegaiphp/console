@@ -55,7 +55,7 @@ function copy_directory(string $source, string $destination): bool
  */
 function array_to_string(array $array): false|string
 {
-    $output = json_encode($array, JSON_PRETTY_PRINT);
+    $output = json_encode($array, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
     if (false === $output) {
         return false;
@@ -126,7 +126,7 @@ if (!function_exists('update_module_file')) {
      */
     function update_module_file(array $data, string $filename = 'AppModule', ?OutputInterface $output = null): int
     {
-        $output ??= new ConsoleOutput();
+        $output ??= new ConsoleOutput(formatter: new OutputFormatter());
         $filename = preg_replace('/.php$/', '', $filename) ?? throw new RuntimeException("Failed to remove .php from $filename.");
         $filename = Path::join(getcwd() ?: '', 'src', $filename) . '.php';
 
@@ -185,7 +185,7 @@ if (!function_exists('update_module_file')) {
         $relativeFilename = str_replace(Path::join((getcwd() ?: ''), 'src') . DIRECTORY_SEPARATOR, '', $filename);
 
         if ((int)$bytes > 0) {
-            $output->writeln("<fg=blue>UPDATE</> $relativeFilename ($bytes)", OutputInterface::OUTPUT_RAW);
+            $output->writeln("<fg=blue>UPDATE</> $relativeFilename ($bytes)");
         }
         return Command::SUCCESS;
     }
