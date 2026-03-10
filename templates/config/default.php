@@ -6,7 +6,7 @@ return [
   'databases' => [
     'mysql' => [
       'db_name' => [
-        'host' => 'localhost',
+        'host' => '127.0.0.1',
         'user' => 'root',
         'password' => '',
         'port' => 3306,
@@ -14,7 +14,7 @@ return [
     ],
     'pgsql' => [
       'db_name' => [
-        'host' => 'localhost',
+        'host' => '127.0.0.1',
         'user' => 'root',
         'password' => '',
         'port' => 5432,

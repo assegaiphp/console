@@ -13,7 +13,12 @@ class ComposerDependencyInstaller extends AbstractInstaller
    */
   public function install(): int
   {
-    $installCommand = `cd $this->projectPath && composer --ansi require assegaiphp/core && composer install`;
+    $installCommand = shell_exec(
+      sprintf(
+        'cd %s && composer --ansi require assegaiphp/core && composer install',
+        escapeshellarg($this->projectPath)
+      )
+    );
 
     if (false === $installCommand)
     {

@@ -292,7 +292,7 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
 
         $moduleFilename = $this->getParentModuleFilename() ?: 'AppModule';
 
-        return update_module_file($this->getModuleUpdates(), $moduleFilename);
+        return update_module_file($this->getModuleUpdates(), $moduleFilename, $this->output);
     }
 
     /**

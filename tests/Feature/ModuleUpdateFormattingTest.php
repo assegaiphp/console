@@ -1,6 +1,8 @@
 <?php
 
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\OutputInterface;
 
 function createModuleFormattingWorkspace(string $moduleContents): string
 {
@@ -184,6 +186,50 @@ PHP;
         imports: [ProfilesModule::class]
 PHP);
       expect($contents)->toContain('use Assegai\App\Profiles\ProfilesModule;');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteModuleFormattingWorkspace($workspace);
+    }
+  });
+
+  it('uses the active output instance for colored update logging', function () {
+    $moduleContents = <<<'PHP'
+<?php
+
+namespace Assegai\App;
+
+use Assegai\Core\Attributes\Modules\Module;
+
+#[Module(
+  providers: [],
+  controllers: []
+)]
+class FormattingModule
+{
+}
+PHP;
+
+    $workspace = createModuleFormattingWorkspace($moduleContents);
+    $previousWorkingDirectory = getcwd();
+
+    if (false === $previousWorkingDirectory) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      $output = new BufferedOutput(OutputInterface::VERBOSITY_NORMAL, true);
+
+      expect(update_module_file([
+        'use' => ['Assegai\App\Profiles\ProfilesModule'],
+        'imports' => ['ProfilesModule::class'],
+      ], 'FormattingModule', $output))->toBe(Command::SUCCESS);
+
+      $renderedOutput = $output->fetch();
+
+      expect($renderedOutput)->toContain("\e[34mUPDATE")
+        ->toContain('FormattingModule.php');
     } finally {
       chdir($previousWorkingDirectory);
       deleteModuleFormattingWorkspace($workspace);
