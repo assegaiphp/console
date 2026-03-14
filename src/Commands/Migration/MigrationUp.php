@@ -8,6 +8,8 @@ use Assegai\Console\Core\Database\SQLiteDatabase;
 use Assegai\Console\Core\Database\Traits\DatabaseNameValidatorTrait;
 use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
 use Assegai\Console\Core\Migrations\MySQLDatabaseMigrator;
+use Assegai\Console\Core\Migrations\PostgreSQLDatabaseMigrator;
+use Assegai\Console\Core\Migrations\SQLiteDatabaseMigrator;
 use Assegai\Console\Util\Config\AppConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
@@ -123,8 +125,8 @@ class MigrationUp extends Command
     /** @var MigratorInterface $migrator */
     $migrator = match($databaseType) {
       DatabaseType::MYSQL => new MySQLDatabaseMigrator($dbName, $input, $output),
-      DatabaseType::POSTGRESQL => new PostgreSQLDatabase($dbName, $input, $output),
-      DatabaseType::SQLITE => new SQLiteDatabase($dbName, $input, $output)
+      DatabaseType::POSTGRESQL => new PostgreSQLDatabaseMigrator($dbName, $input, $output),
+      DatabaseType::SQLITE => new SQLiteDatabaseMigrator($dbName, $input, $output)
     };
 
     $numberOfRuns = $input->getOption('steps');

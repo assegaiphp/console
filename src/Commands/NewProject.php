@@ -3,7 +3,6 @@
 namespace Assegai\Console\Commands;
 
 use Assegai\Console\Core\WorkspaceManager;
-use Assegai\Console\Util\Path;
 use Assegai\Console\Util\TermInfo;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -52,7 +51,7 @@ class NewProject extends Command
       return $errorCode;
     }
 
-    $workspaceManager->setProjectPath(Path::join($projectDirectory, $projectName));
+    $projectPath = $workspaceManager->getProjectPath() ?? '';
 
     $output->writeln('');
     if ($errorCode = $workspaceManager->install()) {
@@ -61,44 +60,36 @@ class NewProject extends Command
     }
 
     $output->writeln('');
-    $this->printSuccessMessage($input, $output, $projectName, $projectDirectory);
+    $this->printSuccessMessage($output, $projectPath);
     return Command::SUCCESS;
   }
 
   /**
    * Print the success message.
    *
-   * @param InputInterface $input The input interface.
    * @param OutputInterface $output The output interface.
-   * @param string $projectName The project name.
-   * @param string $projectDirectory The project directory.
+   * @param string $projectPath The created project path.
    */
-  private function printSuccessMessage(
-    InputInterface $input,
-    OutputInterface $output,
-    string $projectName,
-    string $projectDirectory
-  ): void
+  private function printSuccessMessage(OutputInterface $output, string $projectPath): void
   {
     $cursor = new Cursor($output);
     $cursor
       ->moveUp()
       ->clearLine();
 
-    $projectPath = $projectName;
-    $inputDirectory = $input->getOption('directory');
+    $displayPath = $projectPath;
+    $workingDirectory = getcwd() ?: '';
 
-    if ($inputDirectory && $inputDirectory !== getcwd())
-    {
-      $projectPath = Path::join($projectDirectory, $projectName);
+    if ($workingDirectory && dirname($projectPath) === $workingDirectory) {
+      $displayPath = basename($projectPath);
     }
 
     $output->writeln([
       "",
       "✔️  Installation done! ☕\n",
-      "🚀  Successfully created the <info>$projectPath</info> project",
+      "🚀  Successfully created the <info>$displayPath</info> project",
       "👉  Get started with the following commands:\n",
-      "<fg=gray>$ cd $projectPath</>",
+      "<fg=gray>$ cd $displayPath</>",
       "<fg=gray>$ assegai serve</>\n\n\n",
     ]);
 

@@ -65,6 +65,7 @@ class WorkspaceManager
     }
     $projectNameText = new Text($projectName);
     $projectDirectory = Path::join($workingDirectory ?: '', $projectNameText->kebabCase());
+    $this->projectPath = $projectDirectory;
 
     if ( file_exists($projectDirectory) ) {
       $this->output->writeln("<error>Project directory already exists: $projectDirectory</error>");
@@ -267,6 +268,11 @@ class WorkspaceManager
   public function setProjectPath(string $path): void
   {
     $this->projectPath = $path;
+  }
+
+  public function getProjectPath(): ?string
+  {
+    return $this->projectPath;
   }
 
   /**
