@@ -43,24 +43,20 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
     $inspector = new Inspector($this->input, $this->output);
 
     if (! $inspector->isValidWorkspace(getcwd() ?: '') ) {
-      $this->output->writeln('<error>Failed to load MySQL config. Invalid workspace.</error>');
+      $this->output->writeln('<error>Failed to load SQLite config. Invalid workspace.</error>');
       exit(Command::FAILURE);
     }
 
-    $dbConfig = new DBConfig($this->input, $this->output, $this->name, DatabaseType::MYSQL->value);
+    $dbConfig = new DBConfig($this->input, $this->output, $this->name, DatabaseType::SQLITE->value);
     if (Command::SUCCESS !== $dbConfig->load()) {
       $this->output->writeln('<error>Database configuration not found.</error>');
       exit(Command::FAILURE);
     }
 
-    $this->path = Path::join(Path::getWorkingDirectory() ?: '', $dbConfig->get("sqlite.$this->name.path") ?? exit(Command::FAILURE));
-    $dataDirectory = Path::join(Path::getWorkingDirectory() ?: '', '.data');
-    if (! is_dir($dataDirectory) ) {
-      if (false === mkdir($dataDirectory)) {
-        $this->output->writeln('<error>Failed to create data directory.</error>');
-        exit(Command::FAILURE);
-      }
-    }
+    $workingDirectory = Path::getProjectRootPath() ?: Path::getWorkingDirectory() ?: '';
+    $configuredPath = $dbConfig->get("sqlite.$this->name.path") ?? exit(Command::FAILURE);
+    $this->path = self::normalizePath($configuredPath, $workingDirectory);
+    self::ensureParentDirectoryExists($this->path, $this->output);
 
     $dsn = "sqlite:$this->path";
     parent::__construct($dsn);
@@ -87,7 +83,13 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
       return false;
     }
 
-    $path = Path::join(Path::getWorkingDirectory() ?: '', $path);
+    $workingDirectory = Path::getProjectRootPath() ?: Path::getWorkingDirectory() ?: '';
+    $path = self::normalizePath($path, $workingDirectory);
+
+    if (self::isSpecialPath($path)) {
+      return false;
+    }
+
     return file_exists($path);
   }
 
@@ -121,9 +123,10 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
       return Command::FAILURE;
     }
 
-    $path = Path::join(Path::getWorkingDirectory() ?: '', $path);
+    $workingDirectory = Path::getProjectRootPath() ?: Path::getWorkingDirectory() ?: '';
+    $path = self::normalizePath($path, $workingDirectory);
 
-    if (! file_exists($path) ) {
+    if (! self::isSpecialPath($path) && ! file_exists($path) ) {
       $helper = new QuestionHelper();
       $confirmQuestion = new ConfirmationQuestion("<info>?</info> Do you want to create the database? <fg=gray>(Y/n)</>", true);
 
@@ -203,5 +206,56 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
     }
 
     return Command::SUCCESS;
+  }
+
+  public static function normalizePath(string $path, ?string $workingDirectory = null): string
+  {
+    if (str_starts_with($path, 'sqlite:')) {
+      $path = substr($path, strlen('sqlite:'));
+    }
+
+    if ($path === '') {
+      return ':memory:';
+    }
+
+    if (self::isSpecialPath($path)) {
+      return $path;
+    }
+
+    if (self::isAbsolutePath($path)) {
+      return Path::normalize($path);
+    }
+
+    $workingDirectory ??= Path::getProjectRootPath() ?: Path::getWorkingDirectory() ?: '';
+
+    return Path::join($workingDirectory, $path);
+  }
+
+  private static function ensureParentDirectoryExists(string $path, OutputInterface $output): void
+  {
+    if (self::isSpecialPath($path)) {
+      return;
+    }
+
+    $directory = dirname($path);
+
+    if ($directory === '' || $directory === '.' || is_dir($directory)) {
+      return;
+    }
+
+    if (false === mkdir($directory, 0777, true) && ! is_dir($directory)) {
+      $output->writeln('<error>Failed to create data directory.</error>');
+      exit(Command::FAILURE);
+    }
+  }
+
+  private static function isSpecialPath(string $path): bool
+  {
+    return $path === ':memory:' || str_starts_with($path, 'file:');
+  }
+
+  private static function isAbsolutePath(string $path): bool
+  {
+    return str_starts_with($path, '/') || preg_match('#^[A-Za-z]:[\\/]#', $path) === 1;
   }
 }

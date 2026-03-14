@@ -3,6 +3,9 @@
 namespace Assegai\Console\Installers;
 
 use Assegai\Console\Interfaces\InstallerInterface;
+use Assegai\Console\Util\Config\ProjectConfig;
+use Assegai\Console\Util\Path;
+use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Helper\QuestionHelper;
@@ -45,5 +48,30 @@ abstract class AbstractInstaller implements InstallerInterface
   {
     // Do nothing.
     return Command::SUCCESS;
+  }
+
+  protected function getSuggestedDatabaseName(): string
+  {
+    $projectName = basename($this->projectPath);
+    $projectConfigPath = Path::join($this->projectPath, 'assegai.json');
+
+    if (file_exists($projectConfigPath)) {
+      $projectConfig = new ProjectConfig($this->input, $this->output, $this->projectPath);
+
+      if (Command::SUCCESS === $projectConfig->load()) {
+        $projectName = $projectConfig->get('name', $projectName);
+      }
+    }
+
+    $databaseName = trim((new Text((string) $projectName))->snakeCase(), '_');
+
+    return $databaseName ?: 'app';
+  }
+
+  protected function getSuggestedSQLitePath(?string $databaseName = null): string
+  {
+    $databaseName ??= $this->getSuggestedDatabaseName();
+
+    return Path::join('.data', "$databaseName.sq3");
   }
 }

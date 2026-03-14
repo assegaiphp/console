@@ -35,8 +35,11 @@ describe('New project defaults', function () {
     };
 
     $command = $installer->exposeGenerateResourceCommand('Users Admin');
+    $expectedBinary = realpath(__DIR__ . '/../../bin/assegai');
 
-    expect($command)->toContain('assegai --ansi generate resource');
+    expect($command)->toContain(escapeshellarg(PHP_BINARY));
+    expect($command)->toContain(escapeshellarg($expectedBinary ?: ''));
+    expect($command)->toContain('--ansi generate resource');
     expect($command)->toContain(escapeshellarg('/tmp/my project'));
     expect($command)->toContain(escapeshellarg('Users Admin'));
   });

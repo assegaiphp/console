@@ -145,11 +145,28 @@ class DatabaseInstaller extends AbstractInstaller
    */
   protected function buildGenerateResourceCommand(string $resourceName): string
   {
+    $consoleBinary = $this->resolveConsoleBinaryCommand();
+
     return sprintf(
-      'cd %s && assegai --ansi generate resource %s',
+      'cd %s && %s --ansi generate resource %s',
       escapeshellarg($this->projectPath),
+      $consoleBinary,
       escapeshellarg($resourceName)
     );
+  }
+
+  /**
+   * Resolve the currently installed console binary so subprocesses use the same code path.
+   */
+  protected function resolveConsoleBinaryCommand(): string
+  {
+    $consoleBinaryPath = realpath(Path::join(dirname(__DIR__, 2), 'bin', 'assegai'));
+
+    if (false === $consoleBinaryPath) {
+      return 'assegai';
+    }
+
+    return sprintf('%s %s', escapeshellarg(PHP_BINARY), escapeshellarg($consoleBinaryPath));
   }
 
   /**

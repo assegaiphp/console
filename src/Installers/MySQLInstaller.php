@@ -19,7 +19,9 @@ class MySQLInstaller extends AbstractInstaller
   public function install(): int
   {
     $this->output->writeln("Let's configure a MySQL connection!");
-    $dbNameQuestion = new Question("<info>?</info> Database name: ");
+
+    $defaultDatabaseName = $this->getSuggestedDatabaseName();
+    $dbNameQuestion = new Question("<info>?</info> Database name: <fg=gray>($defaultDatabaseName)</> ", $defaultDatabaseName);
     $dbName = $this->questionHelper->ask($this->input, $this->output, $dbNameQuestion);
 
     $defaultHost = DEFAULT_MYSQL_HOST;
