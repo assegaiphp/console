@@ -62,6 +62,14 @@ abstract class AbstractFileSchematic implements SchematicInterface
   /**
    * @inheritDoc
    */
+  public function prepareBuild(): int
+  {
+    return Command::SUCCESS;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public function build(): int
   {
     $content = $this->getContent();
@@ -131,9 +139,25 @@ abstract class AbstractFileSchematic implements SchematicInterface
   }
 
   /**
+   * @inheritDoc
+   */
+  public function prepareTearDown(): int
+  {
+    return Command::SUCCESS;
+  }
+
+  /**
    * Returns the content of the file.
    *
    * @return string
    */
   abstract protected function getContent(): string;
+
+  /**
+   * @inheritDoc
+   */
+  public function finalizeTearDown(): int
+  {
+    return Command::SUCCESS;
+  }
 }

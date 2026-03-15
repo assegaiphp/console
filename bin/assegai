@@ -22,6 +22,9 @@ use Assegai\Console\Commands\Serve;
 use Assegai\Console\Commands\Test;
 use Assegai\Console\Commands\Update;
 use Assegai\Console\Commands\Version;
+use Assegai\Console\Commands\WebComponents\BuildWebComponents;
+use Assegai\Console\Commands\WebComponents\ListWebComponents;
+use Assegai\Console\Commands\WebComponents\WatchWebComponents;
 use Symfony\Component\Console\Application;
 
 if (file_exists(__DIR__ . '/../vendor/autoload.php'))
@@ -63,6 +66,9 @@ function bootstrap(): void
         new Test(),
         new Update(),
         new Version(),
+        new BuildWebComponents(),
+        new ListWebComponents(),
+        new WatchWebComponents(),
       ]);
     $app->setDefaultCommand('info');
 
