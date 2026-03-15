@@ -1,0 +1,119 @@
+<?php
+
+namespace Assegai\Console\WebComponents;
+
+use Assegai\Console\Util\Path;
+use Assegai\Console\Util\Text;
+
+final class WebComponentConfig
+{
+  public const string DEFAULT_PREFIX = 'app';
+  public const string DEFAULT_OUTPUT = 'public/js/assegai-components.min.js';
+  public const string CACHE_DIRECTORY = '.cache/assegai';
+  public const string ENTRY_FILENAME = 'wc-entry.ts';
+  public const string MANIFEST_FILENAME = 'web-components.manifest.json';
+
+  private final function __construct()
+  {
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  public static function load(string $workspace): array
+  {
+    $configFilename = Path::join($workspace, 'assegai.json');
+
+    if (!is_file($configFilename)) {
+      return [];
+    }
+
+    $contents = file_get_contents($configFilename);
+
+    if (!$contents) {
+      return [];
+    }
+
+    $config = json_decode($contents, true);
+
+    return is_array($config) ? $config : [];
+  }
+
+  public static function ensureDefaults(string $workspace): void
+  {
+    $configFilename = Path::join($workspace, 'assegai.json');
+
+    if (!is_file($configFilename)) {
+      return;
+    }
+
+    $config = self::load($workspace);
+    $webComponents = is_array($config['webComponents'] ?? null)
+      ? $config['webComponents']
+      : [];
+
+    $defaults = [
+      'prefix' => self::DEFAULT_PREFIX,
+      'output' => self::DEFAULT_OUTPUT,
+      'buildOnDumpAutoload' => false,
+    ];
+
+    $config['webComponents'] = [...$defaults, ...$webComponents];
+
+    file_put_contents($configFilename, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+  }
+
+  public static function getPrefix(string $workspace): string
+  {
+    $config = self::load($workspace);
+    $prefix = $config['webComponents']['prefix'] ?? self::DEFAULT_PREFIX;
+
+    if (!is_string($prefix) || trim($prefix) === '') {
+      return self::DEFAULT_PREFIX;
+    }
+
+    return (new Text($prefix))->kebabCase();
+  }
+
+  public static function getOutputPath(string $workspace): string
+  {
+    $config = self::load($workspace);
+    $output = $config['webComponents']['output'] ?? self::DEFAULT_OUTPUT;
+
+    if (!is_string($output) || trim($output) === '') {
+      return self::DEFAULT_OUTPUT;
+    }
+
+    return ltrim(Path::normalize($output), '/');
+  }
+
+  public static function shouldBuildOnDumpAutoload(string $workspace): bool
+  {
+    $config = self::load($workspace);
+
+    return (bool)($config['webComponents']['buildOnDumpAutoload'] ?? false);
+  }
+
+  public static function makeSelector(string $workspace, string $name): string
+  {
+    $prefix = self::getPrefix($workspace);
+    $baseName = basename(str_replace('\\', '/', $name));
+
+    return $prefix . '-' . (new Text($baseName))->kebabCase();
+  }
+
+  public static function getCacheDirectory(string $workspace): string
+  {
+    return Path::join($workspace, self::CACHE_DIRECTORY);
+  }
+
+  public static function getEntryFilename(string $workspace): string
+  {
+    return Path::join(self::getCacheDirectory($workspace), self::ENTRY_FILENAME);
+  }
+
+  public static function getManifestFilename(string $workspace): string
+  {
+    return Path::join(self::getCacheDirectory($workspace), self::MANIFEST_FILENAME);
+  }
+}

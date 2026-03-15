@@ -2,6 +2,10 @@
 
 namespace Assegai\Console\Core\Schematics;
 
+use Assegai\Console\Util\Path;
+use Assegai\Console\Util\Text;
+use Assegai\Console\WebComponents\WebComponentConfig;
+use Assegai\Console\WebComponents\WebComponentScaffolder;
 use Override;
 use Symfony\Component\Console\Command\Command;
 
@@ -16,10 +20,12 @@ class PageSchematic extends AbstractDirectorySchematic
    * @var string The prefix of the class
    */
   protected string $prefix = '';
+  protected string $selector = '';
 
   public function configure(): void
   {
     $this->namespaceSuffix = $this->getResolvedNamespaceSuffix();
+    $this->selector = WebComponentConfig::makeSelector($this->path, $this->name);
     $this->structure = [
       '__NAME__Component.css' => "/* __NAME__Component.css */\n",
       '__NAME__Component.php' => $this->getComponentTemplateContent(),
@@ -46,7 +52,7 @@ use Assegai\Core\Attributes\Component;
 use Assegai\Core\Components\AssegaiComponent;
 
 #[Component(
-  selector: '__KEBAB__',
+  selector: '$this->selector',
   templateUrl: './__NAME__Component.twig',
   styleUrls: ['./__NAME__Component.css']
 )]
@@ -149,6 +155,38 @@ class __NAME__Service
   }
 }
 PHP;
+  }
+
+  #[Override]
+  public function finalizeBuild(): int
+  {
+    if (Command::SUCCESS !== parent::finalizeBuild()) {
+      return Command::FAILURE;
+    }
+
+    if (!$this->input->getOption('wc')) {
+      return Command::SUCCESS;
+    }
+
+    $segments = ['src'];
+
+    if ($this->subdirectory) {
+      foreach (array_filter(explode('/', $this->subdirectory)) as $segment) {
+        $segments[] = (new Text($segment))->pascalCase();
+      }
+    }
+
+    $segments[] = $this->nameText->pascalCase();
+    $directory = Path::join($this->path, ...$segments);
+    $filename = Path::join($directory, $this->nameText->pascalCase() . 'Component.wc.ts');
+
+    return WebComponentScaffolder::createComponentFile(
+      $this->path,
+      $filename,
+      $this->nameText->pascalCase(),
+      $this->selector,
+      $this->output
+    );
   }
 
   /**

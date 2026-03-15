@@ -4,6 +4,8 @@ namespace Assegai\Console\Core\Schematics;
 
 use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
+use Assegai\Console\WebComponents\WebComponentConfig;
+use Assegai\Console\WebComponents\WebComponentScaffolder;
 use Override;
 use Symfony\Component\Console\Command\Command;
 
@@ -20,7 +22,7 @@ class ComponentSchematic extends AbstractClassSchematic
   public function configure(): void
   {
     $name = new Text($this->name);
-    $selector = 'app-' . $name->kebabCase();
+    $selector = WebComponentConfig::makeSelector($this->path, $this->name);
     $templateUrl = './' . $name->pascalCase() . 'Component.twig';
     $styleUrl = './' . $name->pascalCase() . 'Component.css';
     $this->suffix = 'component';
@@ -61,6 +63,7 @@ COMPONENT
     $componentDir = dirname($this->getFilePath());
     $templateFilename = Path::join($componentDir, $name->pascalCase() . 'Component.twig');
     $stylesheetFilename = Path::join($componentDir, $name->pascalCase() . 'Component.css');
+    $selector = WebComponentConfig::makeSelector($this->path, $this->name);
 
     if (! file_exists($templateFilename) ) {
       if (false === touch($templateFilename)) {
@@ -94,6 +97,20 @@ COMPONENT
 
       $stylesheetFilename = ltrim(str_replace(getcwd() ?: '', '', $stylesheetFilename), DIRECTORY_SEPARATOR);
       $this->output->writeln("<info>CREATE</info> $stylesheetFilename ($bytes bytes)");
+    }
+
+    if ($this->input->getOption('wc')) {
+      $webComponentFilename = Path::join($componentDir, $name->pascalCase() . 'Component.wc.ts');
+
+      if (Command::SUCCESS !== WebComponentScaffolder::createComponentFile(
+        $this->path,
+        $webComponentFilename,
+        $name->pascalCase(),
+        $selector,
+        $this->output
+      )) {
+        return Command::FAILURE;
+      }
     }
 
     return parent::finalizeBuild();

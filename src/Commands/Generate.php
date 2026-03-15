@@ -16,9 +16,11 @@ use Assegai\Console\Core\Schematics\PageSchematic;
 use Assegai\Console\Core\Schematics\PipeSchematic;
 use Assegai\Console\Core\Schematics\ResourceSchematic;
 use Assegai\Console\Core\Schematics\ServiceSchematic;
+use Assegai\Console\Core\Schematics\WebComponentSchematic;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -48,7 +50,8 @@ class Generate extends Command
     'pg'          => 'page',
     'p'           => 'pipe',
     'r'           => 'resource',
-    's'           => 'service'
+    's'           => 'service',
+    'wc'          => 'web-component',
   ];
 
   /**
@@ -68,6 +71,7 @@ class Generate extends Command
       )
       ->addArgument('name', InputArgument::REQUIRED, 'The name of the schematic to generate')
       ->addOption('directory', 'd', InputArgument::OPTIONAL, 'The directory to generate the schematic in', getcwd())
+      ->addOption('wc', null, InputOption::VALUE_NONE, 'Generate or pair a Web Component runtime file where supported')
       ->setHelp(implode("\n", [
         "Available schematics:",
         "    ┌───────────────┬─────────────┬──────────────────────────────────────────────┐",
@@ -85,6 +89,7 @@ class Generate extends Command
         "    │ <fg=green>pipe</>          │ <comment>p</comment>           │ Generate a pipe declaration                  │",
         "    │ <fg=green>resource</>      │ <comment>r</comment>           │ Generate a new CRUD resource                 │",
         "    │ <fg=green>service</>       │ <comment>s</comment>           │ Generate a service declaration               │",
+        "    │ <fg=green>web-component</> │ <comment>wc</comment>          │ Generate a standalone Web Component          │",
         "    └───────────────┴─────────────┴──────────────────────────────────────────────┘"
       ]));
   }
@@ -108,6 +113,9 @@ class Generate extends Command
       $subdirectory = '';
     }
 
+    $this->schematics = [];
+    $this->schematic = null;
+
     $this->addAllSchematics([
       'application' => new ApplicationSchematic($input, $output, $name, $directory, $subdirectory),
       'component'   => new ComponentSchematic($input, $output, $name, $directory, $subdirectory),
@@ -121,7 +129,8 @@ class Generate extends Command
       'page'        => new PageSchematic($input, $output, $name, $directory, $subdirectory),
       'pipe'        => new PipeSchematic($input, $output, $name, $directory, $subdirectory),
       'resource'    => new ResourceSchematic($input, $output, $name, $directory, $subdirectory),
-      'service'     => new ServiceSchematic($input, $output, $name, $directory, $subdirectory)
+      'service'     => new ServiceSchematic($input, $output, $name, $directory, $subdirectory),
+      'web-component' => new WebComponentSchematic($input, $output, $name, $directory, $subdirectory),
     ]);
 
     if ($this->setSchematic($input->getArgument('schematic')) !== Command::SUCCESS) {
@@ -156,9 +165,7 @@ class Generate extends Command
    */
   public function addSchematic(string $schematicName, SchematicInterface $schematic): self
   {
-    if (! key_exists($schematicName, $this->schematics) && ! in_array($schematic, $this->schematics) ) {
-      $this->schematics[$schematicName] = $schematic;
-    }
+    $this->schematics[$schematicName] = $schematic;
 
     return $this;
   }

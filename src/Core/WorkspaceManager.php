@@ -104,6 +104,11 @@ class WorkspaceManager
           "port" => 5000,
           "openBrowser" => false
         ]
+      ],
+      "webComponents" => [
+        "prefix" => "app",
+        "output" => "public/js/assegai-components.min.js",
+        "buildOnDumpAutoload" => false
       ]
     ];
     $targetAssegaiConfigPath = Path::join($projectDirectory, 'assegai.json');
