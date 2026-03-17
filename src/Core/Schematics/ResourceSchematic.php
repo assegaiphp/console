@@ -84,7 +84,7 @@ use Assegai\Orm\Attributes\Columns\PrimaryGeneratedColumn;
 use Assegai\Orm\Attributes\Entity;
 use Assegai\Orm\Traits\ChangeRecorderTrait;
 
-#[Entity(table: '__KEBAB__')]
+#[Entity(table: '__PLURAL_KEBAB__')]
 class __SINGULAR__Entity
 {
   use ChangeRecorderTrait;
@@ -105,7 +105,7 @@ use Assegai\Core\Attributes\Param;
 use $this->namespace\\$prefix\DTOs\Create__SINGULAR__DTO;
 use $this->namespace\\$prefix\DTOs\Update__SINGULAR__DTO;
 
-#[Controller('__KEBAB__')]
+#[Controller('__PLURAL_KEBAB__')]
 readonly class {$prefix}Controller
 {
   /**
@@ -118,7 +118,7 @@ readonly class {$prefix}Controller
   }
   
   /**
-   * Finds all __NAME__.
+   * Finds all __PLURAL_KEBAB__.
    * 
    * @return string
    */
@@ -143,29 +143,29 @@ readonly class {$prefix}Controller
   /**
    * Creates a new __SINGULAR__.
    * 
-   * @param Create__SINGULAR__Dto \$create__SINGULAR__Dto 
+   * @param Create__SINGULAR__DTO \$create__SINGULAR__DTO 
    * @return string
    */
   #[Post]
-  public function create(#[Body] Create__SINGULAR__Dto \$create__SINGULAR__Dto): string
+  public function create(#[Body] Create__SINGULAR__DTO \$create__SINGULAR__DTO): string
   {
-    return \$this->__CAMEL__Service->create(\$create__SINGULAR__Dto);
+    return \$this->__CAMEL__Service->create(\$create__SINGULAR__DTO);
   }
   
   /**
    * Updates __SINGULAR__ by ID.
    * 
    * @param int \$id
-   * @param Update__SINGULAR__Dto \$update__SINGULAR__Dto
+   * @param Update__SINGULAR__DTO \$update__SINGULAR__DTO
    * @return string
    */
   #[Put(':id')]
   public function updateById(
     #[Param('id')] int \$id,
-    #[Body] Update__SINGULAR__Dto \$update__SINGULAR__Dto
+    #[Body] Update__SINGULAR__DTO \$update__SINGULAR__DTO
   ): string
   {
-    return \$this->__CAMEL__Service->updateById(\$id, \$update__SINGULAR__Dto);
+    return \$this->__CAMEL__Service->updateById(\$id, \$update__SINGULAR__DTO);
   }
   
   /**
@@ -184,20 +184,20 @@ PHP,
       'service' => <<<PHP
 
 use Assegai\Core\Attributes\Injectable;
-use $this->namespace\__NAME__\DTOs\Create__SINGULAR__Dto;
-use $this->namespace\__NAME__\DTOs\Update__SINGULAR__Dto;
+use $this->namespace\__NAME__\DTOs\Create__SINGULAR__DTO;
+use $this->namespace\__NAME__\DTOs\Update__SINGULAR__DTO;
 
 #[Injectable]
 class __NAME__Service
 {
   /**
-   * Finds all __NAME__.
+   * Finds all __PLURAL_KEBAB__.
    * 
    * @return string
    */
   public function findAll(): string
   {
-    return 'This action returns all __KEBAB__!';
+    return 'This action returns all __PLURAL_KEBAB__!';
   }
   
   /**
@@ -214,10 +214,10 @@ class __NAME__Service
   /**
    * Creates a new __SINGULAR__.
    * 
-   * @param Create__SINGULAR__Dto \$create__SINGULAR__Dto
+   * @param Create__SINGULAR__DTO \$create__SINGULAR__DTO
    * @return string
    */
-  public function create(Create__SINGULAR__Dto \$create__SINGULAR__Dto): string
+  public function create(Create__SINGULAR__DTO \$create__SINGULAR__DTO): string
   {
     return 'This action creates a new __SINGULAR_LC__!';
   }
@@ -226,10 +226,10 @@ class __NAME__Service
    * Updates a __SINGULAR__.
    * 
    * @param int \$id
-   * @param Update__SINGULAR__Dto \$update__SINGULAR__Dto
+   * @param Update__SINGULAR__DTO \$update__SINGULAR__DTO
    * @return string
    */
-  public function updateById(int \$id, Update__SINGULAR__Dto \$update__SINGULAR__Dto): string
+  public function updateById(int \$id, Update__SINGULAR__DTO \$update__SINGULAR__DTO): string
   {
     return "This action updates the #\$id __SINGULAR_LC__!";
   }

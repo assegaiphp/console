@@ -3,6 +3,7 @@
 namespace Assegai\Console\Installers;
 
 use Assegai\Console\Interfaces\InstallerInterface;
+use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Util\Config\ProjectConfig;
 use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
@@ -17,6 +18,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 abstract class AbstractInstaller implements InstallerInterface
 {
+  protected ?string $configuredDatabaseName = null;
+  protected CliPrompt $prompts;
 
   /**
    * AbstractInstaller constructor.
@@ -34,6 +37,7 @@ abstract class AbstractInstaller implements InstallerInterface
     protected string $projectPath,
   )
   {
+    $this->prompts = new CliPrompt($this->input, $this->output);
   }
 
   /**
@@ -48,6 +52,11 @@ abstract class AbstractInstaller implements InstallerInterface
   {
     // Do nothing.
     return Command::SUCCESS;
+  }
+
+  public function getConfiguredDatabaseName(): ?string
+  {
+    return $this->configuredDatabaseName;
   }
 
   protected function getSuggestedDatabaseName(): string

@@ -1,5 +1,6 @@
 <?php
 
+use Assegai\Console\Installers\AbstractInstaller;
 use Assegai\Console\Installers\DatabaseInstaller;
 use Assegai\Console\Tests\Mocks\MockInput;
 use Assegai\Console\Tests\Mocks\MockOutput;
@@ -51,5 +52,68 @@ describe('New project defaults', function () {
     expect(DEFAULT_POSTGRES_HOST)->toBe('127.0.0.1');
     expect($defaultConfig['databases']['mysql']['db_name']['host'])->toBe('127.0.0.1');
     expect($defaultConfig['databases']['pgsql']['db_name']['host'])->toBe('127.0.0.1');
+  });
+
+  it('offers module data_source enablement after configuring databases during project setup', function () {
+    $installer = new class(
+      new MockInput([], [], true),
+      new MockOutput(),
+      new FormatterHelper(),
+      new QuestionHelper(),
+      '/tmp/my project'
+    ) extends DatabaseInstaller {
+      public array $configuredDatabaseNames = [];
+
+      protected function shouldConfigureDatabases(): bool
+      {
+        return true;
+      }
+
+      protected function selectDatabases(): array
+      {
+        return ['mysql'];
+      }
+
+      protected function makeDatabaseInstaller(string $database): AbstractInstaller
+      {
+        return new class(
+          $this->input,
+          $this->output,
+          $this->formatter,
+          $this->questionHelper,
+          $this->projectPath
+        ) extends AbstractInstaller {
+          public function install(): int
+          {
+            $this->configuredDatabaseName = 'blog';
+            return Command::SUCCESS;
+          }
+        };
+      }
+
+      protected function checkForMissingExtensions(array $extensions): array
+      {
+        return [];
+      }
+
+      protected function ensureDefaultUserResource(): int
+      {
+        return Command::SUCCESS;
+      }
+
+      protected function installOrmPackage(): int
+      {
+        return Command::SUCCESS;
+      }
+
+      protected function configureModuleDataSources(array $configuredDatabaseNames): int
+      {
+        $this->configuredDatabaseNames = $configuredDatabaseNames;
+        return Command::SUCCESS;
+      }
+    };
+
+    expect($installer->install())->toBe(Command::SUCCESS);
+    expect($installer->configuredDatabaseNames)->toBe(['blog']);
   });
 });

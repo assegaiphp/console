@@ -2,11 +2,10 @@
 
 namespace Assegai\Console\Installers;
 
+use Assegai\Console\Core\Modules\ModuleDataSourceConfigurator;
+use Assegai\Console\Util\ComposerManifest;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Question\ConfirmationQuestion;
-use Symfony\Component\Console\Question\Question;
-use function Laravel\Prompts\multiselect;
 
 /**
  * Class DatabaseInstaller. Installs the database.
@@ -38,7 +37,7 @@ class DatabaseInstaller extends AbstractInstaller
    */
   public function install(): int
   {
-    if (! $this->questionHelper->ask($this->input, $this->output, new ConfirmationQuestion('<info>?</info> Would you like to add a database configuration? <fg=gray>(Y/n)</> ')))
+    if (! $this->shouldConfigureDatabases())
     {
       $this->output->writeln('');
       $this->output->writeln('<comment>Skipping database configuration...</comment>');
@@ -52,8 +51,8 @@ class DatabaseInstaller extends AbstractInstaller
     );
     $this->output->writeln('');
 
-    // Ask what database to use.
-    $databaseChoices = multiselect('<info>?</info> Which database do you want to use? <fg=gray>(comma separated)</> ', $this->supportedDatabase, [$this->supportedDatabase[0]]);
+    $databaseChoices = $this->selectDatabases();
+    $configuredDatabaseNames = [];
 
     foreach ($databaseChoices as $database)
     {
@@ -67,67 +66,29 @@ class DatabaseInstaller extends AbstractInstaller
         return Command::FAILURE;
       }
 
-      $dbInstaller = match ($database) {
-        'mysql' => new MySQLInstaller(
-          $this->input,
-          $this->output,
-          $this->formatter,
-          $this->questionHelper,
-          $this->projectPath
-        ),
-        'postgresql' => new PostgreSQLInstaller(
-          $this->input,
-          $this->output,
-          $this->formatter,
-          $this->questionHelper,
-          $this->projectPath
-        ),
-        default => new SQLiteInstaller(
-          $this->input,
-          $this->output,
-          $this->formatter,
-          $this->questionHelper,
-          $this->projectPath
-        ),
-      };
+      $dbInstaller = $this->makeDatabaseInstaller($database);
 
       if (($statusCode = $dbInstaller->install()) > 0)
       {
         $this->output->writeln($this->formatter->formatBlock("Failed to install $database", 'error', true));
         return $statusCode;
       }
-    }
 
-
-    if (! file_exists( Path::join($this->projectPath, 'src', 'Users') ) )
-    {
-      $userResourceQuestion = new Question("<info>?</info> What is the name of the users' resource? <fg=gray>(Users)</> ", 'Users');
-      $userServiceName = $this->questionHelper->ask($this->input, $this->output, $userResourceQuestion);
-      $command = $this->buildGenerateResourceCommand((string)$userServiceName);
-      $statusCode = $this->runCommand($command);
-
-      if ($statusCode !== Command::SUCCESS)
-      {
-        $this->output->writeln([
-          '',
-          "<error>Failed to create resource, $userServiceName</error>",
-          ''
-        ]);
-        return Command::FAILURE;
+      if ($configuredDatabaseName = $dbInstaller->getConfiguredDatabaseName()) {
+        $configuredDatabaseNames[] = $configuredDatabaseName;
       }
     }
 
-    $ormInstallationCommand = shell_exec(
-      sprintf('cd %s && composer --ansi require assegaiphp/orm', escapeshellarg($this->projectPath))
-    );
 
-    if (false === $ormInstallationCommand)
-    {
-      $this->output->writeln([
-        '',
-        '<error>Failed to install ORM</error>',
-        ''
-      ]);
+    if (Command::SUCCESS !== $this->ensureDefaultUserResource()) {
+      return Command::FAILURE;
+    }
+
+    if (Command::SUCCESS !== $this->installOrmPackage()) {
+      return Command::FAILURE;
+    }
+
+    if (Command::SUCCESS !== $this->configureModuleDataSources($configuredDatabaseNames)) {
       return Command::FAILURE;
     }
 
@@ -136,6 +97,133 @@ class DatabaseInstaller extends AbstractInstaller
       "✔️  Database installation complete\n",
       ''
     ]);
+
+    return Command::SUCCESS;
+  }
+
+  protected function shouldConfigureDatabases(): bool
+  {
+    return $this->prompts->confirm(
+      'Would you like to add a database configuration?',
+      true
+    );
+  }
+
+  /**
+   * @return string[]
+   */
+  protected function selectDatabases(): array
+  {
+    return $this->prompts->multiselect(
+      'Which databases do you want to configure?',
+      array_combine($this->supportedDatabase, $this->supportedDatabase) ?: [],
+      [$this->supportedDatabase[0]]
+    );
+  }
+
+  protected function makeDatabaseInstaller(string $database): AbstractInstaller
+  {
+    return match ($database) {
+      'mysql' => new MySQLInstaller(
+        $this->input,
+        $this->output,
+        $this->formatter,
+        $this->questionHelper,
+        $this->projectPath
+      ),
+      'postgresql' => new PostgreSQLInstaller(
+        $this->input,
+        $this->output,
+        $this->formatter,
+        $this->questionHelper,
+        $this->projectPath
+      ),
+      default => new SQLiteInstaller(
+        $this->input,
+        $this->output,
+        $this->formatter,
+        $this->questionHelper,
+        $this->projectPath
+      ),
+    };
+  }
+
+  protected function ensureDefaultUserResource(): int
+  {
+    if (file_exists(Path::join($this->projectPath, 'src', 'Users'))) {
+      return Command::SUCCESS;
+    }
+
+    $userServiceName = $this->prompts->text(
+      "What is the name of the users' resource?",
+      'Users'
+    );
+    $command = $this->buildGenerateResourceCommand((string) $userServiceName);
+    $statusCode = $this->runCommand($command);
+
+    if ($statusCode === Command::SUCCESS) {
+      return Command::SUCCESS;
+    }
+
+    $this->output->writeln([
+      '',
+      "<error>Failed to create resource, $userServiceName</error>",
+      ''
+    ]);
+
+    return Command::FAILURE;
+  }
+
+  protected function installOrmPackage(): int
+  {
+    try {
+      $composerConfig = ComposerManifest::load($this->projectPath);
+      $composerConfig = ComposerManifest::ensureRequirement(
+        $composerConfig,
+        PACKAGE_NAME_ORM,
+        RECOMMENDED_ORM_VERSION_CONSTRAINT
+      );
+
+      if (! ComposerManifest::save($this->projectPath, $composerConfig)) {
+        throw new \RuntimeException('Failed to save composer.json');
+      }
+    } catch (\RuntimeException) {
+      $this->output->writeln([
+        '',
+        '<error>Failed to add ORM to composer.json</error>',
+        ''
+      ]);
+      return Command::FAILURE;
+    }
+
+    $this->output->writeln('<question>UPDATE</question> composer.json');
+
+    return Command::SUCCESS;
+  }
+
+  /**
+   * @param string[] $configuredDatabaseNames
+   */
+  protected function configureModuleDataSources(array $configuredDatabaseNames): int
+  {
+    $configuredDatabaseNames = array_values(array_unique(array_filter($configuredDatabaseNames)));
+
+    if (empty($configuredDatabaseNames)) {
+      return Command::SUCCESS;
+    }
+
+    $configurator = new ModuleDataSourceConfigurator(
+      $this->input,
+      $this->output,
+      $this->questionHelper,
+      $this->projectPath
+    );
+
+    foreach ($configuredDatabaseNames as $databaseName) {
+      if (Command::SUCCESS !== $configurator->promptAndConfigure($databaseName)) {
+        return Command::FAILURE;
+      }
+    }
 
     return Command::SUCCESS;
   }
@@ -186,7 +274,7 @@ class DatabaseInstaller extends AbstractInstaller
    *
    * @return string[] The missing extensions.
    */
-  private function checkForMissingExtensions(array $extensions): array
+  protected function checkForMissingExtensions(array $extensions): array
   {
     $missingExtensions = [];
 

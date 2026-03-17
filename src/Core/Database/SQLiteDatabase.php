@@ -4,6 +4,7 @@ namespace Assegai\Console\Core\Database;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\Interfaces\SQLDatabaseConnectionInterface;
+use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Tests\Mocks\MockInput;
 use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Inspector;
@@ -11,11 +12,9 @@ use Assegai\Console\Util\Path;
 use Exception;
 use PDO;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\ConfirmationQuestion;
 
 /**
  * Class SQLiteDatabase. This class is a SQLite database connection.
@@ -127,10 +126,9 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
     $path = self::normalizePath($path, $workingDirectory);
 
     if (! self::isSpecialPath($path) && ! file_exists($path) ) {
-      $helper = new QuestionHelper();
-      $confirmQuestion = new ConfirmationQuestion("<info>?</info> Do you want to create the database? <fg=gray>(Y/n)</>", true);
+      $prompts = new CliPrompt($input, $output);
 
-      if (! $helper->ask($input, $output, $confirmQuestion) ) {
+      if (! $prompts->confirm('Do you want to create the database?', true) ) {
         return Command::FAILURE;
       }
     }

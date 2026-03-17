@@ -22,7 +22,7 @@ class WebComponentSchematic extends AbstractFileSchematic
     $filename = $this->getFilePath();
     $runtimeImport = WebComponentScaffolder::getRuntimeImportPath($this->path, $filename);
 
-    return WebComponentScaffolder::renderComponentTemplate($componentName, $tagName, $runtimeImport);
+    return WebComponentScaffolder::renderComponentTemplate($componentName, $this->name, $tagName, $runtimeImport);
   }
 
   protected function getFileName(): string

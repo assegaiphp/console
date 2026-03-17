@@ -4,6 +4,7 @@ namespace Assegai\Console\Commands\WebComponents;
 
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\WebComponents\Builder\WebComponentBuilder;
+use Assegai\Console\WebComponents\HotReload\WebComponentHotReloadState;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -18,7 +19,9 @@ class WatchWebComponents extends Command
 {
   public function configure(): void
   {
-    $this->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The workspace directory', getcwd());
+    $this
+      ->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The workspace directory', getcwd())
+      ->addOption('no-hot-reload', null, InputOption::VALUE_NONE, 'Disable browser hot reloading while watching.');
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
@@ -39,9 +42,14 @@ class WatchWebComponents extends Command
       return Command::SUCCESS;
     }
 
-    $output->writeln('<comment>Watching Web Components...</comment>');
+    $hotReload = !$input->getOption('no-hot-reload');
 
-    if ($builder->build($workspace, true) !== Command::SUCCESS) {
+    $output->writeln(sprintf(
+      '<comment>Watching Web Components%s...</comment>',
+      $hotReload ? ' with hot reload' : ''
+    ));
+
+    if ($this->watchComponents($builder, $workspace, $hotReload) !== Command::SUCCESS) {
       $output->writeln('<error>Failed to watch Web Components. Ensure esbuild is installed and available on PATH.</error>');
       return Command::FAILURE;
     }
@@ -52,5 +60,34 @@ class WatchWebComponents extends Command
   protected function createBuilder(): WebComponentBuilder
   {
     return new WebComponentBuilder();
+  }
+
+  protected function watchComponents(WebComponentBuilder $builder, string $workspace, bool $hotReload): int
+  {
+    $hotReloadState = null;
+
+    if ($hotReload) {
+      $hotReloadState = new WebComponentHotReloadState($workspace);
+
+      if (!$hotReloadState->activate()) {
+        return Command::FAILURE;
+      }
+
+      register_shutdown_function(static function () use ($hotReloadState): void {
+        $hotReloadState->deactivate();
+      });
+    }
+
+    try {
+      return $builder->build(
+        $workspace,
+        true,
+        static function () use ($hotReloadState): void {
+          $hotReloadState?->synchronize();
+        }
+      );
+    } finally {
+      $hotReloadState?->deactivate();
+    }
   }
 }

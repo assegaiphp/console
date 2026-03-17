@@ -32,11 +32,13 @@ class AppService
 
     return view('index', [
       'title' => 'Muli Bwanji',
-      'subtitle' => "Congratulations! $name is running. 🥳🎉🥳",
-      'welcomeLink' => Config::get('contact')['links']['assegai_website'],
-      'getStartedLink' => Config::get('contact')['links']['guide_link'],
-      'documentationLink' => Config::get('contact')['links']['documentation_link'],
-      'donateLink' => Config::get('contact')['links']['support_link'],
+      'titleNote' => 'Hello in Chichewa',
+      'projectName' => $name,
+      'status' => "$name is running.",
+      'summary' => 'Your AssegaiPHP project is ready for modules, controllers, services, DTOs, and everything else you want to wire together next.',
+      'websiteLink' => Config::get('contact')['links']['assegai_website'],
+      'guideLink' => Config::get('contact')['links']['guide_link'],
+      'supportLink' => Config::get('contact')['links']['support_link'],
     ]);
   }
 }

@@ -1,0 +1,29 @@
+{
+  "name": "",
+  "description": "",
+  "version": "0.0.1",
+  "projectType": "project",
+  "root": "",
+  "sourceRoot": "src",
+  "scripts": {
+    "test": "vendor/bin/pest tests"
+  },
+  "development": {
+    "server": {
+      "host": "localhost",
+      "port": 5000,
+      "openBrowser": false
+    }
+  },
+  "webComponents": {
+    "prefix": "app",
+    "output": "public/js/assegai-components.min.js",
+    "buildOnDumpAutoload": false,
+    "hotReload": {
+      "enabled": true,
+      "path": "public/.assegai/wc-hot-reload.json",
+      "pollInterval": 1000,
+      "ttl": 43200
+    }
+  }
+}

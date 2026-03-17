@@ -184,6 +184,7 @@ PHP;
       $this->path,
       $filename,
       $this->nameText->pascalCase(),
+      $this->name,
       $this->selector,
       $this->output
     );

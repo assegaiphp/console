@@ -5,6 +5,8 @@ use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 const PACKAGE_NAME_CORE = 'assegaiphp/core';
 const PACKAGE_NAME_CLI = 'assegaiphp/console';
 const PACKAGE_NAME_ORM = 'assegaiphp/orm';
+const RECOMMENDED_CORE_VERSION_CONSTRAINT = '^0.7.0';
+const RECOMMENDED_ORM_VERSION_CONSTRAINT = '^0.7.6';
 const DEFAULT_PROJECT_NAME = 'assegai-app';
 const DEFAULT_PROJECT_VERSION = '0.0.1';
 const DEFAULT_PROJECT_TYPE = 'project';

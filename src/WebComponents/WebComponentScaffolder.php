@@ -57,6 +57,7 @@ final class WebComponentScaffolder
     string $workspace,
     string $filename,
     string $componentName,
+    string $displayName,
     string $tagName,
     OutputInterface $output
   ): int {
@@ -76,7 +77,7 @@ final class WebComponentScaffolder
     }
 
     $runtimeImport = self::getRuntimeImportPath($workspace, $filename);
-    $contents = self::renderComponentTemplate($componentName, $tagName, $runtimeImport);
+    $contents = self::renderComponentTemplate($componentName, $displayName, $tagName, $runtimeImport);
     $bytes = file_put_contents($filename, $contents);
 
     if (false === $bytes) {
@@ -100,9 +101,15 @@ final class WebComponentScaffolder
     return self::relativeImportPath(dirname($componentFilename), self::getRuntimeDirectory($workspace));
   }
 
-  public static function renderComponentTemplate(string $componentName, string $tagName, string $runtimeImport): string
+  public static function renderComponentTemplate(
+    string $componentName,
+    string $displayName,
+    string $tagName,
+    string $runtimeImport
+  ): string
   {
     $elementName = (new Text($componentName))->pascalCase();
+    $escapedDisplayName = addslashes($displayName);
 
     return <<<TS
 import {
@@ -125,7 +132,11 @@ export class {$elementName}Element extends AssegaiElement<Record<string, unknown
   }
 
   protected render(): void {
-    this.dataset.hydrated = 'true';
+    const name: string = this.getAttribute('name') || '$escapedDisplayName';
+
+    this.shadow.innerHTML = `
+        <style></style>
+        <p>\${name} works!</p>`;
   }
 }
 
@@ -176,6 +187,14 @@ export abstract class AssegaiElement<TProps extends Record<string, unknown> = Re
   protected props: TProps = {} as TProps;
   private mounted = false;
 
+  constructor() {
+    super();
+
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: 'open' });
+    }
+  }
+
   connectedCallback(): void {
     this.props = this.resolveProps();
 
@@ -224,6 +243,14 @@ export abstract class AssegaiElement<TProps extends Record<string, unknown> = Re
       bubbles: true,
       composed: true,
     }));
+  }
+
+  protected get shadow(): ShadowRoot {
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: 'open' });
+    }
+
+    return this.shadowRoot;
   }
 
   protected abstract render(): void;

@@ -3,10 +3,8 @@
 namespace Assegai\Console\Commands;
 
 use Assegai\Console\Core\WorkspaceManager;
-use Assegai\Console\Util\TermInfo;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Cursor;
 use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputArgument;
@@ -72,11 +70,6 @@ class NewProject extends Command
    */
   private function printSuccessMessage(OutputInterface $output, string $projectPath): void
   {
-    $cursor = new Cursor($output);
-    $cursor
-      ->moveUp()
-      ->clearLine();
-
     $displayPath = $projectPath;
     $workingDirectory = getcwd() ?: '';
 
@@ -84,40 +77,25 @@ class NewProject extends Command
       $displayPath = basename($projectPath);
     }
 
+    $quotedDisplayPath = escapeshellarg($displayPath);
+    $guideLink = 'https://assegaiphp.com/guide';
+    $supportLink = 'https://assegaiphp.com/support';
+
     $output->writeln([
       "",
-      "✔️  Installation done! ☕\n",
-      "🚀  Successfully created the <info>$displayPath</info> project",
-      "👉  Get started with the following commands:\n",
-      "<fg=gray>$ cd $displayPath</>",
-      "<fg=gray>$ assegai serve</>\n\n\n",
+      '<info>Project ready.</info>',
+      '',
+      "Created <info>$displayPath</info>",
+      '',
+      'Next:',
+      "<fg=gray>$ cd $quotedDisplayPath</>",
+      '<fg=gray>$ assegai serve</>',
+      '<fg=gray>$ assegai g r users</>',
+      '',
+      "Guide:   <href=$guideLink>$guideLink</>",
+      "Support: <href=$supportLink>$supportLink</>",
+      "Donate:  <href=" . DONATION_LINK . '>' . DONATION_LINK . '</>',
+      '',
     ]);
-
-    $thankYouMessage = [
-      "<comment>        Thanks for installing Assegai</comment> 🙏",
-      "<fg=gray>Please consider donating to our open collective</>",
-      "<fg=gray>    to help us maintain this package.</>\n\n",
-    ];
-
-    ['width' => $terminalWidth, 'height' => $terminalHeight] = TermInfo::windowSize();
-
-    $thankYouMessageLines = [];
-
-    foreach ($thankYouMessage as $line)
-    {
-      $lineLength = strlen($line);
-      $offset = intval(($terminalWidth / 2) - ($lineLength / 2));
-      $padding = str_repeat(' ', $offset);
-      $thankYouMessageLines[] = $padding . $line;
-    }
-
-    $output->writeln($thankYouMessageLines);
-
-    $donateLink = DONATION_LINK;
-    $donationMessage = "🍷  Donate: <href=$donateLink>$donateLink</>\n";
-    $lineLength = strlen($donationMessage) - strlen($donateLink);
-    $offset = intval(($terminalWidth / 2) - ($lineLength / 2));
-    $padding = str_repeat(' ', $offset);
-    $output->writeln($padding . $donationMessage);
   }
 }

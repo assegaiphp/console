@@ -4,8 +4,6 @@ namespace Assegai\Console\Installers;
 
 use Assegai\Console\Util\Config\ProjectConfig;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Question\Question;
-use function Laravel\Prompts\select;
 
 class SQLiteInstaller extends AbstractInstaller
 {
@@ -17,19 +15,20 @@ class SQLiteInstaller extends AbstractInstaller
   {
     $this->output->writeln("Let's configure an SQLite connection!");
 
-    $connectionOptions = ['on-disk', 'in-memory', 'in-memory (persistent)'];
+    $connectionOptions = [
+      'on-disk' => 'on-disk',
+      'in-memory' => 'in-memory',
+      'in-memory (persistent)' => 'in-memory (persistent)',
+    ];
 
     $defaultDatabaseName = $this->getSuggestedDatabaseName();
-    $dbNameQuestion = new Question("<info>?</info> Database name: <fg=gray>($defaultDatabaseName)</> ", $defaultDatabaseName);
-    $dbName = $this->questionHelper->ask($this->input, $this->output, $dbNameQuestion);
+    $dbName = $this->prompts->text('Database name', $defaultDatabaseName);
 
     $defaultPath = $this->getSuggestedSQLitePath((string) $dbName);
-    $path = match (select("<info>?</info> Connection type: ", $connectionOptions, 0)) {
+    $path = match ((string) $this->prompts->select('Connection type', $connectionOptions, 'on-disk')) {
       'in-memory' => ':memory:',
       'in-memory (persistent)' => 'file::memory:?cache=shared',
-      default => $this
-                  ->questionHelper
-                  ->ask($this->input, $this->output, new Question("<info>?</info> Path: <fg=gray>($defaultPath)</> ", $defaultPath))
+      default => $this->prompts->text('Path', $defaultPath)
     };
 
     $newDatabaseConfig = [
@@ -49,6 +48,8 @@ class SQLiteInstaller extends AbstractInstaller
       $this->output->writeln("<error>Failed to update workspace config</error>");
       return Command::FAILURE;
     }
+
+    $this->configuredDatabaseName = (string) $dbName;
 
     return Command::SUCCESS;
   }

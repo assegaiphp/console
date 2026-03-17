@@ -5,6 +5,7 @@ namespace Assegai\Console\Core\Database;
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\Interfaces\DatabaseConnectionInterface;
 use Assegai\Console\Core\Database\Interfaces\SQLDatabaseConnectionInterface;
+use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Tests\Mocks\MockInput;
 use Assegai\Console\Tests\Mocks\MockOutput;
 use Assegai\Console\Util\Config\DBConfig;
@@ -13,11 +14,9 @@ use Assegai\Console\Util\Path;
 use Exception;
 use PDO;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\Question;
 
 /**
  * Class MySQLDatabase. This class is a MySQL database connection.
@@ -115,8 +114,8 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
       if (! self::$sudoUser)
       {
-        $helper = new QuestionHelper();
-        self::$sudoUser = $helper->ask($input, $output, new Question('<info>?</info> Sudo user: ', 'postgres'));
+        $prompts = new CliPrompt($input, $output);
+        self::$sudoUser = $prompts->text('Sudo user', 'postgres');
       }
 
       $sudoUser = self::$sudoUser;
@@ -221,8 +220,8 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     if (! self::exists($name) ) {
       if (! self::$sudoUser) {
-        $helper = new QuestionHelper();
-        self::$sudoUser = $helper->ask($input, $output, new Question('<info>?</info> Sudo user: ', 'postgres'));
+        $prompts = new CliPrompt($input, $output);
+        self::$sudoUser = $prompts->text('Sudo user', 'postgres');
       }
 
       $workingDirectory = getcwd() ?: '';

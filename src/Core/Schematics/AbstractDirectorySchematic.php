@@ -63,6 +63,12 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
      */
     protected Text $singularName;
     /**
+     * The plural text
+     *
+     * @var Text $pluralName
+     */
+    protected Text $pluralName;
+    /**
      * @var int The total number of writes
      */
     protected int $totalWrites = 0;
@@ -91,6 +97,7 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
     {
         $this->nameText = new Text($this->name);
         $this->singularName = new Text($this->nameText->getSingularForm());
+        $this->pluralName = new Text($this->singularName->getPluralForm());
         $this->directoryName = $this->nameText->pascalCase();
         $this->inspector = new Inspector($this->input, $this->output);
         $this->configure();
@@ -168,7 +175,10 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
         foreach ($structure as $name => $value) {
             $path = str_replace('__NAME__', $this->nameText->pascalCase(), $name);
             $path = str_replace('__SINGULAR_LC__', strtolower($this->singularName->pascalCase()), $path);
+            $path = str_replace('__SINGULAR_CAMEL__', $this->singularName->camelCase(), $path);
             $path = str_replace('__SINGULAR__', $this->singularName->pascalCase(), $path);
+            $path = str_replace('__PLURAL_LC__', strtolower($this->pluralName->pascalCase()), $path);
+            $path = str_replace('__PLURAL__', $this->pluralName->pascalCase(), $path);
 
             $output[$path] = is_array($value) ? $this->resolvePathNames($value) : $value;
         }
@@ -195,7 +205,11 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
                 $content = str_replace('__KEBAB__', $this->nameText->kebabCase(), $content);
                 $content = str_replace('__CAMEL__', $this->nameText->camelCase(), $content);
                 $content = str_replace('__SINGULAR_LC__', strtolower($this->singularName->pascalCase()), $content);
+                $content = str_replace('__SINGULAR_CAMEL__', $this->singularName->camelCase(), $content);
                 $content = str_replace('__SINGULAR__', $this->singularName->pascalCase(), $content);
+                $content = str_replace('__PLURAL_KEBAB__', $this->pluralName->kebabCase(), $content);
+                $content = str_replace('__PLURAL_LC__', strtolower($this->pluralName->pascalCase()), $content);
+                $content = str_replace('__PLURAL__', $this->pluralName->pascalCase(), $content);
             }
 
             $output[$name] = is_array($content) ? $this->resolveContent($content) : $content;

@@ -6,6 +6,8 @@ use Symfony\Component\Console\Command\Command;
 
 final class EsbuildRunner
 {
+  private const int WATCH_TICK_MICROSECONDS = 250000;
+
   public function __construct(private ?string $binary = null)
   {
   }
@@ -15,7 +17,7 @@ final class EsbuildRunner
     return $this->resolveBinary() !== null;
   }
 
-  public function build(string $entryFilename, string $outputFilename, bool $watch = false): int
+  public function build(string $entryFilename, string $outputFilename, bool $watch = false, ?callable $onWatchTick = null): int
   {
     $binary = $this->resolveBinary();
 
@@ -31,9 +33,52 @@ final class EsbuildRunner
       $watch ? ' --watch' : ''
     );
 
+    if ($watch) {
+      return $this->runWatchProcess($command, $onWatchTick);
+    }
+
     passthru($command, $statusCode);
 
     return $statusCode;
+  }
+
+  private function runWatchProcess(string $command, ?callable $onWatchTick = null): int
+  {
+    $descriptors = [
+      0 => ['file', 'php://stdin', 'r'],
+      1 => ['file', 'php://stdout', 'w'],
+      2 => ['file', 'php://stderr', 'w'],
+    ];
+
+    $process = proc_open($command, $descriptors, $pipes);
+
+    if (!is_resource($process)) {
+      return Command::FAILURE;
+    }
+
+    $exitCode = Command::SUCCESS;
+
+    try {
+      while (true) {
+        $status = proc_get_status($process);
+        if ($onWatchTick !== null) {
+          $onWatchTick();
+        }
+
+        if (!$status['running']) {
+          $exitCode = is_int($status['exitcode']) && $status['exitcode'] >= 0
+            ? $status['exitcode']
+            : Command::FAILURE;
+          break;
+        }
+
+        usleep(self::WATCH_TICK_MICROSECONDS);
+      }
+    } finally {
+      proc_close($process);
+    }
+
+    return $exitCode;
   }
 
   private function resolveBinary(): ?string
