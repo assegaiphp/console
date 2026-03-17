@@ -90,7 +90,6 @@ class NewProject extends Command
       'Next:',
       "<fg=gray>$ cd $quotedDisplayPath</>",
       '<fg=gray>$ assegai serve</>',
-      '<fg=gray>$ assegai g r users</>',
       '',
       "Guide:   <href=$guideLink>$guideLink</>",
       "Support: <href=$supportLink>$supportLink</>",

@@ -175,7 +175,8 @@ class ModuleDataSourceConfigurator
         'specific' => 'Specific modules',
         'none' => 'None',
       ],
-      'none'
+      'all',
+      "This can be configured later"
     );
   }
 
@@ -297,7 +298,10 @@ class ModuleDataSourceConfigurator
     }
 
     if ($updatedModules > 0) {
-      $this->output->writeln("<info>Applied data_source <comment>$dataSourceName</comment> to $updatedModules module(s).</info>");
+      $this->output->writeln([
+          "",
+          "<info>Applied data_source <comment>$dataSourceName</comment> to $updatedModules module(s).</info>"
+      ]);
     }
 
     if ($skippedModules > 0) {

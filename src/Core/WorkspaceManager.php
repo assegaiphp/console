@@ -202,8 +202,7 @@ class WorkspaceManager
       }
     }
 
-    $this->output->writeln('');
-    $this->output->writeln("✔️  Project initialized: <info>$projectName</info>\n");
+    $this->output->writeln(["", "✔️  Project initialized: <info>$projectName</info>", ""]);
 
     return Command::SUCCESS;
   }
@@ -215,10 +214,10 @@ class WorkspaceManager
    */
   public function install(): int
   {
-    $this->output->writeln('');
-    $this->output->writeln($this->formatter->formatBlock("Installing project dependencies...", 'question', true));
-    $this->output->writeln('<fg=gray>We will configure optional services first, then install the project dependencies.</>');
-    $this->output->writeln('');
+    $this->output->writeln([
+        '',
+        '<fg=gray>We will configure optional services first, then install the project dependencies.</>'
+    ]);
 
     $databaseInstaller = new DatabaseInstaller(
       $this->input,
@@ -327,14 +326,16 @@ class WorkspaceManager
   protected function renderProjectIntro(string $workingDirectory): void
   {
     $this->output->writeln($this->formatter->formatBlock('Create a New AssegaiPHP Project', 'question', true));
-    $this->output->writeln('<fg=gray>We will scaffold the workspace, wire autoloading, and optionally configure a database.</>');
+    $this->output->writeln([
+        '',
+        '<fg=gray>We will scaffold the workspace, wire autoloading, and optionally configure a database.</>'
+    ]);
 
     if ($workingDirectory !== '') {
-      $this->output->writeln("<fg=gray>Target directory: $workingDirectory</>");
+      $this->output->writeln(["", "<fg=gray>Target directory: $workingDirectory</>"]);
     }
 
-    $this->output->writeln('<fg=gray>Press enter to accept any visible default.</>');
-    $this->output->writeln('');
+    $this->output->writeln(['<fg=gray>Press enter to accept any visible default.</>', '']);
   }
 
   protected function renderProjectSummary(
@@ -345,12 +346,15 @@ class WorkspaceManager
   ): void
   {
     $this->output->writeln('');
-    $this->output->writeln($this->formatter->formatBlock('Scaffolding Project', 'info', true));
-    $this->output->writeln("<fg=gray>Project</>   <info>$projectName</info>");
-    $this->output->writeln("<fg=gray>Path</>      <comment>$projectDirectory</comment>");
-    $this->output->writeln("<fg=gray>Package</>   <comment>$packageName</comment>");
-    $this->output->writeln("<fg=gray>Namespace</> <comment>$namespace</comment>");
-    $this->output->writeln('');
+    $this->output->writeln($this->formatter->formatBlock('Scaffolding Project', 'question', true));
+    $this->output->writeln([
+        "",
+        "<fg=gray>Project</>   <info>$projectName</info>",
+        "<fg=gray>Path</>      <comment>$projectDirectory</comment>",
+        "<fg=gray>Package</>   <comment>$packageName</comment>",
+        "<fg=gray>Namespace</> <comment>{$namespace}</comment>",
+        ""
+    ]);
   }
 
   public function setProjectPath(string $path): void
