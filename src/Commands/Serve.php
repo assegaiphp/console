@@ -2,10 +2,12 @@
 
 namespace Assegai\Console\Commands;
 
+use Assegai\Console\Api\WorkspaceApiBridge;
 use Assegai\Console\Util\Config\ProjectConfig;
 use Assegai\Console\Util\Path;
 use Assegai\Console\WebComponents\HotReload\WebComponentHotReloadState;
 use LogicException;
+use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\FormatterHelper;
@@ -44,6 +46,10 @@ class Serve extends Command
 
     if (Command::SUCCESS !== $this->projectConfig->load()) {
       $output->writeln("<error>Failed to load the project configuration</error>");
+      return Command::FAILURE;
+    }
+
+    if (Command::SUCCESS !== $this->exportApiDocsIfConfigured($root, $output)) {
       return Command::FAILURE;
     }
 
@@ -202,6 +208,61 @@ class Serve extends Command
     }
 
     return $statusCode;
+  }
+
+  protected function exportApiDocsIfConfigured(string $root, OutputInterface $output): int
+  {
+    if (!$this->shouldAutoExportOpenApi()) {
+      return Command::SUCCESS;
+    }
+
+    return $this->writeOpenApiExport($root, $this->resolveApiDocsExportPath($root), $output);
+  }
+
+  protected function shouldAutoExportOpenApi(): bool
+  {
+    return (bool) ($this->projectConfig?->get('apiDocs.exportOnServe', false) ?? false);
+  }
+
+  protected function resolveApiDocsExportPath(string $root): string
+  {
+    $configuredPath = trim((string) ($this->projectConfig?->get('apiDocs.exportPath', 'generated/openapi.json') ?? 'generated/openapi.json'));
+
+    if ($configuredPath === '') {
+      $configuredPath = 'generated/openapi.json';
+    }
+
+    if (str_starts_with($configuredPath, '/')) {
+      return Path::normalize($configuredPath);
+    }
+
+    return Path::join($root, $configuredPath);
+  }
+
+  protected function writeOpenApiExport(string $root, string $outputFile, OutputInterface $output): int
+  {
+    try {
+      $bridge = new WorkspaceApiBridge($root);
+      $document = $bridge->generateOpenApiDocument();
+      $directory = dirname($outputFile);
+
+      if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        throw new RuntimeException('Failed to create the OpenAPI export directory.');
+      }
+
+      $payload = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+
+      if (false === file_put_contents($outputFile, $payload)) {
+        throw new RuntimeException('Failed to write the OpenAPI export.');
+      }
+
+      $output->writeln('<info>GENERATED</info> ' . $outputFile, OutputInterface::VERBOSITY_VERBOSE);
+
+      return Command::SUCCESS;
+    } catch (RuntimeException $exception) {
+      $output->writeln('<error>' . $exception->getMessage() . '</error>');
+      return Command::FAILURE;
+    }
   }
 
   protected function resolveConsoleEntrypoint(): ?string

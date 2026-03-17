@@ -22,6 +22,11 @@ function createServeWorkspace(): string
         'openBrowser' => false,
       ],
     ],
+    'apiDocs' => [
+      'enabled' => true,
+      'exportOnServe' => false,
+      'exportPath' => 'generated/openapi.json',
+    ],
     'webComponents' => [
       'enabled' => true,
       'output' => 'public/js/assegai-components.min.js',
@@ -136,6 +141,55 @@ describe('Serve', function () {
       expect($status)->toBe(Command::SUCCESS);
       expect($regularServe->calls)->toHaveCount(1);
       expect($regularServe->calls[0]['type'])->toBe('serve');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
+  it('can export OpenAPI on serve when configured', function () {
+    $workspace = createServeWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    $config = json_decode(file_get_contents($workspace . '/assegai.json') ?: '', true);
+    $config['apiDocs']['exportOnServe'] = true;
+    file_put_contents($workspace . '/assegai.json', json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    chdir($workspace);
+
+    try {
+      $command = new class extends Serve {
+        public array $calls = [];
+
+        protected function writeOpenApiExport(string $root, string $outputFile, \Symfony\Component\Console\Output\OutputInterface $output): int
+        {
+          $this->calls[] = ['type' => 'export-openapi', 'root' => $root, 'output' => $outputFile];
+          return Command::SUCCESS;
+        }
+
+        protected function runServeCommand(string $command): int
+        {
+          $this->calls[] = ['type' => 'serve', 'command' => $command];
+          return Command::SUCCESS;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($command->calls)->toHaveCount(2);
+      expect($command->calls[0])->toMatchArray([
+        'type' => 'export-openapi',
+        'root' => $workspace,
+        'output' => $workspace . '/generated/openapi.json',
+      ]);
+      expect($command->calls[1]['type'])->toBe('serve');
     } finally {
       chdir($previousWorkingDirectory);
       deleteServeWorkspace($workspace);

@@ -22,7 +22,7 @@ class ApiExport extends Command
   public function configure(): void
   {
     $this
-      ->addArgument('format', InputArgument::REQUIRED, 'The export format. Supported values: openapi, postman.')
+      ->addArgument('format', InputArgument::REQUIRED, 'The export format. Supported values: openapi, postman, typescript.')
       ->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The workspace directory.', getcwd())
       ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'The output filename.', null);
   }
@@ -38,17 +38,19 @@ class ApiExport extends Command
       return Command::FAILURE;
     }
 
-    if (!in_array($format, ['openapi', 'postman'], true)) {
-      $output->writeln('<error>Unsupported export format. Supported values: openapi, postman.</error>');
+    if (!in_array($format, ['openapi', 'postman', 'typescript'], true)) {
+      $output->writeln('<error>Unsupported export format. Supported values: openapi, postman, typescript.</error>');
       return Command::FAILURE;
     }
 
     try {
       $bridge = new WorkspaceApiBridge($workspace);
       $document = $bridge->generateOpenApiDocument();
-      $payload = $format === 'postman'
-        ? $bridge->generatePostmanCollection($document)
-        : $document;
+      $payload = match ($format) {
+        'postman' => $bridge->generatePostmanCollection($document),
+        'typescript' => $bridge->generateTypeScriptClient($document),
+        default => $document,
+      };
       $outputFile = $this->resolveOutputFile(
         $workspace,
         (string) ($input->getOption('output') ?: $this->defaultOutputFor($format))
@@ -58,7 +60,9 @@ class ApiExport extends Command
         throw new RuntimeException('Failed to create the output directory.');
       }
 
-      $encoded = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+      $encoded = is_string($payload)
+        ? (str_ends_with($payload, PHP_EOL) ? $payload : $payload . PHP_EOL)
+        : json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 
       if (false === file_put_contents($outputFile, $encoded)) {
         throw new RuntimeException('Failed to write the exported API artifact.');
@@ -77,6 +81,7 @@ class ApiExport extends Command
   {
     return match ($format) {
       'postman' => 'generated/assegai.postman.collection.json',
+      'typescript' => 'generated/assegai-api-client.ts',
       default => 'generated/openapi.json',
     };
   }

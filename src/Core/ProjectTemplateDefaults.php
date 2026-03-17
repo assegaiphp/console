@@ -94,6 +94,11 @@ class ProjectTemplateDefaults
           'openBrowser' => false,
         ],
       ],
+      'apiDocs' => [
+        'enabled' => true,
+        'exportOnServe' => false,
+        'exportPath' => 'generated/openapi.json',
+      ],
       'webComponents' => [
         'prefix' => 'app',
         'output' => 'public/js/assegai-components.min.js',

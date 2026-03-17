@@ -62,6 +62,24 @@ class ApiCommandsTest extends TestCase
     self::assertStringContainsString('postsCreate', $contents);
   }
 
+  public function testItAlsoSupportsTypeScriptThroughApiExport(): void
+  {
+    $command = new ApiExport();
+    $tester = new CommandTester($command);
+    $status = $tester->execute([
+      'format' => 'typescript',
+      '--directory' => self::$workspace,
+    ]);
+    $outputFile = self::$workspace . '/generated/assegai-api-client.ts';
+    $contents = file_get_contents($outputFile) ?: '';
+
+    self::assertSame(Command::SUCCESS, $status);
+    self::assertStringStartsWith('export function createAssegaiClient', trim($contents));
+    self::assertStringContainsString('createAssegaiClient', $contents);
+    self::assertStringContainsString('postsCreate', $contents);
+    self::assertFalse(str_starts_with(trim($contents), '"'));
+  }
+
   private static function createApiWorkspace(): string
   {
     $workspace = sys_get_temp_dir() . '/' . uniqid('api-workspace-', true);
