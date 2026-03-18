@@ -7,6 +7,7 @@ use Assegai\Console\Core\Database\Interfaces\SQLDatabaseConnectionInterface;
 use Assegai\Console\Core\Database\MySQLDatabase;
 use Assegai\Console\Core\Database\PostgreSQLDatabase;
 use Assegai\Console\Core\Database\SQLiteDatabase;
+use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Config\ProjectConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
@@ -14,12 +15,10 @@ use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\Question;
 
 #[AsCommand(
   name: 'migration:setup',
@@ -42,8 +41,7 @@ class MigrationSetup extends Command
 
   public function execute(InputInterface $input, OutputInterface $output): int
   {
-    /** @var QuestionHelper $helper */
-    $helper = $this->getHelper('question');
+    $prompts = new CliPrompt($input, $output);
 
     // Get project root
     $inspector = new Inspector($input, $output);
@@ -64,13 +62,17 @@ class MigrationSetup extends Command
       $input->getOption(DatabaseType::SQLITE->value) => DatabaseType::SQLITE->value,
       default =>
         $input->getOption(ParameterKey::DB_TYPE->value) ??
-        $helper->ask($input, $output, new Question("<info>?</info> Enter the database type: <fg=gray>($defaultDatabaseType)</> ", 'mysql'))
+        (string) $prompts->select(
+          'Enter the database type',
+          DatabaseType::toArray(),
+          $defaultDatabaseType
+        )
     };
 
     // Create a migrations directory for the specific database
     $databaseName =
       $input->getArgument(ParameterKey::DB_NAME->value) ??
-      $helper->ask($input, $output, new Question("<info>?</info> Enter the database name: "));
+      $prompts->text('Enter the database name');
 
     $migrationsDirectory = Path::join($migrationsDirectory, $databaseType, $databaseName);
 

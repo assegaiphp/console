@@ -25,7 +25,7 @@ final class WebComponentBuilder
     return $this->scanner->scan($projectRoot);
   }
 
-  public function build(string $projectRoot, bool $watch = false): int
+  public function build(string $projectRoot, bool $watch = false, ?callable $onWatchTick = null): int
   {
     WebComponentConfig::ensureDefaults($projectRoot);
 
@@ -56,7 +56,7 @@ final class WebComponentBuilder
       return Command::FAILURE;
     }
 
-    return $this->runner->build($entryFilename, $outputFilename, $watch);
+    return $this->runner->build($entryFilename, $outputFilename, $watch, $onWatchTick);
   }
 
   private function writeEntryFile(string $entryFilename, array $components): int|false

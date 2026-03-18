@@ -161,6 +161,10 @@ class Path
       $normalizedPath = '/' . $normalizedPath;
     }
 
+    if ($normalizedPath === '') {
+      return $isAbsolute ? '/' : '.';
+    }
+
     return $normalizedPath;
   }
 

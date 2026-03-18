@@ -3,6 +3,9 @@
 use Assegai\Console\Commands\DumpAutoload;
 use Assegai\Console\Commands\WebComponents\BuildWebComponents;
 use Assegai\Console\Commands\WebComponents\ListWebComponents;
+use Assegai\Console\Commands\WebComponents\WatchWebComponents;
+use Assegai\Console\WebComponents\Builder\WebComponentBuilder;
+use Assegai\Console\WebComponents\HotReload\WebComponentHotReloadState;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -23,6 +26,12 @@ function createWebComponentCommandWorkspace(array $webComponentConfig = [], arra
       'prefix' => 'app',
       'output' => 'public/js/assegai-components.min.js',
       'buildOnDumpAutoload' => false,
+      'hotReload' => [
+        'enabled' => true,
+        'path' => 'public/.assegai/wc-hot-reload.json',
+        'pollInterval' => 1000,
+        'ttl' => 43200,
+      ],
     ], ...$webComponentConfig],
   ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
@@ -215,6 +224,107 @@ describe('Web Component commands', function () {
         'build:' . $workspace,
       ]);
       expect($commandTester->getDisplay())->toContain('Building Web Components');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteWebComponentCommandWorkspace($workspace);
+    }
+  });
+
+  it('writes and removes the hot reload state file', function () {
+    $workspace = createWebComponentCommandWorkspace();
+    $state = new WebComponentHotReloadState($workspace);
+    $filename = $workspace . '/public/.assegai/wc-hot-reload.json';
+    $bundleFilename = $workspace . '/public/js/assegai-components.min.js';
+
+    try {
+      mkdir(dirname($bundleFilename), 0755, true);
+      file_put_contents($bundleFilename, 'console.log("first");');
+
+      expect($state->activate())->toBeTrue();
+      expect($filename)->toBeFile();
+      $initialState = json_decode(file_get_contents($filename) ?: '{}', true);
+
+      expect($initialState)
+        ->toBeArray()
+        ->toHaveKeys(['active', 'bundleUrl', 'interval', 'version', 'createdAt', 'updatedAt', 'expiresAt']);
+      expect(file_get_contents($filename))
+        ->toContain('"active": true')
+        ->toContain('/js/assegai-components.min.js');
+
+      $initialVersion = $initialState['version'] ?? null;
+
+      file_put_contents($bundleFilename, 'console.log("second");');
+      expect($state->synchronize())->toBeTrue();
+
+      $updatedState = json_decode(file_get_contents($filename) ?: '{}', true);
+
+      expect($updatedState['version'] ?? null)->not->toBe($initialVersion);
+
+      $state->deactivate();
+      expect($filename)->not->toBeFile();
+    } finally {
+      deleteWebComponentCommandWorkspace($workspace);
+    }
+  });
+
+  it('enables hot reload for wc:watch by default and allows opting out', function () {
+    $workspace = createWebComponentCommandWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if (false === $previousWorkingDirectory) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      $command = new class extends WatchWebComponents {
+        public array $calls = [];
+
+        protected function watchComponents(WebComponentBuilder $builder, string $workspace, bool $hotReload): int
+        {
+          $this->calls[] = [
+            'workspace' => $workspace,
+            'hotReload' => $hotReload,
+          ];
+
+          return Command::SUCCESS;
+        }
+      };
+
+      $commandTester = new CommandTester($command);
+      $status = $commandTester->execute([
+        '--directory' => $workspace,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($command->calls)->toHaveCount(1);
+      expect($command->calls[0]['hotReload'])->toBeTrue();
+      expect($commandTester->getDisplay())->toContain('Watching Web Components with hot reload');
+
+      $withoutHotReload = new class extends WatchWebComponents {
+        public array $calls = [];
+
+        protected function watchComponents(WebComponentBuilder $builder, string $workspace, bool $hotReload): int
+        {
+          $this->calls[] = [
+            'workspace' => $workspace,
+            'hotReload' => $hotReload,
+          ];
+
+          return Command::SUCCESS;
+        }
+      };
+
+      $withoutHotReloadTester = new CommandTester($withoutHotReload);
+      $status = $withoutHotReloadTester->execute([
+        '--directory' => $workspace,
+        '--no-hot-reload' => true,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($withoutHotReload->calls)->toHaveCount(1);
+      expect($withoutHotReload->calls[0]['hotReload'])->toBeFalse();
     } finally {
       chdir($previousWorkingDirectory);
       deleteWebComponentCommandWorkspace($workspace);

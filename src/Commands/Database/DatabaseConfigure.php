@@ -3,20 +3,19 @@
 namespace Assegai\Console\Commands\Database;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
+use Assegai\Console\Core\Modules\ModuleDataSourceConfigurator;
 use Assegai\Console\Exceptions\AssegaiConsoleException;
+use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\Question;
-use function Laravel\Prompts\select;
 
 /**
  * Class DatabaseConfig. This class is a command that sets up the database configuration.
@@ -82,8 +81,7 @@ class DatabaseConfigure extends Command
       }
     }
 
-    /** @var QuestionHelper $questionHelper */
-    $questionHelper = $this->getHelper('question');
+    $prompts = new CliPrompt($input, $output);
 
     $name = $input->getArgument(ParameterKey::DB_NAME->value);
 
@@ -97,7 +95,7 @@ class DatabaseConfigure extends Command
       $dsn = 'sqlite:';
       $choices = ['on-disk', 'in-memory', 'in-memory (persistent)'];
 
-      $sqlType = select("<info>?</info> How do you want to store your data?: ", $choices, 0);
+      $sqlType = (string) $prompts->select('How do you want to store your data?', $choices, 0);
 
       $dsn .= match ($sqlType) {
         'on-disk' => ".data/$name.sq3",
@@ -121,12 +119,13 @@ class DatabaseConfigure extends Command
         return Command::FAILURE;
       }
 
-      return Command::SUCCESS;
+      return $this->configureModuleDataSource((string) $name, $input, $output);
     }
 
     $host = $input->getOption('host');
     $port = $input->getOption('port');
     $user = $input->getOption('user');
+    $password = $input->getOption('password');
 
     $output->writeln("Configuring the database <info>$name</info>...");
 
@@ -136,7 +135,7 @@ class DatabaseConfigure extends Command
         'pgsql' => DEFAULT_POSTGRES_HOST,
         default => ''
       };
-      $host = $questionHelper->ask($input, $output, new Question("<info>?</info> Host: (<fg=gray>$defaultHost</>) ", $defaultHost));
+      $host = $prompts->text('Host', $defaultHost);
     }
 
     if (! $port ) {
@@ -145,7 +144,7 @@ class DatabaseConfigure extends Command
         'pgsql' => DEFAULT_POSTGRES_PORT,
         default => ''
       };
-      $port = $questionHelper->ask($input, $output, new Question("<info>?</info> Port: (<fg=gray>$defaultPort</>) ", $defaultPort));
+      $port = $prompts->text('Port', (string) $defaultPort);
     }
 
     if (! $user ) {
@@ -154,12 +153,12 @@ class DatabaseConfigure extends Command
         'pgsql' => DEFAULT_POSTGRES_USER,
         default => ''
       };
-      $user = $questionHelper->ask($input, $output, new Question("<info>?</info> User: (<fg=gray>$defaultUser</>) ", $defaultUser));
+      $user = $prompts->text('User', $defaultUser);
     }
 
-    $passwordQuestion = new Question('<info>?</info> Password: ', '');
-    $passwordQuestion->setHidden(true);
-    $password = $questionHelper->ask($input, $output, $passwordQuestion);
+    if ($password === null || $password === false) {
+      $password = $prompts->password('Password');
+    }
 
     $dbConfig = new DBConfig($input, $output, $name, $type);
     if (Command::SUCCESS !== $dbConfig->load()) {
@@ -183,6 +182,23 @@ class DatabaseConfigure extends Command
       $output->writeln('<error>Failed to save database configuration.</error>');
       return Command::FAILURE;
     }
-    return Command::SUCCESS;
+
+    return $this->configureModuleDataSource((string) $name, $input, $output);
+  }
+
+  protected function configureModuleDataSource(
+    string $databaseName,
+    InputInterface $input,
+    OutputInterface $output,
+  ): int
+  {
+    $configurator = new ModuleDataSourceConfigurator(
+      $input,
+      $output,
+      null,
+      getcwd() ?: ''
+    );
+
+    return $configurator->promptAndConfigure($databaseName);
   }
 }

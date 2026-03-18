@@ -6,7 +6,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 function createModuleFormattingWorkspace(string $moduleContents): string
 {
-  $workspace = __DIR__ . '/../.tmp/' . uniqid('module-formatting-', true);
+  $workspace = sys_get_temp_dir() . '/' . uniqid('module-formatting-', true);
 
   if (! mkdir($workspace . '/src', 0755, true) && ! is_dir($workspace . '/src')) {
     throw new RuntimeException("Failed to create test workspace: $workspace");

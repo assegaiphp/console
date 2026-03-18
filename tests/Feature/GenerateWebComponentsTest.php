@@ -92,9 +92,22 @@ describe('Generate Web Components', function () {
       expect($status)->toBe(Command::SUCCESS);
       expect($workspace . '/src/WebComponents/Ui/Alert/AlertComponent.wc.ts')->toBeFile();
       expect($workspace . '/src/WebComponents/runtime/index.ts')->toBeFile();
+      expect($workspace . '/src/WebComponents/runtime/AssegaiElement.ts')->toBeFile();
       expect(str_contains(
         file_get_contents($workspace . '/src/WebComponents/Ui/Alert/AlertComponent.wc.ts') ?: '',
         "defineElement('acme-alert', AlertElement);"
+      ))->toBeTrue();
+      expect(str_contains(
+        file_get_contents($workspace . '/src/WebComponents/Ui/Alert/AlertComponent.wc.ts') ?: '',
+        "const name: string = this.getAttribute('name') || 'alert';"
+      ))->toBeTrue();
+      expect(str_contains(
+        file_get_contents($workspace . '/src/WebComponents/Ui/Alert/AlertComponent.wc.ts') ?: '',
+        "this.shadow.innerHTML = `"
+      ))->toBeTrue();
+      expect(str_contains(
+        file_get_contents($workspace . '/src/WebComponents/runtime/AssegaiElement.ts') ?: '',
+        'protected get shadow(): ShadowRoot'
       ))->toBeTrue();
     } finally {
       chdir($previousWorkingDirectory);
@@ -130,6 +143,10 @@ describe('Generate Web Components', function () {
         file_get_contents($workspace . '/src/UserCard/UserCardComponent.wc.ts') ?: '',
         "defineElement('acme-user-card', UserCardElement);"
       ))->toBeTrue();
+      expect(str_contains(
+        file_get_contents($workspace . '/src/UserCard/UserCardComponent.wc.ts') ?: '',
+        "const name: string = this.getAttribute('name') || 'user-card';"
+      ))->toBeTrue();
 
       expect($commandTester->execute([
         'schematic' => 'page',
@@ -145,6 +162,10 @@ describe('Generate Web Components', function () {
       expect(str_contains(
         file_get_contents($workspace . '/src/About/AboutComponent.wc.ts') ?: '',
         "defineElement('acme-about', AboutElement);"
+      ))->toBeTrue();
+      expect(str_contains(
+        file_get_contents($workspace . '/src/About/AboutComponent.wc.ts') ?: '',
+        "const name: string = this.getAttribute('name') || 'about';"
       ))->toBeTrue();
       expect(str_contains(
         file_get_contents($workspace . '/src/AppModule.php') ?: '',

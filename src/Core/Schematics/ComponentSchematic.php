@@ -106,6 +106,7 @@ COMPONENT
         $this->path,
         $webComponentFilename,
         $name->pascalCase(),
+        $this->name,
         $selector,
         $this->output
       )) {

@@ -2,6 +2,8 @@
 
 <?php
 
+use Assegai\Console\Commands\Api\ApiClient;
+use Assegai\Console\Commands\Api\ApiExport;
 use Assegai\Console\Commands\Config;
 use Assegai\Console\Commands\Database\DatabaseConfigure;
 use Assegai\Console\Commands\Database\DatabaseLoad;
@@ -46,6 +48,8 @@ function bootstrap(): void
     $app = new Application('Assegai CLI');
     $app
       ->addCommands([
+        new ApiClient(),
+        new ApiExport(),
         new Config(),
         new DatabaseConfigure(),
         new DatabaseLoad(),

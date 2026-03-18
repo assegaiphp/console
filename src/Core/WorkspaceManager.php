@@ -4,8 +4,7 @@ namespace Assegai\Console\Core;
 
 use Assegai\Console\Installers\ComposerDependencyInstaller;
 use Assegai\Console\Installers\DatabaseInstaller;
-use Assegai\Console\Util\Enumerations\Color;
-use Assegai\Console\Util\Enumerations\ColorFX;
+use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Command\Command;
@@ -13,8 +12,6 @@ use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\ConfirmationQuestion;
-use Symfony\Component\Console\Question\Question;
 use Throwable;
 
 /**
@@ -25,6 +22,7 @@ use Throwable;
 class WorkspaceManager
 {
   protected ?string $projectPath = null;
+  protected CliPrompt $prompts;
 
   /**
    * WorkspaceManager constructor.
@@ -41,6 +39,7 @@ class WorkspaceManager
     protected QuestionHelper $questionHelper
   )
   {
+    $this->prompts = new CliPrompt($this->input, $this->output);
   }
 
   /**
@@ -56,13 +55,20 @@ class WorkspaceManager
     $templatePath = Path::getTemplatesDirectory();
     $defaultProjectName = DEFAULT_PROJECT_NAME;
 
-    $this->output->writeln($this->formatter->formatBlock("Initializing the project...", 'question', true));
-    $this->output->writeln('');
+    $this->renderProjectIntro($workingDirectory ?: '');
 
     if (! $projectName ) {
-      $projectNameQuestion = new Question("<info>?</info> Project name: <fg=gray>($defaultProjectName)</> ", $defaultProjectName);
-      $projectName = $this->questionHelper->ask($this->input, $this->output, $projectNameQuestion);
+      $projectName = $this->prompts->text(
+        'Project name',
+        $defaultProjectName,
+        'Used for the folder name. Kebab-case works well.',
+        'blog-api',
+        true
+      );
     }
+
+    $projectName = trim($projectName);
+
     $projectNameText = new Text($projectName);
     $projectDirectory = Path::join($workingDirectory ?: '', $projectNameText->kebabCase());
     $this->projectPath = $projectDirectory;
@@ -82,35 +88,28 @@ class WorkspaceManager
       return Command::FAILURE;
     }
 
-    $description = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Description: ")) ?? "";
+    $description = $this->prompts->text(
+      'Description',
+      '',
+      'Optional. This is written to composer.json and assegai.json.',
+      'A modular PHP API built with AssegaiPHP'
+    );
     $defaultVersion = DEFAULT_PROJECT_VERSION;
-    $version = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Version: <fg=gray>($defaultVersion)</> ", $defaultVersion));
-    $version = $this->filterVersion($version);
+    $version = $this->prompts->text(
+      'Version',
+      $defaultVersion,
+      'Use semantic versioning.',
+      '0.0.1',
+      true,
+      fn(string $value): ?string => $this->validateVersion($value)
+    );
     $type = 'project';
 
-    $assegaiConfig = [
-      "name" => $projectName,
-      "description" => $description ,
-      "version" => $version,
-      "projectType" => $type,
-      "root" => "",
-      "sourceRoot" => "src",
-      "scripts" => [
-        "test" => "vendor/bin/pest tests",
-      ],
-      "development" => [
-        "server" => [
-          "host" => "localhost",
-          "port" => 5000,
-          "openBrowser" => false
-        ]
-      ],
-      "webComponents" => [
-        "prefix" => "app",
-        "output" => "public/js/assegai-components.min.js",
-        "buildOnDumpAutoload" => false
-      ]
-    ];
+    $assegaiConfig = ProjectTemplateDefaults::loadAssegaiConfig();
+    $assegaiConfig['name'] = $projectName;
+    $assegaiConfig['description'] = $description;
+    $assegaiConfig['version'] = $version;
+    $assegaiConfig['projectType'] = $type;
     $targetAssegaiConfigPath = Path::join($projectDirectory, 'assegai.json');
 
     if (! file_put_contents($targetAssegaiConfigPath, json_encode($assegaiConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) ) {
@@ -119,36 +118,38 @@ class WorkspaceManager
     }
 
     $projectNameText = new Text($projectName);
-    $defaultPackageName = 'assegaiphp/' . $projectNameText->snakeCase();
-    $packageName = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Package name: <fg=gray>($defaultPackageName)</> ", $defaultPackageName));
-    [$vendor, $package] = explode('/', $packageName);
-    $defaultNamespace = Text::snakeCaseToPascalCase($vendor) . '\\' . Text::snakeCaseToPascalCase($package) . '\\';
-    $namespace = $this->questionHelper->ask($this->input, $this->output, new Question("<info>?</info> Namespace: <fg=gray>($defaultNamespace)</> ", $defaultNamespace));
+    $defaultPackageName = $this->buildDefaultPackageName($projectNameText);
+    $packageName = strtolower(trim($this->prompts->text(
+      'Package name',
+      $defaultPackageName,
+      'Use Composer format: vendor/package-name',
+      'acme/blog-api',
+      true,
+      fn(string $value): ?string => $this->validatePackageName($value)
+    )));
+    $defaultNamespace = $this->buildDefaultNamespace($packageName);
+    $namespace = trim($this->prompts->text(
+      'Namespace',
+      $defaultNamespace,
+      'Use a PSR-4 namespace, for example Acme\\BlogApi\\',
+      'Acme\\BlogApi\\',
+      true,
+      fn(string $value): ?string => $this->validateNamespace($value)
+    ));
 
     if (! str_ends_with($namespace, '\\') ) {
       $namespace .= '\\';
     }
 
-    $composerConfig = [
-      "name" => $packageName,
-      "description" => $description ,
-      "type" => $type,
-      "scripts" => [
-        "start" => "php -S localhost:5000 bootstrap.php",
-        "test"  => "vendor/bin/pest"
-      ],
-      "license" => "MIT",
-      "autoload" => [
-        "psr-4" => [
-          $namespace => "src/"
-        ]
-      ],
-      "authors" => [],
-      "require" => [
-        "php" => ">=" . MIN_PHP_VERSION,
-        "ext-pdo" => "*",
-        "ext-curl" => "*",
-        "vlucas/phpdotenv" => "^5.4",
+    $this->renderProjectSummary($projectName, $projectDirectory, $packageName, $namespace);
+
+    $composerConfig = ProjectTemplateDefaults::loadComposerConfig();
+    $composerConfig['name'] = $packageName;
+    $composerConfig['description'] = $description;
+    $composerConfig['type'] = $type;
+    $composerConfig['autoload'] = [
+      'psr-4' => [
+        $namespace => 'src/'
       ]
     ];
     $targetComposerConfigPath = Path::join($projectDirectory, 'composer.json');
@@ -182,29 +183,26 @@ class WorkspaceManager
     }
 
     # Initialize the git repository
-    $initGitQuestion = new ConfirmationQuestion("<info>?</info> Initialize git repository? <fg=gray>(y/N)</> ", false);
     if (
+      ! boolval($this->input->getOption('skip-git')) &&
       is_installed('git') &&
-      $this->questionHelper->ask($this->input, $this->output, $initGitQuestion)
+      $this->prompts->confirm('Initialize git repository?', false, hint: 'A git repository helps you start tracking changes immediately.')
     ) {
-      if ( boolval($this->input->getOption('skip-git')) !== true ) {
-        $this->output->writeln('');
-        $this->output->writeln(
-          $this->formatter->formatBlock('Initializing git repository...', 'question', true),
-          OutputInterface::VERBOSITY_VERBOSE
-        );
-        $gitInitCommand = "cd " . escapeshellarg($projectDirectory) . " && git init";
-        $gitInit = shell_exec($gitInitCommand);
+      $this->output->writeln('');
+      $this->output->writeln(
+        $this->formatter->formatBlock('Initializing git repository...', 'question', true),
+        OutputInterface::VERBOSITY_VERBOSE
+      );
+      $gitInitCommand = "cd " . escapeshellarg($projectDirectory) . " && git init";
+      $gitInit = shell_exec($gitInitCommand);
 
-        if (! str_contains($gitInit, 'Initialized empty Git repository') ) {
-          $this->output->writeln("<error>\nFailed to initialize git repository</error>");
-          return Command::FAILURE;
-        }
+      if (! str_contains($gitInit, 'Initialized empty Git repository') ) {
+        $this->output->writeln("<error>\nFailed to initialize git repository</error>");
+        return Command::FAILURE;
       }
     }
 
-    $this->output->writeln('');
-    $this->output->writeln("✔️  Project initialized: <info>$projectName</info>\n");
+    $this->output->writeln(["", "✔️  Project initialized: <info>$projectName</info>", ""]);
 
     return Command::SUCCESS;
   }
@@ -216,14 +214,10 @@ class WorkspaceManager
    */
   public function install(): int
   {
-    $this->output->writeln('');
-    $this->output->writeln($this->formatter->formatBlock("Installing project dependencies...", 'question', true));
-    $this->output->writeln('');
-
-    printf(
-      "%s%s▹▹▹▹▹%s Installation in progress... ☕%s\n\n",
-      ColorFX::BLINK->value, Color::FG_LIGHT_BLUE->value, Color::FG_WHITE->value, Color::RESET->value
-    );
+    $this->output->writeln([
+        '',
+        '<fg=gray>We will configure optional services first, then install the project dependencies.</>'
+    ]);
 
     $databaseInstaller = new DatabaseInstaller(
       $this->input,
@@ -268,6 +262,99 @@ class WorkspaceManager
       substr_count($version, '.') < 2 => $version . '.0',
       default => $version
     };
+  }
+
+  protected function buildDefaultPackageName(Text $projectName): string
+  {
+    return 'assegaiphp/' . $projectName->kebabCase();
+  }
+
+  protected function buildDefaultNamespace(string $packageName): string
+  {
+    [$vendor, $package] = explode('/', $packageName, 2);
+
+    return (new Text($vendor))->pascalCase() . '\\' . (new Text($package))->pascalCase() . '\\';
+  }
+
+  protected function validateVersion(string $version): ?string
+  {
+    $version = trim($version);
+
+    if ($version === '') {
+      return 'Version is required.';
+    }
+
+    if (! preg_match('/^\d+\.\d+\.\d+$/', $version)) {
+      return 'Use semantic versioning, for example 0.1.0.';
+    }
+
+    return null;
+  }
+
+  protected function validatePackageName(string $packageName): ?string
+  {
+    $packageName = strtolower(trim($packageName));
+
+    if ($packageName === '') {
+      return 'Package name is required.';
+    }
+
+    if (! preg_match('/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/', $packageName)) {
+      return 'Use vendor/package-name format in lowercase.';
+    }
+
+    return null;
+  }
+
+  protected function validateNamespace(string $namespace): ?string
+  {
+    $namespace = trim($namespace);
+
+    if ($namespace === '') {
+      return 'Namespace is required.';
+    }
+
+    $namespace = rtrim($namespace, '\\');
+
+    if (! preg_match('/^(?:[A-Z][A-Za-z0-9_]*\\\\)*[A-Z][A-Za-z0-9_]*$/', $namespace)) {
+      return 'Use a PSR-4 namespace such as Acme\\BlogApi\\.';
+    }
+
+    return null;
+  }
+
+  protected function renderProjectIntro(string $workingDirectory): void
+  {
+    $this->output->writeln($this->formatter->formatBlock('Create a New AssegaiPHP Project', 'question', true));
+    $this->output->writeln([
+        '',
+        '<fg=gray>We will scaffold the workspace, wire autoloading, and optionally configure a database.</>'
+    ]);
+
+    if ($workingDirectory !== '') {
+      $this->output->writeln(["", "<fg=gray>Target directory: $workingDirectory</>"]);
+    }
+
+    $this->output->writeln(['<fg=gray>Press enter to accept any visible default.</>', '']);
+  }
+
+  protected function renderProjectSummary(
+    string $projectName,
+    string $projectDirectory,
+    string $packageName,
+    string $namespace,
+  ): void
+  {
+    $this->output->writeln('');
+    $this->output->writeln($this->formatter->formatBlock('Scaffolding Project', 'question', true));
+    $this->output->writeln([
+        "",
+        "<fg=gray>Project</>   <info>$projectName</info>",
+        "<fg=gray>Path</>      <comment>$projectDirectory</comment>",
+        "<fg=gray>Package</>   <comment>$packageName</comment>",
+        "<fg=gray>Namespace</> <comment>{$namespace}</comment>",
+        ""
+    ]);
   }
 
   public function setProjectPath(string $path): void

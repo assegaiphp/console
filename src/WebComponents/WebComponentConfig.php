@@ -9,6 +9,9 @@ final class WebComponentConfig
 {
   public const string DEFAULT_PREFIX = 'app';
   public const string DEFAULT_OUTPUT = 'public/js/assegai-components.min.js';
+  public const string DEFAULT_HOT_RELOAD_PATH = 'public/.assegai/wc-hot-reload.json';
+  public const int DEFAULT_HOT_RELOAD_INTERVAL = 1000;
+  public const int DEFAULT_HOT_RELOAD_TTL = 43200;
   public const string CACHE_DIRECTORY = '.cache/assegai';
   public const string ENTRY_FILENAME = 'wc-entry.ts';
   public const string MANIFEST_FILENAME = 'web-components.manifest.json';
@@ -56,9 +59,19 @@ final class WebComponentConfig
       'prefix' => self::DEFAULT_PREFIX,
       'output' => self::DEFAULT_OUTPUT,
       'buildOnDumpAutoload' => false,
+      'hotReload' => [
+        'enabled' => true,
+        'path' => self::DEFAULT_HOT_RELOAD_PATH,
+        'pollInterval' => self::DEFAULT_HOT_RELOAD_INTERVAL,
+        'ttl' => self::DEFAULT_HOT_RELOAD_TTL,
+      ],
     ];
 
     $config['webComponents'] = [...$defaults, ...$webComponents];
+
+    if (is_array($defaults['hotReload']) && is_array($webComponents['hotReload'] ?? null)) {
+      $config['webComponents']['hotReload'] = [...$defaults['hotReload'], ...$webComponents['hotReload']];
+    }
 
     file_put_contents($configFilename, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
   }
@@ -92,6 +105,52 @@ final class WebComponentConfig
     $config = self::load($workspace);
 
     return (bool)($config['webComponents']['buildOnDumpAutoload'] ?? false);
+  }
+
+  public static function isHotReloadEnabled(string $workspace): bool
+  {
+    $config = self::load($workspace);
+
+    return (bool)($config['webComponents']['hotReload']['enabled'] ?? true);
+  }
+
+  public static function getHotReloadPath(string $workspace): string
+  {
+    $config = self::load($workspace);
+    $path = $config['webComponents']['hotReload']['path'] ?? self::DEFAULT_HOT_RELOAD_PATH;
+
+    if (!is_string($path) || trim($path) === '') {
+      return self::DEFAULT_HOT_RELOAD_PATH;
+    }
+
+    return ltrim(Path::normalize($path), '/');
+  }
+
+  public static function getHotReloadBrowserPath(string $workspace): string
+  {
+    $path = '/' . ltrim(self::getHotReloadPath($workspace), '/');
+
+    if (str_starts_with($path, '/public/')) {
+      return substr($path, strlen('/public'));
+    }
+
+    return $path;
+  }
+
+  public static function getHotReloadPollInterval(string $workspace): int
+  {
+    $config = self::load($workspace);
+    $interval = (int)($config['webComponents']['hotReload']['pollInterval'] ?? self::DEFAULT_HOT_RELOAD_INTERVAL);
+
+    return $interval > 0 ? $interval : self::DEFAULT_HOT_RELOAD_INTERVAL;
+  }
+
+  public static function getHotReloadTtl(string $workspace): int
+  {
+    $config = self::load($workspace);
+    $ttl = (int)($config['webComponents']['hotReload']['ttl'] ?? self::DEFAULT_HOT_RELOAD_TTL);
+
+    return $ttl > 0 ? $ttl : self::DEFAULT_HOT_RELOAD_TTL;
   }
 
   public static function makeSelector(string $workspace, string $name): string

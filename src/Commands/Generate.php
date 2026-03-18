@@ -17,6 +17,8 @@ use Assegai\Console\Core\Schematics\PipeSchematic;
 use Assegai\Console\Core\Schematics\ResourceSchematic;
 use Assegai\Console\Core\Schematics\ServiceSchematic;
 use Assegai\Console\Core\Schematics\WebComponentSchematic;
+use Assegai\Console\Util\Inspector;
+use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -101,9 +103,9 @@ class Generate extends Command
   {
     $requestedName = trim(str_replace('\\', '/', $input->getArgument('name')), '/');
     $name = basename($requestedName);
-    $directory = $input->getOption('directory');
+    $directory = Path::normalize((string) ($input->getOption('directory') ?: getcwd() ?: ''));
 
-    if (false === $directory) {
+    if ($directory === '') {
       $output->writeln('<error>Invalid working directory</error>');
       return Command::FAILURE;
     }
@@ -136,6 +138,15 @@ class Generate extends Command
     if ($this->setSchematic($input->getArgument('schematic')) !== Command::SUCCESS) {
       $output->writeln("<error>Invalid schematic</error>");
       return Command::FAILURE;
+    }
+
+    if ($this->schematicRequiresWorkspace($input->getArgument('schematic'))) {
+      $inspector = new Inspector($input, $output);
+
+      if (!$inspector->isValidWorkspace($directory)) {
+        $output->writeln('<error>This is not a valid Assegai workspace.</error>');
+        return Command::FAILURE;
+      }
     }
 
     if ( Command::SUCCESS !== $this->schematic?->prepareBuild() ) {
@@ -201,5 +212,12 @@ class Generate extends Command
     $this->schematic = $this->schematics[$schematicName];
 
     return Command::SUCCESS;
+  }
+
+  private function schematicRequiresWorkspace(string $schematicName): bool
+  {
+    $schematicName = $this->aliasMap[$schematicName] ?? $schematicName;
+
+    return $schematicName !== 'application';
   }
 }

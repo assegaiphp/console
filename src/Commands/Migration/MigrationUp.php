@@ -17,7 +17,6 @@ use Assegai\Console\Util\Path;
 use Illuminate\Support\Collection;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -55,8 +54,6 @@ class MigrationUp extends Command
   {
     $inspector = new Inspector($input, $output);
     $workingDirectory = getcwd() ?: '';
-    /** @var QuestionHelper $helper */
-    $helper = $this->getHelper('question');
     $appConfig = new AppConfig($input, $output);
 
     if (Command::SUCCESS !== $appConfig->load()) {

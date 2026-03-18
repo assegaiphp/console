@@ -6,7 +6,7 @@ use Assegai\Console\Util\Config\ProjectConfig;
 
 function createProjectConfigWorkspace(): string
 {
-  $workspace = __DIR__ . '/../.tmp/' . uniqid('project-config-update-', true);
+  $workspace = sys_get_temp_dir() . '/' . uniqid('project-config-update-', true);
 
   if (! mkdir($workspace . '/config', 0755, true) && ! is_dir($workspace . '/config')) {
     throw new RuntimeException("Failed to create test workspace: $workspace");

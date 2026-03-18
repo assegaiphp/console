@@ -1,0 +1,23 @@
+{
+  "name": "assegaiphp/app",
+  "description": "",
+  "type": "project",
+  "scripts": {
+    "start": "php -S localhost:5000 bootstrap.php",
+    "test": "vendor/bin/pest"
+  },
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Assegai\\App\\": "src/"
+    }
+  },
+  "authors": [],
+  "require": {
+    "php": ">=8.3",
+    "ext-pdo": "*",
+    "ext-curl": "*",
+    "vlucas/phpdotenv": "^5.4",
+    "assegaiphp/core": "^0.7.0"
+  }
+}

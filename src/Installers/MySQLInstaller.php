@@ -4,7 +4,6 @@ namespace Assegai\Console\Installers;
 
 use Assegai\Console\Util\Config\ProjectConfig;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Question\Question;
 
 /**
  * Class MySQLInstaller
@@ -21,24 +20,18 @@ class MySQLInstaller extends AbstractInstaller
     $this->output->writeln("Let's configure a MySQL connection!");
 
     $defaultDatabaseName = $this->getSuggestedDatabaseName();
-    $dbNameQuestion = new Question("<info>?</info> Database name: <fg=gray>($defaultDatabaseName)</> ", $defaultDatabaseName);
-    $dbName = $this->questionHelper->ask($this->input, $this->output, $dbNameQuestion);
+    $dbName = $this->prompts->text('Database name', $defaultDatabaseName);
 
     $defaultHost = DEFAULT_MYSQL_HOST;
-    $dbHostQuestion = new Question("<info>?</info> Host: <fg=gray>($defaultHost)</> ", $defaultHost);
-    $dbHost = $this->questionHelper->ask($this->input, $this->output, $dbHostQuestion);
+    $dbHost = $this->prompts->text('Host', $defaultHost);
 
     $defaultUser = DEFAULT_MYSQL_USER;
-    $dbUserQuestion = new Question("<info>?</info> User: <fg=gray>($defaultUser)</> ", $defaultUser);
-    $dbUser = $this->questionHelper->ask($this->input, $this->output, $dbUserQuestion);
+    $dbUser = $this->prompts->text('User', $defaultUser);
 
-    $dbPasswordQuestion = new Question("<info>?</info> Password: ", "");
-    $dbPasswordQuestion->setHidden(true);
-    $dbPassword = $this->questionHelper->ask($this->input, $this->output, $dbPasswordQuestion);
+    $dbPassword = $this->prompts->password('Password');
 
     $defaultPort = DEFAULT_MYSQL_PORT;
-    $dbPortQuestion = new Question("<info>?</info> Port: <fg=gray>($defaultPort)</> ", $defaultPort);
-    $dbPort = $this->questionHelper->ask($this->input, $this->output, $dbPortQuestion);
+    $dbPort = $this->prompts->text('Port', (string) $defaultPort);
 
     $newDatabaseConfig = [
       'databases' => [
@@ -60,6 +53,8 @@ class MySQLInstaller extends AbstractInstaller
       $this->output->writeln("<error>Failed to update workspace config</error>");
       return Command::FAILURE;
     }
+
+    $this->configuredDatabaseName = (string) $dbName;
 
     return Command::SUCCESS;
   }
