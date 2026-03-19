@@ -82,10 +82,7 @@ class Update extends Command
       return Command::FAILURE;
     }
 
-    $updatedConfig = ProjectTemplateDefaults::mergeDefaults(
-      ProjectTemplateDefaults::loadAssegaiConfig(),
-      $existingConfig
-    );
+    $updatedConfig = ProjectTemplateDefaults::hydrateAssegaiConfig($existingConfig);
 
     if ($updatedConfig === $existingConfig) {
       return Command::SUCCESS;
@@ -113,10 +110,7 @@ class Update extends Command
       return false;
     }
 
-    $composerConfig = ProjectTemplateDefaults::mergeDefaults(
-      ProjectTemplateDefaults::loadComposerConfig(),
-      $composerConfig
-    );
+    $composerConfig = ProjectTemplateDefaults::hydrateComposerConfig($composerConfig);
 
     $composerConfig = ComposerManifest::ensureRequirement(
       $composerConfig,

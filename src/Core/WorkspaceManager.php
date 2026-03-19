@@ -105,14 +105,15 @@ class WorkspaceManager
     );
     $type = 'project';
 
-    $assegaiConfig = ProjectTemplateDefaults::loadAssegaiConfig();
-    $assegaiConfig['name'] = $projectName;
-    $assegaiConfig['description'] = $description;
-    $assegaiConfig['version'] = $version;
-    $assegaiConfig['projectType'] = $type;
+    $assegaiConfig = ProjectTemplateDefaults::hydrateAssegaiConfig([
+      'name' => $projectName,
+      'description' => $description,
+      'version' => $version,
+      'projectType' => $type,
+    ]);
     $targetAssegaiConfigPath = Path::join($projectDirectory, 'assegai.json');
 
-    if (! file_put_contents($targetAssegaiConfigPath, json_encode($assegaiConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) ) {
+    if (! file_put_contents($targetAssegaiConfigPath, json_encode($assegaiConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL) ) {
       $this->output->writeln("<error>\nFailed to create assegai.json file</error>");
       return Command::FAILURE;
     }
@@ -143,18 +144,19 @@ class WorkspaceManager
 
     $this->renderProjectSummary($projectName, $projectDirectory, $packageName, $namespace);
 
-    $composerConfig = ProjectTemplateDefaults::loadComposerConfig();
-    $composerConfig['name'] = $packageName;
-    $composerConfig['description'] = $description;
-    $composerConfig['type'] = $type;
-    $composerConfig['autoload'] = [
-      'psr-4' => [
-        $namespace => 'src/'
+    $composerConfig = ProjectTemplateDefaults::hydrateComposerConfig([
+      'name' => $packageName,
+      'description' => $description,
+      'type' => $type,
+      'autoload' => [
+        'psr-4' => [
+          $namespace => 'src/'
+        ]
       ]
-    ];
+    ]);
     $targetComposerConfigPath = Path::join($projectDirectory, 'composer.json');
 
-    if (! file_put_contents($targetComposerConfigPath, json_encode($composerConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) ) {
+    if (! file_put_contents($targetComposerConfigPath, json_encode($composerConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL) ) {
       $this->output->writeln("<error>\nFailed to create composer.json file</error>");
       return Command::FAILURE;
     }

@@ -20,6 +20,8 @@ use Assegai\Console\Commands\Migration\MigrationRefresh;
 use Assegai\Console\Commands\Migration\MigrationSetup;
 use Assegai\Console\Commands\Migration\MigrationUp;
 use Assegai\Console\Commands\NewProject;
+use Assegai\Console\Commands\Queue\QueueList;
+use Assegai\Console\Commands\Queue\QueueWork;
 use Assegai\Console\Commands\Serve;
 use Assegai\Console\Commands\Test;
 use Assegai\Console\Commands\Update;
@@ -65,6 +67,8 @@ function bootstrap(): void
         new MigrationSetup(),
         new MigrationRedo(),
         new NewProject(),
+        new QueueList(),
+        new QueueWork(),
         new Info(),
         new Serve(),
         new Test(),

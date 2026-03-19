@@ -24,7 +24,8 @@
         "php": ">=8.3",
         "ext-pdo": "*",
         "laravel/prompts": "^0.1.24",
-        "atatusoft-ltd/plural": "^1.2"
+        "atatusoft-ltd/plural": "^1.2",
+        "assegaiphp/common": "^0.4.5"
     },
     "config": {
         "allow-plugins": {
