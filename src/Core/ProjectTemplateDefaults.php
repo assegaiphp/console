@@ -26,6 +26,24 @@ class ProjectTemplateDefaults
   }
 
   /**
+   * @param array<string, mixed> $config
+   * @return array<string, mixed>
+   */
+  public static function hydrateAssegaiConfig(array $config = []): array
+  {
+    return self::mergeDefaults(self::loadAssegaiConfig(), $config);
+  }
+
+  /**
+   * @param array<string, mixed> $config
+   * @return array<string, mixed>
+   */
+  public static function hydrateComposerConfig(array $config = []): array
+  {
+    return self::mergeDefaults(self::loadComposerConfig(), $config);
+  }
+
+  /**
    * Merge nested associative defaults without overwriting user-provided values.
    *
    * @param array<string, mixed> $defaults
@@ -69,7 +87,11 @@ class ProjectTemplateDefaults
 
     $decoded = json_decode(file_get_contents($templatePath) ?: '', true);
 
-    return is_array($decoded) ? $decoded : $fallback;
+    if (! is_array($decoded)) {
+      return $fallback;
+    }
+
+    return self::mergeDefaults($fallback, $decoded);
   }
 
   /**
@@ -100,7 +122,10 @@ class ProjectTemplateDefaults
         'exportPath' => 'generated/openapi.json',
       ],
       'webComponents' => [
+        'enabled' => true,
         'prefix' => 'app',
+        'bundleUrl' => null,
+        'bundlePath' => null,
         'output' => 'public/js/assegai-components.min.js',
         'buildOnDumpAutoload' => false,
         'hotReload' => [

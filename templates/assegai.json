@@ -21,7 +21,10 @@
     "exportPath": "generated/openapi.json"
   },
   "webComponents": {
+    "enabled": true,
     "prefix": "app",
+    "bundleUrl": null,
+    "bundlePath": null,
     "output": "public/js/assegai-components.min.js",
     "buildOnDumpAutoload": false,
     "hotReload": {

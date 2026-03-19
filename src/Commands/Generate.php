@@ -14,6 +14,7 @@ use Assegai\Console\Core\Schematics\InterfaceSchematic;
 use Assegai\Console\Core\Schematics\ModuleSchematic;
 use Assegai\Console\Core\Schematics\PageSchematic;
 use Assegai\Console\Core\Schematics\PipeSchematic;
+use Assegai\Console\Core\Schematics\QueueProcessorSchematic;
 use Assegai\Console\Core\Schematics\ResourceSchematic;
 use Assegai\Console\Core\Schematics\ServiceSchematic;
 use Assegai\Console\Core\Schematics\WebComponentSchematic;
@@ -51,6 +52,7 @@ class Generate extends Command
     'm'           => 'module',
     'pg'          => 'page',
     'p'           => 'pipe',
+    'qp'          => 'queue-processor',
     'r'           => 'resource',
     's'           => 'service',
     'wc'          => 'web-component',
@@ -73,6 +75,8 @@ class Generate extends Command
       )
       ->addArgument('name', InputArgument::REQUIRED, 'The name of the schematic to generate')
       ->addOption('directory', 'd', InputArgument::OPTIONAL, 'The directory to generate the schematic in', getcwd())
+      ->addOption('queue', null, InputOption::VALUE_REQUIRED, 'The queue connection path used by generated queue processors.', 'driver.connection')
+      ->addOption('job', null, InputOption::VALUE_REQUIRED, 'The job class used to type generated queue processor methods.', null)
       ->addOption('wc', null, InputOption::VALUE_NONE, 'Generate or pair a Web Component runtime file where supported')
       ->setHelp(implode("\n", [
         "Available schematics:",
@@ -89,6 +93,7 @@ class Generate extends Command
         "    │ <fg=green>module</>        │ <comment>m</comment>           │ Generate a module declaration                │",
         "    │ <fg=green>page</>          │ <comment>pg</comment>          │ Generate a page declaration                  │",
         "    │ <fg=green>pipe</>          │ <comment>p</comment>           │ Generate a pipe declaration                  │",
+        "    │ <fg=green>queue-processor</> │ <comment>qp</comment>         │ Generate a queue processor provider          │",
         "    │ <fg=green>resource</>      │ <comment>r</comment>           │ Generate a new CRUD resource                 │",
         "    │ <fg=green>service</>       │ <comment>s</comment>           │ Generate a service declaration               │",
         "    │ <fg=green>web-component</> │ <comment>wc</comment>          │ Generate a standalone Web Component          │",
@@ -130,6 +135,7 @@ class Generate extends Command
       'module'      => new ModuleSchematic($input, $output, $name, $directory, $subdirectory),
       'page'        => new PageSchematic($input, $output, $name, $directory, $subdirectory),
       'pipe'        => new PipeSchematic($input, $output, $name, $directory, $subdirectory),
+      'queue-processor' => new QueueProcessorSchematic($input, $output, $name, $directory, $subdirectory),
       'resource'    => new ResourceSchematic($input, $output, $name, $directory, $subdirectory),
       'service'     => new ServiceSchematic($input, $output, $name, $directory, $subdirectory),
       'web-component' => new WebComponentSchematic($input, $output, $name, $directory, $subdirectory),
