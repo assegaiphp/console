@@ -10,9 +10,15 @@
 
 ## Description
 
-The AssegaiPHP Console is a command-line interface tool that makes it easy to create, develop, and maintain Assegai applications. It provides various features, such as creating a new project, running the application in development mode, and building and packaging it for production deployment.
+The Assegai Console is the framework CLI for:
 
-The AssegaiPHP Console includes built-in support for the collection of [schematics] available at @assegaiphp/schematics, allowing for easy initialization, development, and maintenance of AssegaiPHP applications through scaffolding, development mode serving, and production distribution building and bundling.
+- creating new projects
+- serving apps locally
+- generating framework features
+- exporting API contracts and clients
+- working with queues, migrations, databases, and Web Components
+
+It also supports custom schematics so teams can teach `assegai generate` about their own company-specific features.
 
 ## Installation
 
@@ -73,7 +79,57 @@ $ assegai serve
 
 ![Assegai Serve](assets/images/screenshots/serve.png)
 
-Learn more in the [official documentation](https://assegaiphp.com/guide/cli/overview).
+## Custom schematics
+
+You can extend the generator without forking the CLI.
+
+The default local convention is:
+
+```text
+schematics/<name>/
+  schematic.json
+  templates/
+```
+
+Start with a declarative starter:
+
+```bash
+assegai schematic:init loyalty-program
+```
+
+Or scaffold a PHP-backed starter when generation needs real logic:
+
+```bash
+assegai schematic:init customer-portal --php
+```
+
+Inspect what the CLI discovered:
+
+```bash
+assegai schematic:list
+```
+
+Run a custom schematic through the normal generate workflow:
+
+```bash
+assegai g loyalty-program rewards
+```
+
+For reusable team schematics, package manifests can be exposed through `composer.json`:
+
+```json
+{
+  "extra": {
+    "assegai": {
+      "schematics": [
+        "resources/loyalty/schematic.json"
+      ]
+    }
+  }
+}
+```
+
+Learn more in the [official documentation](https://assegaiphp.com/guide/getting-started/custom-cli-schematics).
 
 ## Stay in touch
 

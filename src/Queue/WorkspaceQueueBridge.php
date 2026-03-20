@@ -12,6 +12,8 @@ class WorkspaceQueueBridge
 {
   private bool $workspaceAutoloadLoaded = false;
   private bool $frameworkBootstrapped = false;
+  /** @var string[]|null */
+  private ?array $providerClasses = null;
   private readonly WorkspaceApiBridge $apiBridge;
 
   public function __construct(private readonly string $workspace)
@@ -131,11 +133,10 @@ class WorkspaceQueueBridge
   public function discoverProcessors(): array
   {
     $this->bootstrapFramework();
-    $moduleManager = $this->callStaticCoreMethod('Assegai\\Core\\ModuleManager', 'getInstance');
     $queueProcessorAttribute = 'Assegai\\Core\\Queues\\Attributes\\QueueProcessor';
     $processors = [];
 
-    foreach (array_keys($moduleManager->getProviderTokens()) as $providerClass) {
+    foreach ($this->discoverProviderClasses() as $providerClass) {
       if (!class_exists($providerClass)) {
         continue;
       }
@@ -381,10 +382,96 @@ class WorkspaceQueueBridge
       $injector->add($entryId, $dependency);
     }
 
-    $moduleManager->setRootModuleClass($rootModuleClass);
-    $moduleManager->buildModuleTokensList($rootModuleClass);
-    $moduleManager->buildProviderTokensList();
+    if (
+      method_exists($moduleManager, 'setRootModuleClass') &&
+      method_exists($moduleManager, 'buildModuleTokensList') &&
+      method_exists($moduleManager, 'buildProviderTokensList')
+    ) {
+      $moduleManager->setRootModuleClass($rootModuleClass);
+      $moduleManager->buildModuleTokensList($rootModuleClass);
+      $moduleManager->buildProviderTokensList();
+    }
+
     $this->frameworkBootstrapped = true;
+  }
+
+  /**
+   * @return string[]
+   */
+  private function discoverProviderClasses(): array
+  {
+    if ($this->providerClasses !== null) {
+      return $this->providerClasses;
+    }
+
+    $moduleManager = $this->callStaticCoreMethod('Assegai\\Core\\ModuleManager', 'getInstance');
+
+    if (method_exists($moduleManager, 'getProviderTokens')) {
+      $providerTokens = $moduleManager->getProviderTokens();
+
+      if (is_array($providerTokens)) {
+        return $this->providerClasses = array_values(array_filter(
+          array_keys($providerTokens),
+          static fn(mixed $providerClass): bool => is_string($providerClass) && $providerClass !== ''
+        ));
+      }
+    }
+
+    return $this->providerClasses = $this->discoverProviderClassesFromModules(
+      $this->apiBridge->resolveRootModuleClass()
+    );
+  }
+
+  /**
+   * @param class-string $rootModuleClass
+   * @return string[]
+   */
+  private function discoverProviderClassesFromModules(string $rootModuleClass): array
+  {
+    $moduleAttributeClass = 'Assegai\\Core\\Attributes\\Modules\\Module';
+    $providers = [];
+    $visited = [];
+    $stack = [$rootModuleClass];
+
+    while ($stack !== []) {
+      $moduleClass = array_pop($stack);
+
+      if (!is_string($moduleClass) || isset($visited[$moduleClass]) || !class_exists($moduleClass)) {
+        continue;
+      }
+
+      $visited[$moduleClass] = true;
+      $reflectionClass = new ReflectionClass($moduleClass);
+      $attributes = $reflectionClass->getAttributes($moduleAttributeClass);
+
+      if ($attributes === []) {
+        continue;
+      }
+
+      $arguments = $attributes[0]->getArguments();
+
+      foreach ($arguments['providers'] ?? [] as $providerClass) {
+        if (is_string($providerClass) && $providerClass !== '') {
+          $providers[$providerClass] = $providerClass;
+        }
+      }
+
+      foreach (['imports', 'exports'] as $moduleList) {
+        foreach ($arguments[$moduleList] ?? [] as $candidate) {
+          if (!is_string($candidate) || $candidate === '' || !class_exists($candidate)) {
+            continue;
+          }
+
+          $candidateReflection = new ReflectionClass($candidate);
+
+          if ($candidateReflection->getAttributes($moduleAttributeClass) !== []) {
+            $stack[] = $candidate;
+          }
+        }
+      }
+    }
+
+    return array_values($providers);
   }
 
   private function primeCliHttpState(): void
