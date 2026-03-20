@@ -9,6 +9,9 @@ describe('Project template defaults', function () {
     expect($config['development']['server']['host'])->toBe(DEFAULT_DEV_SERVER_HOST);
     expect($config['development']['server']['port'])->toBe(DEFAULT_DEV_SERVER_PORT);
     expect($config['development']['server']['openBrowser'])->toBeFalse();
+    expect($config['cli']['schematics']['paths'])->toBe(['schematics']);
+    expect($config['cli']['schematics']['discoverPackages'])->toBeTrue();
+    expect($config['cli']['schematics']['allowOverrides'])->toBeFalse();
     expect($config['apiDocs']['enabled'])->toBeTrue();
     expect($config['apiDocs']['exportOnServe'])->toBeFalse();
     expect($config['apiDocs']['exportPath'])->toBe('generated/openapi.json');

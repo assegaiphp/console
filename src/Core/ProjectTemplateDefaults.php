@@ -116,6 +116,13 @@ class ProjectTemplateDefaults
           'openBrowser' => false,
         ],
       ],
+      'cli' => [
+        'schematics' => [
+          'paths' => ['schematics'],
+          'discoverPackages' => true,
+          'allowOverrides' => false,
+        ],
+      ],
       'apiDocs' => [
         'enabled' => true,
         'exportOnServe' => false,
