@@ -123,12 +123,12 @@ PHP,
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
       $assegaiConfig = json_decode(file_get_contents($workspace . '/assegai.json') ?: '', true);
 
-      expect($status)->toBe(Command::SUCCESS);
-      expect($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT);
-      expect($composer['require'][PACKAGE_NAME_ORM])->toBe(RECOMMENDED_ORM_VERSION_CONSTRAINT);
-      expect($assegaiConfig['webComponents']['hotReload']['enabled'])->toBeTrue();
-      expect($command->composerCalls[0]['packages'])->toBe([PACKAGE_NAME_CORE, PACKAGE_NAME_ORM]);
-      expect($command->frontendCalls[0]['packageManager'])->toBe('npm');
+      expect($status)->toBe(Command::SUCCESS)
+          ->and($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT)
+          ->and($composer['require'][PACKAGE_NAME_ORM])->toBe(RECOMMENDED_ORM_VERSION_CONSTRAINT)
+          ->and($assegaiConfig['webComponents']['hotReload']['enabled'])->toBeTrue()
+          ->and($command->composerCalls[0]['packages'])->toBe([PACKAGE_NAME_CORE, PACKAGE_NAME_ORM])
+          ->and($command->frontendCalls[0]['packageManager'])->toBe('npm');
     } finally {
       deleteUpdateWorkspace($workspace);
     }
@@ -162,10 +162,10 @@ PHP,
 
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
 
-      expect($status)->toBe(Command::SUCCESS);
-      expect($command->composerCalls[0])->toBe([PACKAGE_NAME_CORE]);
-      expect($command->frontendCalls)->toBe([]);
-      expect($composer['require'])->not->toHaveKey(PACKAGE_NAME_ORM);
+      expect($status)->toBe(Command::SUCCESS)
+          ->and($command->composerCalls[0])->toBe([PACKAGE_NAME_CORE])
+          ->and($command->frontendCalls)->toBe([])
+          ->and($composer['require'])->not->toHaveKey(PACKAGE_NAME_ORM);
     } finally {
       deleteUpdateWorkspace($workspace);
     }

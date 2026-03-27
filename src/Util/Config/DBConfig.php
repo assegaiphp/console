@@ -167,7 +167,7 @@ PHP
     }
 
     $filename = Path::join('config', basename($this->path));
-    $this->output->writeln("<question>UPDATE</question> $filename");
+    $this->output->writeln("<fg=bright-blue>UPDATE</> $filename");
     return Command::SUCCESS;
   }
 }

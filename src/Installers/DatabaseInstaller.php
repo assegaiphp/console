@@ -247,7 +247,7 @@ class DatabaseInstaller extends AbstractInstaller
             return Command::FAILURE;
         }
 
-        $this->output->writeln('<question>UPDATE</question> composer.json');
+        $this->output->writeln('<fg=bright-blue>UPDATE</> composer.json');
 
         return Command::SUCCESS;
     }
