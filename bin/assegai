@@ -4,6 +4,7 @@
 
 use Assegai\Console\Commands\Api\ApiClient;
 use Assegai\Console\Commands\Api\ApiExport;
+use Assegai\Console\Commands\Add;
 use Assegai\Console\Commands\Config;
 use Assegai\Console\Commands\Database\DatabaseConfigure;
 use Assegai\Console\Commands\Database\DatabaseLoad;
@@ -54,6 +55,7 @@ function bootstrap(): void
       ->addCommands([
         new ApiClient(),
         new ApiExport(),
+        new Add(),
         new Config(),
         new DatabaseConfigure(),
         new DatabaseLoad(),

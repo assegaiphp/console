@@ -10,9 +10,17 @@
   },
   "development": {
     "server": {
+      "runtime": "php",
       "host": "localhost",
       "port": 5000,
-      "openBrowser": false
+      "openBrowser": false,
+      "openswoole": {
+        "workerNum": 1,
+        "taskWorkerNum": 0,
+        "maxRequest": 0,
+        "enableCoroutine": true,
+        "hookFlags": "all"
+      }
     }
   },
   "cli": {
@@ -28,6 +36,16 @@
     "enabled": true,
     "exportOnServe": false,
     "exportPath": "generated/openapi.json"
+  },
+  "events": {
+    "wildcards": true,
+    "delimiter": ".",
+    "maxListeners": null,
+    "outbox": {
+      "queue": "rabbitmq.events",
+      "batchSize": 100,
+      "retryDelaySeconds": 60
+    }
   },
   "webComponents": {
     "enabled": true,

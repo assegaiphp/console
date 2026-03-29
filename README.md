@@ -79,6 +79,39 @@ $ assegai serve
 
 ![Assegai Serve](assets/images/screenshots/serve.png)
 
+### OpenSwoole runtime
+
+If you want to try the long-lived runtime path instead of the default PHP development server, install the OpenSwoole extension first and then run:
+
+```bash
+$ assegai serve --runtime=openswoole
+```
+
+You can also persist that choice in `assegai.json`:
+
+```json
+{
+  "development": {
+    "server": {
+      "runtime": "openswoole",
+      "host": "127.0.0.1",
+      "port": 9510,
+      "openswoole": {
+        "workerNum": 1,
+        "taskWorkerNum": 0,
+        "maxRequest": 0,
+        "enableCoroutine": true,
+        "hookFlags": "all"
+      }
+    }
+  }
+}
+```
+
+If the extension is not installed, the CLI now stops early with a direct setup message instead of falling into a runtime bootstrap failure.
+
+The current OpenSwoole path is still experimental. It is intended for careful testing and advanced runtime work, not as a blanket replacement for the default `php` runtime in every project.
+
 ## Custom schematics
 
 You can extend the generator without forking the CLI.

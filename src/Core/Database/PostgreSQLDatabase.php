@@ -119,7 +119,10 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       }
 
       $sudoUser = self::$sudoUser;
-      $result = @shell_exec("sudo -u $sudoUser psql -l 2>$errorOutputPath");
+      $result = @shell_exec(
+        "sudo -u " . escapeshellarg($sudoUser) .
+        " psql -l 2>" . escapeshellarg($errorOutputPath)
+      );
 
       // Scan the error output for errors. If there are any, log them otherwise delete the log file
       $errorCount = self::scanErrorOutput($errorOutputPath, $output);
@@ -227,7 +230,14 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       $workingDirectory = getcwd() ?: '';
       $errorOutputPath = Path::join($workingDirectory, time() . '.error.log');
       $sudoUser = self::$sudoUser;
-      $createResult = @shell_exec("sudo -u $sudoUser psql -h $host -p $port -c \"CREATE DATABASE $name;\" 2>$errorOutputPath");
+      $createDatabaseSQL = self::buildCreateDatabaseSql($name);
+      $createResult = @shell_exec(
+        "sudo -u " . escapeshellarg($sudoUser) .
+        " psql -h " . escapeshellarg((string) $host) .
+        " -p " . escapeshellarg((string) $port) .
+        " -c " . escapeshellarg($createDatabaseSQL) .
+        " 2>" . escapeshellarg($errorOutputPath)
+      );
 
       if (false === $createResult) {
         $output->writeln("<error>Failed to create the database.</error>\n");
@@ -252,7 +262,6 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       }
     } else {
       $output->writeln("<comment>Database $name already exists.</comment>\n");
-      exit(Command::SUCCESS);
     }
 
     # Create the migrations table
@@ -271,6 +280,16 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $output->writeln("<info>PostgreSQL database successfully set up.</info>\n", OutputInterface::VERBOSITY_VERBOSE);
     return Command::SUCCESS;
+  }
+
+  private static function buildCreateDatabaseSql(string $name): string
+  {
+    return 'CREATE DATABASE ' . self::quoteIdentifier($name) . ';';
+  }
+
+  private static function quoteIdentifier(string $identifier): string
+  {
+    return '"' . str_replace('"', '""', $identifier) . '"';
   }
 
   /**

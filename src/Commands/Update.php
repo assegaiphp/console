@@ -129,6 +129,15 @@ class Update extends Command
       $packages[] = PACKAGE_NAME_ORM;
     }
 
+    if ($this->projectUsesEvents($workspace, $composerConfig)) {
+      $composerConfig = ComposerManifest::ensureRequirement(
+        $composerConfig,
+        PACKAGE_NAME_EVENTS,
+        RECOMMENDED_EVENTS_VERSION_CONSTRAINT
+      );
+      $packages[] = PACKAGE_NAME_EVENTS;
+    }
+
     if (! ComposerManifest::save($workspace, $composerConfig)) {
       $output->writeln('<error>Failed to update composer.json.</error>');
       return false;
@@ -221,6 +230,32 @@ class Update extends Command
         '"data_source"',
       ]
     );
+  }
+
+  /**
+   * @param array<string, mixed> $composerConfig
+   */
+  protected function projectUsesEvents(string $workspace, array $composerConfig): bool
+  {
+    if (isset($composerConfig['require'][PACKAGE_NAME_EVENTS]) || isset($composerConfig['require-dev'][PACKAGE_NAME_EVENTS])) {
+      return true;
+    }
+
+    if ($this->workspaceContainsAny(
+      [
+        Path::join($workspace, 'src'),
+        Path::join($workspace, 'config'),
+      ],
+      [
+        'Assegai\\Events\\',
+        'OnEvent(',
+        'EventsModule::class',
+      ]
+    )) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
