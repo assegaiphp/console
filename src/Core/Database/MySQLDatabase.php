@@ -212,7 +212,7 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
     if (! self::exists($name)) {
       $workingDirectory = getcwd() ?: '';
       $errorOutputPath = Path::join($workingDirectory, time() . '.error.log');
-      $createDatabaseSQL = "CREATE DATABASE " . escapeshellarg($name) . ";";
+      $createDatabaseSQL = self::buildCreateDatabaseSql($name);
       $createDatabaseCommand = "mysql -u " . escapeshellarg($username) .
         " -p" . escapeshellarg($password) .
         " -h " . escapeshellarg($host) .
@@ -244,7 +244,6 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
       }
     } else {
       $output->writeln("<comment>Database $name already exists.</comment>\n");
-      exit(Command::SUCCESS);
     }
 
     # Create the migrations table
@@ -263,6 +262,16 @@ class MySQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $output->writeln("<info>MySQL database successfully set up.</info>\n", OutputInterface::VERBOSITY_VERBOSE);
     return Command::SUCCESS;
+  }
+
+  private static function buildCreateDatabaseSql(string $name): string
+  {
+    return 'CREATE DATABASE IF NOT EXISTS ' . self::quoteIdentifier($name) . ';';
+  }
+
+  private static function quoteIdentifier(string $identifier): string
+  {
+    return '`' . str_replace('`', '``', $identifier) . '`';
   }
 
   /**

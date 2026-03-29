@@ -6,6 +6,7 @@ use Assegai\Console\Api\WorkspaceApiBridge;
 use Assegai\Console\Util\Config\ProjectConfig;
 use Assegai\Console\Util\Path;
 use Assegai\Console\WebComponents\HotReload\WebComponentHotReloadState;
+use Assegai\Core\Runtimes\OpenSwoole\OpenSwooleRuntimeInspector;
 use LogicException;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -23,6 +24,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 ]
 class Serve extends Command
 {
+  private const array SUPPORTED_RUNTIMES = ['php', 'openswoole', 'swoole'];
+
   protected ?ProjectConfig $projectConfig = null;
   protected ?bool $open = null;
 
@@ -32,6 +35,7 @@ class Serve extends Command
       ->addOption('dev', null, InputOption::VALUE_NONE, 'Serve in development mode and run the Web Components watcher alongside the server.')
       ->addOption('port', 'p', InputOption::VALUE_OPTIONAL, 'The port to serve the project on', null)
       ->addOption('host', 'H', InputOption::VALUE_OPTIONAL, 'The host to serve the project on', null)
+      ->addOption('runtime', null, InputOption::VALUE_OPTIONAL, 'The HTTP runtime to serve with (php, openswoole)', null)
       ->addOption('https', 's', InputOption::VALUE_NONE, 'Serve the project over HTTPS')
       ->addOption('root', 'r', InputOption::VALUE_OPTIONAL, 'The root directory to serve the project from', getcwd())
       ->addOption('open', 'o', InputOption::VALUE_NONE, 'Open the url in the default browser');
@@ -56,26 +60,53 @@ class Serve extends Command
     $dev = (bool)$input->getOption('dev');
     $port = $input->getOption('port') ?? $this->projectConfig->get('development.server.port') ?? DEFAULT_DEV_SERVER_PORT;
     $host = $input->getOption('host') ?? $this->projectConfig->get('development.server.host') ?? DEFAULT_DEV_SERVER_HOST;
+    $runtime = $this->resolveServeRuntime($input);
     $https = $input->getOption('https') ?? false;
     $this->open = $input->getOption('open') ?: $this->projectConfig->get('development.server.openBrowser') ?? false;
     $router = Path::join($root, 'index.php');
+    $bootstrap = Path::join($root, 'bootstrap.php');
     $scheme = $https ? 'https' : 'http';
     $uri = "$host:$port";
     $certPath = Path::join(Path::getCertificatesDirectory(), 'localhost.crt');
     $keyPath = Path::join(Path::getCertificatesDirectory(), 'localhost.key');
 
+    if ($runtime === null) {
+      $output->writeln('<error>Unsupported runtime. Supported runtimes: php, openswoole.</error>');
+      return Command::FAILURE;
+    }
+
+    $runtimeValidationError = $this->validateRuntimeAvailability($runtime);
+
+    if ($runtimeValidationError !== null) {
+      $output->writeln('<error>' . $runtimeValidationError . '</error>');
+      return Command::FAILURE;
+    }
+
+    if ($runtime !== 'php' && $https) {
+      $output->writeln('<error>The selected runtime does not support the --https serve path yet.</error>');
+      return Command::FAILURE;
+    }
+
     $output->writeln($formatter->formatBlock([
       $dev
-        ? "Assegai dev server listening on $scheme://$uri"
-        : "Assegai app listening on $scheme://$uri",
+        ? "Assegai dev server listening on $scheme://$uri using the $runtime runtime"
+        : "Assegai app listening on $scheme://$uri using the $runtime runtime",
       "CTRL+C to stop the server"
     ], 'question', true));
     $output->writeln('');
     $resultCode = 0;
-    $command = "php -S $uri $router";
-    if ($https) {
-      $command .= " --cert $certPath --key $keyPath";
-    }
+    $command = $this->buildServeCommand(
+      runtime: $runtime,
+      uri: $uri,
+      workingDirectory: $root,
+      host: (string) $host,
+      port: (int) $port,
+      router: $router,
+      bootstrap: $bootstrap,
+      https: (bool) $https,
+      certPath: $certPath,
+      keyPath: $keyPath,
+    );
 
     $output->writeln($formatter->formatBlock("Serving the project on $uri", 'question', true), OutputInterface::VERBOSITY_VERBOSE);
     if ($this->canOpenBrowser()) {
@@ -208,6 +239,73 @@ class Serve extends Command
     }
 
     return $statusCode;
+  }
+
+  protected function resolveServeRuntime(InputInterface $input): ?string
+  {
+    $runtime = strtolower(trim((string) (
+      $input->getOption('runtime')
+      ?? $this->projectConfig?->get('development.server.runtime')
+      ?? 'php'
+    )));
+
+    if ($runtime === '') {
+      $runtime = 'php';
+    }
+
+    if (!in_array($runtime, self::SUPPORTED_RUNTIMES, true)) {
+      return null;
+    }
+
+    return $runtime === 'swoole' ? 'openswoole' : $runtime;
+  }
+
+  protected function validateRuntimeAvailability(string $runtime): ?string
+  {
+    if ($runtime !== 'openswoole') {
+      return null;
+    }
+
+    return (new OpenSwooleRuntimeInspector())->getAvailabilityError();
+  }
+
+  protected function buildServeCommand(
+    string $runtime,
+    string $uri,
+    string $workingDirectory,
+    string $host,
+    int $port,
+    string $router,
+    string $bootstrap,
+    bool $https = false,
+    ?string $certPath = null,
+    ?string $keyPath = null,
+  ): string
+  {
+    $environmentPrefix = $this->buildRuntimeEnvironmentPrefix($runtime, $host, $port, $workingDirectory);
+
+    if ($runtime === 'php') {
+      $command = $environmentPrefix . " php -S $uri " . escapeshellarg($router);
+
+      if ($https && $certPath !== null && $keyPath !== null) {
+        $command .= ' --cert ' . escapeshellarg($certPath) . ' --key ' . escapeshellarg($keyPath);
+      }
+
+      return $command;
+    }
+
+    return $environmentPrefix . ' ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($bootstrap);
+  }
+
+  protected function buildRuntimeEnvironmentPrefix(string $runtime, string $host, int $port, string $workingDirectory): string
+  {
+    return sprintf(
+      'ASSEGAI_RUNTIME=%s ASSEGAI_HOST=%s ASSEGAI_PORT=%s ASSEGAI_WORKING_DIR=%s',
+      escapeshellarg($runtime),
+      escapeshellarg($host),
+      escapeshellarg((string) $port),
+      escapeshellarg($workingDirectory),
+    );
   }
 
   protected function exportApiDocsIfConfigured(string $root, OutputInterface $output): int

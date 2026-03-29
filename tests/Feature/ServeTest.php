@@ -17,6 +17,7 @@ function createServeWorkspace(): string
   file_put_contents($workspace . '/assegai.json', json_encode([
     'development' => [
       'server' => [
+        'runtime' => 'php',
         'host' => '127.0.0.1',
         'port' => 5050,
         'openBrowser' => false,
@@ -109,13 +110,14 @@ describe('Serve', function () {
         'root' => $workspace,
       ]);
       expect($command->calls[1]['type'])->toBe('serve');
+      expect($command->calls[1]['command'])->toContain("ASSEGAI_RUNTIME='php'");
       expect($command->calls[1]['command'])->toContain('php -S 127.0.0.1:5050');
       expect($command->calls[1]['command'])->toContain($workspace . '/index.php');
       expect($command->calls[2])->toMatchArray([
         'type' => 'stop-watch',
         'root' => $workspace,
       ]);
-      expect($commandTester->getDisplay())->toContain('Assegai dev server listening on http://127.0.0.1:5050');
+      expect($commandTester->getDisplay())->toContain('Assegai dev server listening on http://127.0.0.1:5050 using the php runtime');
 
       $regularServe = new class extends Serve {
         public array $calls = [];
@@ -192,6 +194,125 @@ describe('Serve', function () {
       expect($command->calls[1]['type'])->toBe('serve');
     } finally {
       chdir($previousWorkingDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
+  it('can boot the OpenSwoole runtime through the serve command', function () {
+    $workspace = createServeWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    $config = json_decode(file_get_contents($workspace . '/assegai.json') ?: '', true);
+    $config['development']['server']['runtime'] = 'openswoole';
+    $config['development']['server']['host'] = '127.0.0.1';
+    $config['development']['server']['port'] = 9510;
+    file_put_contents($workspace . '/assegai.json', json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    chdir($workspace);
+
+    try {
+      $command = new class extends Serve {
+        public array $calls = [];
+
+        protected function validateRuntimeAvailability(string $runtime): ?string
+        {
+          return null;
+        }
+
+        protected function runServeCommand(string $command): int
+        {
+          $this->calls[] = ['type' => 'serve', 'command' => $command];
+          return Command::SUCCESS;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($command->calls)->toHaveCount(1);
+      expect($command->calls[0]['command'])->toContain("ASSEGAI_RUNTIME='openswoole'");
+      expect($command->calls[0]['command'])->toContain("ASSEGAI_HOST='127.0.0.1'");
+      expect($command->calls[0]['command'])->toContain("ASSEGAI_PORT='9510'");
+      expect($command->calls[0]['command'])->toContain("ASSEGAI_WORKING_DIR='$workspace'");
+      expect($command->calls[0]['command'])->toContain(escapeshellarg(PHP_BINARY));
+      expect($command->calls[0]['command'])->toContain($workspace . '/bootstrap.php');
+      expect($command->calls[0]['command'])->not->toContain('php -S');
+      expect($tester->getDisplay())->toContain('using the openswoole runtime');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
+  it('fails early when the selected runtime is unavailable', function () {
+    $workspace = createServeWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      $command = new class extends Serve {
+        protected function validateRuntimeAvailability(string $runtime): ?string
+        {
+          return $runtime === 'openswoole'
+            ? 'The OpenSwoole runtime requires the openswoole PHP extension. Install and enable ext-openswoole before serving with --runtime=openswoole.'
+            : null;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+        '--runtime' => 'openswoole',
+      ]);
+
+      expect($status)->toBe(Command::FAILURE);
+      expect($tester->getDisplay())->toContain('requires the openswoole PHP extension');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
+  it('passes the configured project root into the runtime environment prefix', function () {
+    $workspace = createServeWorkspace();
+
+    try {
+      $command = new class extends Serve {
+        public array $calls = [];
+
+        protected function validateRuntimeAvailability(string $runtime): ?string
+        {
+          return null;
+        }
+
+        protected function runServeCommand(string $command): int
+        {
+          $this->calls[] = ['type' => 'serve', 'command' => $command];
+          return Command::SUCCESS;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+        '--runtime' => 'openswoole',
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($command->calls)->toHaveCount(1);
+      expect($command->calls[0]['command'])->toContain("ASSEGAI_WORKING_DIR='$workspace'");
+    } finally {
       deleteServeWorkspace($workspace);
     }
   });

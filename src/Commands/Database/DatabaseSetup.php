@@ -68,12 +68,6 @@ class DatabaseSetup extends Command
       default => MySQLDatabase::class
     };
 
-    if ($type === DatabaseType::POSTGRESQL->value) {
-      // Not implemented
-      $output->writeln("<error>PostgreSQL not implemented.</error>\n");
-      return Command::SUCCESS;
-    }
-
     // Create the database
     if (Command::SUCCESS !== $databaseClass::setup($name)) {
       $output->writeln("<error>Failed to create the database.</error>\n");

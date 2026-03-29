@@ -6,9 +6,15 @@ describe('Project template defaults', function () {
   it('includes the current assegai.json defaults for new projects', function () {
     $config = ProjectTemplateDefaults::loadAssegaiConfig();
 
+    expect($config['development']['server']['runtime'])->toBe('php');
     expect($config['development']['server']['host'])->toBe(DEFAULT_DEV_SERVER_HOST);
     expect($config['development']['server']['port'])->toBe(DEFAULT_DEV_SERVER_PORT);
     expect($config['development']['server']['openBrowser'])->toBeFalse();
+    expect($config['development']['server']['openswoole']['workerNum'])->toBe(1);
+    expect($config['development']['server']['openswoole']['taskWorkerNum'])->toBe(0);
+    expect($config['development']['server']['openswoole']['maxRequest'])->toBe(0);
+    expect($config['development']['server']['openswoole']['enableCoroutine'])->toBeTrue();
+    expect($config['development']['server']['openswoole']['hookFlags'])->toBe('all');
     expect($config['cli']['schematics']['paths'])->toBe(['schematics']);
     expect($config['cli']['schematics']['discoverPackages'])->toBeTrue();
     expect($config['cli']['schematics']['allowOverrides'])->toBeFalse();

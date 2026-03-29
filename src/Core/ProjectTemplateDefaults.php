@@ -111,9 +111,17 @@ class ProjectTemplateDefaults
       ],
       'development' => [
         'server' => [
+          'runtime' => 'php',
           'host' => DEFAULT_DEV_SERVER_HOST,
           'port' => DEFAULT_DEV_SERVER_PORT,
           'openBrowser' => false,
+          'openswoole' => [
+            'workerNum' => 1,
+            'taskWorkerNum' => 0,
+            'maxRequest' => 0,
+            'enableCoroutine' => true,
+            'hookFlags' => 'all',
+          ],
         ],
       ],
       'cli' => [
@@ -127,6 +135,16 @@ class ProjectTemplateDefaults
         'enabled' => true,
         'exportOnServe' => false,
         'exportPath' => 'generated/openapi.json',
+      ],
+      'events' => [
+        'wildcards' => true,
+        'delimiter' => '.',
+        'maxListeners' => null,
+        'outbox' => [
+          'queue' => 'rabbitmq.events',
+          'batchSize' => 100,
+          'retryDelaySeconds' => 60,
+        ],
       ],
       'webComponents' => [
         'enabled' => true,
