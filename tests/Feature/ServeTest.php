@@ -284,6 +284,68 @@ describe('Serve', function () {
     }
   });
 
+  it('fails early when the configured OpenSwoole settings are invalid', function () {
+    $workspace = createServeWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    $config = json_decode(file_get_contents($workspace . '/assegai.json') ?: '', true);
+    $config['development']['server']['runtime'] = 'openswoole';
+    $config['development']['server']['openswoole'] = [
+      'workerNum' => 0,
+    ];
+    file_put_contents($workspace . '/assegai.json', json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    chdir($workspace);
+
+    try {
+      $command = new class extends Serve {
+        protected function validateRuntimeAvailability(string $runtime): ?string
+        {
+          return null;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+      ]);
+
+      expect($status)->toBe(Command::FAILURE);
+      expect($tester->getDisplay())->toContain('workerNum');
+      expect($tester->getDisplay())->toContain('greater than or equal to 1');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
+  it('fails early when the serve binding is invalid', function () {
+    $workspace = createServeWorkspace();
+
+    try {
+      $command = new class extends Serve {
+        protected function validateRuntimeAvailability(string $runtime): ?string
+        {
+          return null;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+        '--host' => '',
+      ]);
+
+      expect($status)->toBe(Command::FAILURE);
+      expect($tester->getDisplay())->toContain('host must be a non-empty string');
+    } finally {
+      deleteServeWorkspace($workspace);
+    }
+  });
+
   it('passes the configured project root into the runtime environment prefix', function () {
     $workspace = createServeWorkspace();
 

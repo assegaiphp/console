@@ -19,24 +19,26 @@ class WorkspaceApiBridge
    */
   public function generateOpenApiDocument(): array
   {
-    $this->loadWorkspaceAutoload();
-    $rootModuleClass = $this->resolveRootModuleClass();
-    $generator = $this->newCoreInstance(
-      'Assegai\\Core\\ApiDocs\\OpenApiGenerator',
-      $this->callStaticCoreMethod('Assegai\\Core\\ControllerManager', 'getInstance'),
-      $this->callStaticCoreMethod('Assegai\\Core\\ModuleManager', 'getInstance'),
-      $this->callStaticCoreMethod('Assegai\\Core\\Http\\Requests\\Request', 'getInstance'),
-      $this->newCoreInstance('Assegai\\Core\\Config\\ComposerConfig'),
-      $this->newCoreInstance('Assegai\\Core\\Config\\ProjectConfig'),
-    );
+    return $this->runWithinWorkspace(function (): array {
+      $this->loadWorkspaceAutoload();
+      $rootModuleClass = $this->resolveRootModuleClass();
+      $generator = $this->newCoreInstance(
+        'Assegai\\Core\\ApiDocs\\OpenApiGenerator',
+        $this->callStaticCoreMethod('Assegai\\Core\\ControllerManager', 'getInstance'),
+        $this->callStaticCoreMethod('Assegai\\Core\\ModuleManager', 'getInstance'),
+        $this->callStaticCoreMethod('Assegai\\Core\\Http\\Requests\\Request', 'getInstance'),
+        $this->newCoreInstance('Assegai\\Core\\Config\\ComposerConfig'),
+        $this->newCoreInstance('Assegai\\Core\\Config\\ProjectConfig'),
+      );
 
-    $document = $generator->generate($rootModuleClass);
+      $document = $generator->generate($rootModuleClass);
 
-    if (!is_array($document)) {
-      throw new RuntimeException('The OpenAPI generator did not return a valid document.');
-    }
+      if (!is_array($document)) {
+        throw new RuntimeException('The OpenAPI generator did not return a valid document.');
+      }
 
-    return $document;
+      return $document;
+    });
   }
 
   /**
@@ -132,7 +134,7 @@ class WorkspaceApiBridge
       }
     }
 
-    if (!preg_match('/AssegaiFactory::create\(\s*([\\\\A-Za-z0-9_]+)::class\s*\)/', $contents, $matches)) {
+    if (!preg_match('/AssegaiFactory::(?:create|createFromProject|createWithRuntime)\(\s*([\\\\A-Za-z0-9_]+)::class\b/', $contents, $matches)) {
       return null;
     }
 
@@ -202,5 +204,26 @@ class WorkspaceApiBridge
     }
 
     return new $class(...$arguments);
+  }
+
+  private function runWithinWorkspace(callable $callback): mixed
+  {
+    $previousWorkingDirectory = getcwd() ?: $this->workspace;
+    $previousEnvironmentWorkingDirectory = getenv('ASSEGAI_WORKING_DIR');
+
+    putenv('ASSEGAI_WORKING_DIR=' . $this->workspace);
+    chdir($this->workspace);
+
+    try {
+      return $callback();
+    } finally {
+      chdir($previousWorkingDirectory);
+
+      if ($previousEnvironmentWorkingDirectory === false || $previousEnvironmentWorkingDirectory === '') {
+        putenv('ASSEGAI_WORKING_DIR');
+      } else {
+        putenv('ASSEGAI_WORKING_DIR=' . $previousEnvironmentWorkingDirectory);
+      }
+    }
   }
 }
