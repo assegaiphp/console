@@ -2,6 +2,10 @@
 
 namespace Assegai\Console\Commands;
 
+use Assegai\Console\Core\Packages\FirstPartyPackageCatalog;
+use Assegai\Console\Core\Packages\InstalledPackageExtension;
+use Assegai\Console\Core\Packages\InstalledPackageExtensionLoader;
+use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\ProjectTemplateDefaults;
 use Assegai\Console\Util\ComposerManifest;
 use Assegai\Console\Util\Inspector;
@@ -38,12 +42,18 @@ class Add extends Command
       return Command::FAILURE;
     }
 
-    $packageName = $this->normalizePackageName((string) $input->getArgument('package'));
+    $requestedPackage = (string) $input->getArgument('package');
+    $packageMetadata = $this->resolvePackageMetadata($requestedPackage, $workspace);
 
-    if ($packageName === null) {
-      $output->writeln('<error>Unsupported package. Supported values: events.</error>');
+    if ($packageMetadata === null) {
+      $output->writeln(sprintf(
+        '<error>Unsupported package. Supported values: %s.</error>',
+        implode(', ', FirstPartyPackageCatalog::supportedAliases()),
+      ));
       return Command::FAILURE;
     }
+
+    $packageName = $packageMetadata['packageName'];
 
     try {
       $composerConfig = ComposerManifest::load($workspace);
@@ -55,7 +65,7 @@ class Add extends Command
     $composerConfig = ComposerManifest::ensureRequirement(
       $composerConfig,
       $packageName,
-      $this->resolveConstraint($packageName)
+      $packageMetadata['constraint']
     );
 
     if (!ComposerManifest::save($workspace, $composerConfig)) {
@@ -69,35 +79,57 @@ class Add extends Command
       return Command::FAILURE;
     }
 
-    if (Command::SUCCESS !== $this->applyWorkspaceIntegration($packageName, $workspace, $output)) {
-      return Command::FAILURE;
+    $installedExtension = $this->loadInstalledPackageExtension($workspace, $packageName);
+    $installWasSkipped = (bool) $input->getOption('no-install');
+
+    if ($installedExtension === null && !$installWasSkipped) {
+      if (Command::SUCCESS !== $this->runComposerInstall($workspace, $packageName, $output)) {
+        return Command::FAILURE;
+      }
+
+      $installedExtension = $this->loadInstalledPackageExtension($workspace, $packageName);
     }
 
-    if ((bool) $input->getOption('no-install')) {
+    if ($installWasSkipped && $installedExtension === null) {
+      $output->writeln('<comment>Skipped package installer because the package is not installed in this workspace yet.</comment>');
       return Command::SUCCESS;
     }
 
-    if (Command::SUCCESS !== $this->runComposerInstall($workspace, $packageName, $output)) {
-      return Command::FAILURE;
+    if ($installedExtension !== null) {
+      if (Command::SUCCESS !== $this->applyWorkspaceIntegration($installedExtension, $workspace, $input, $output)) {
+        return Command::FAILURE;
+      }
     }
 
     return Command::SUCCESS;
   }
 
-  private function normalizePackageName(string $package): ?string
+  /**
+   * @return array{packageName: string, constraint: string}|null
+   */
+  protected function resolvePackageMetadata(string $package, string $workspace): ?array
   {
-    return match (strtolower(trim($package))) {
-      'events', PACKAGE_NAME_EVENTS => PACKAGE_NAME_EVENTS,
-      default => null,
-    };
+    $firstPartyPackage = FirstPartyPackageCatalog::resolve($package);
+
+    if ($firstPartyPackage !== null) {
+      return $firstPartyPackage;
+    }
+
+    $installedExtension = InstalledPackageExtensionLoader::resolve($workspace, $package, requireAutoload: false);
+
+    if ($installedExtension === null) {
+      return null;
+    }
+
+    return [
+      'packageName' => $installedExtension->packageName,
+      'constraint' => '*',
+    ];
   }
 
-  private function resolveConstraint(string $packageName): string
+  protected function loadInstalledPackageExtension(string $workspace, string $packageName): ?InstalledPackageExtension
   {
-    return match ($packageName) {
-      PACKAGE_NAME_EVENTS => RECOMMENDED_EVENTS_VERSION_CONSTRAINT,
-      default => '*',
-    };
+    return InstalledPackageExtensionLoader::find($workspace, $packageName);
   }
 
   private function hydrateAssegaiConfig(string $workspace, OutputInterface $output): int
@@ -126,63 +158,28 @@ class Add extends Command
     return Command::SUCCESS;
   }
 
-  private function applyWorkspaceIntegration(string $packageName, string $workspace, OutputInterface $output): int
+  protected function applyWorkspaceIntegration(
+    InstalledPackageExtension $packageExtension,
+    string $workspace,
+    InputInterface $input,
+    OutputInterface $output,
+  ): int
   {
-    return match ($packageName) {
-      PACKAGE_NAME_EVENTS => $this->integrateEventsModule($workspace, $output),
-      default => Command::SUCCESS,
-    };
-  }
+    $installer = $packageExtension->createInstaller();
 
-  private function integrateEventsModule(string $workspace, OutputInterface $output): int
-  {
-    $moduleFilename = $this->resolveRootModuleFilename($workspace);
-
-    if ($moduleFilename === null) {
-      $output->writeln('<comment>Skipped AppModule import update because the root module could not be detected.</comment>');
+    if ($installer === null) {
       return Command::SUCCESS;
     }
 
-    $previousWorkingDirectory = getcwd() ?: $workspace;
-    chdir($workspace);
-
-    try {
-      return update_module_file([
-        'use' => [
-          'Assegai\\Events\\Assegai\\EventsModule',
-        ],
-        'imports' => [
-          'EventsModule::class',
-        ],
-      ], $moduleFilename, $output);
-    } finally {
-      chdir($previousWorkingDirectory);
-    }
+    return $installer->install(new PackageInstallContext(
+      input: $input,
+      output: $output,
+      workspace: $workspace,
+      packageName: $packageExtension->packageName,
+    ));
   }
 
-  private function resolveRootModuleFilename(string $workspace): ?string
-  {
-    $bootstrapFile = Path::join($workspace, BOOTSTRAP_FILE);
-
-    if (is_file($bootstrapFile)) {
-      $contents = file_get_contents($bootstrapFile);
-
-      if ($contents !== false && preg_match('/AssegaiFactory::create\(\s*([\\\\A-Za-z0-9_]+)::class\s*\)/', $contents, $matches)) {
-        $candidate = trim($matches[1]);
-        $basename = basename(str_replace('\\', '/', $candidate));
-
-        if ($basename !== '') {
-          return preg_replace('/\.php$/', '', $basename) ?: null;
-        }
-      }
-    }
-
-    $defaultRootModule = Path::join($workspace, 'src', 'AppModule.php');
-
-    return is_file($defaultRootModule) ? 'AppModule' : null;
-  }
-
-  private function runComposerInstall(string $workspace, string $packageName, OutputInterface $output): int
+  protected function runComposerInstall(string $workspace, string $packageName, OutputInterface $output): int
   {
     $command = sprintf(
       'cd %s && composer update --with-all-dependencies --ansi %s',

@@ -17,6 +17,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class WatchWebComponents extends Command
 {
+  private const array EXPECTED_SHUTDOWN_EXIT_CODES = [Command::SUCCESS, 130, 143];
+
   public function configure(): void
   {
     $this
@@ -49,12 +51,14 @@ class WatchWebComponents extends Command
       $hotReload ? ' with hot reload' : ''
     ));
 
-    if ($this->watchComponents($builder, $workspace, $hotReload) !== Command::SUCCESS) {
-      $output->writeln('<error>Failed to watch Web Components. Ensure esbuild is installed and available on PATH.</error>');
-      return Command::FAILURE;
+    $status = $this->watchComponents($builder, $workspace, $hotReload);
+
+    if (in_array($status, self::EXPECTED_SHUTDOWN_EXIT_CODES, true)) {
+      return Command::SUCCESS;
     }
 
-    return Command::SUCCESS;
+    $output->writeln('<error>Failed to watch Web Components. Ensure esbuild is installed and available on PATH.</error>');
+    return Command::FAILURE;
   }
 
   protected function createBuilder(): WebComponentBuilder

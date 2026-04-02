@@ -25,6 +25,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class Serve extends Command
 {
   private const array SUPPORTED_RUNTIMES = ['php', 'openswoole', 'swoole'];
+  private const array EXPECTED_SHUTDOWN_EXIT_CODES = [Command::SUCCESS, 130, 143];
 
   protected ?ProjectConfig $projectConfig = null;
   protected ?bool $open = null;
@@ -149,7 +150,7 @@ class Serve extends Command
       }
     }
 
-    if ($resultCode !== 0) {
+    if (!in_array($resultCode, self::EXPECTED_SHUTDOWN_EXIT_CODES, true)) {
       $output->writeln('');
       $output->writeln("<error>Failed to serve the project on $uri</error>");
       return Command::FAILURE;

@@ -2,10 +2,18 @@
     <a href="https://assegaiphp.com/" target="blank"><img src="https://assegaiphp.com/images/logos/logo-cropped.png" width="200" alt="Assegai Logo"></a>
 </div>
 
+<p align="center">
+  <a href="https://github.com/assegaiphp/console/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/assegaiphp/console?display_name=tag&sort=semver&style=flat-square"></a>
+  <a href="https://github.com/assegaiphp/console/actions/workflows/php.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/assegaiphp/console/php.yml?branch=main&label=tests&style=flat-square"></a>
+  <img alt="PHP 8.3+" src="https://img.shields.io/badge/PHP-8.3%2B-777BB4?style=flat-square&logo=php&logoColor=white">
+  <a href="https://github.com/assegaiphp/console/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/assegaiphp/console?style=flat-square"></a>
+  <img alt="Status active" src="https://img.shields.io/badge/status-active-10b981?style=flat-square">
+</p>
+
 # Assegai Console
 
 ## Requirements
-- PHP 8.2 (minimum)
+- PHP 8.3 (minimum)
 - Composer 2.x.x
 
 ## Description

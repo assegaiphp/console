@@ -149,6 +149,58 @@ describe('Serve', function () {
     }
   });
 
+
+  it('treats interrupted serve exits as a normal shutdown in dev mode', function () {
+    $workspace = createServeWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      $command = new class extends Serve {
+        public array $calls = [];
+
+        protected function startWebComponentWatchProcess(string $root, \Symfony\Component\Console\Output\OutputInterface $output): mixed
+        {
+          $this->calls[] = ['type' => 'watch', 'root' => $root];
+          return (object) ['watching' => true];
+        }
+
+        protected function stopWebComponentWatchProcess(mixed $process, string $root): void
+        {
+          $this->calls[] = ['type' => 'stop-watch', 'root' => $root];
+        }
+
+        protected function runServeCommand(string $command): int
+        {
+          $this->calls[] = ['type' => 'serve', 'command' => $command];
+          return 130;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+        '--dev' => true,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($command->calls)->toHaveCount(3);
+      expect($command->calls[2])->toMatchArray([
+        'type' => 'stop-watch',
+        'root' => $workspace,
+      ]);
+      expect($tester->getDisplay())->not->toContain('Failed to serve the project');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
   it('can export OpenAPI on serve when configured', function () {
     $workspace = createServeWorkspace();
     $previousWorkingDirectory = getcwd();

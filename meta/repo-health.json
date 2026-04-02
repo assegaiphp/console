@@ -1,0 +1,15 @@
+{
+  "repository": "assegaiphp/console",
+  "package": "assegaiphp/console",
+  "php": ">=8.3",
+  "license": "MIT",
+  "ci": {
+    "workflow": "php.yml",
+    "label": "tests"
+  },
+  "status": {
+    "label": "active",
+    "color": "10b981",
+    "summary": "CLI workflows, package discovery, custom schematics, and upgrade tooling."
+  }
+}

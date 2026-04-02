@@ -2,37 +2,7 @@
 
 <?php
 
-use Assegai\Console\Commands\Api\ApiClient;
-use Assegai\Console\Commands\Api\ApiExport;
-use Assegai\Console\Commands\Add;
-use Assegai\Console\Commands\Config;
-use Assegai\Console\Commands\Database\DatabaseConfigure;
-use Assegai\Console\Commands\Database\DatabaseLoad;
-use Assegai\Console\Commands\Database\DatabaseSeed;
-use Assegai\Console\Commands\Database\DatabaseSetup;
-use Assegai\Console\Commands\DumpAutoload;
-use Assegai\Console\Commands\Generate;
-use Assegai\Console\Commands\Info;
-use Assegai\Console\Commands\Migration\MigrationCreate;
-use Assegai\Console\Commands\Migration\MigrationDown;
-use Assegai\Console\Commands\Migration\MigrationList;
-use Assegai\Console\Commands\Migration\MigrationRedo;
-use Assegai\Console\Commands\Migration\MigrationRefresh;
-use Assegai\Console\Commands\Migration\MigrationSetup;
-use Assegai\Console\Commands\Migration\MigrationUp;
-use Assegai\Console\Commands\NewProject;
-use Assegai\Console\Commands\Queue\QueueList;
-use Assegai\Console\Commands\Queue\QueueWork;
-use Assegai\Console\Commands\Schematic\SchematicInit;
-use Assegai\Console\Commands\Schematic\SchematicList;
-use Assegai\Console\Commands\Serve;
-use Assegai\Console\Commands\Test;
-use Assegai\Console\Commands\Update;
-use Assegai\Console\Commands\Version;
-use Assegai\Console\Commands\WebComponents\BuildWebComponents;
-use Assegai\Console\Commands\WebComponents\ListWebComponents;
-use Assegai\Console\Commands\WebComponents\WatchWebComponents;
-use Symfony\Component\Console\Application;
+use Assegai\Console\ApplicationFactory;
 
 if (file_exists(__DIR__ . '/../vendor/autoload.php'))
 {
@@ -50,42 +20,7 @@ else
 function bootstrap(): void
 {
   try {
-    $app = new Application('Assegai CLI');
-    $app
-      ->addCommands([
-        new ApiClient(),
-        new ApiExport(),
-        new Add(),
-        new Config(),
-        new DatabaseConfigure(),
-        new DatabaseLoad(),
-        new DatabaseSeed(),
-        new DatabaseSetup(),
-        new DumpAutoload(),
-        new Generate(),
-        new MigrationCreate(),
-        new MigrationList(),
-        new MigrationUp(),
-        new MigrationDown(),
-        new MigrationRefresh(),
-        new MigrationSetup(),
-        new MigrationRedo(),
-        new NewProject(),
-        new QueueList(),
-        new QueueWork(),
-        new SchematicInit(),
-        new SchematicList(),
-        new Info(),
-        new Serve(),
-        new Test(),
-        new Update(),
-        new Version(),
-        new BuildWebComponents(),
-        new ListWebComponents(),
-        new WatchWebComponents(),
-      ]);
-    $app->setDefaultCommand('info');
-
+    $app = ApplicationFactory::create();
     $app->run();
   } catch (Exception $e) {
     echo $e->getMessage();

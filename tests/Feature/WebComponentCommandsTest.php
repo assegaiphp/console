@@ -230,7 +230,7 @@ describe('Web Component commands', function () {
     }
   });
 
-  it('writes and removes the hot reload state file', function () {
+  it('writes and deactivates the hot reload state file', function () {
     $workspace = createWebComponentCommandWorkspace();
     $state = new WebComponentHotReloadState($workspace);
     $filename = $workspace . '/public/.assegai/wc-hot-reload.json';
@@ -261,8 +261,48 @@ describe('Web Component commands', function () {
       expect($updatedState['version'] ?? null)->not->toBe($initialVersion);
 
       $state->deactivate();
-      expect($filename)->not->toBeFile();
+      expect($filename)->toBeFile();
+
+      $inactiveState = json_decode(file_get_contents($filename) ?: '{}', true);
+
+      expect($inactiveState)
+        ->toBeArray()
+        ->toHaveKeys(['active', 'bundleUrl', 'interval', 'version', 'createdAt', 'updatedAt', 'expiresAt']);
+      expect($inactiveState['active'] ?? null)->toBeFalse();
+      expect($inactiveState['bundleUrl'] ?? null)->toBe('/js/assegai-components.min.js');
     } finally {
+      deleteWebComponentCommandWorkspace($workspace);
+    }
+  });
+
+
+  it('treats interrupted watch exits as a normal shutdown', function () {
+    $workspace = createWebComponentCommandWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if (false === $previousWorkingDirectory) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      $command = new class extends WatchWebComponents {
+        protected function watchComponents(WebComponentBuilder $builder, string $workspace, bool $hotReload): int
+        {
+          return 130;
+        }
+      };
+
+      $commandTester = new CommandTester($command);
+      $status = $commandTester->execute([
+        '--directory' => $workspace,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($commandTester->getDisplay())->not->toContain('Failed to watch Web Components');
+    } finally {
+      chdir($previousWorkingDirectory);
       deleteWebComponentCommandWorkspace($workspace);
     }
   });
