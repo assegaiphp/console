@@ -120,11 +120,11 @@ describe('Module data_source configurator', function () {
     );
 
     try {
-      $status = $configurator->configureForModules('blog', ['AppModule.php']);
+      $status = $configurator->configureForModules('mysql:blog', ['AppModule.php']);
 
       expect($status)->toBe(Command::SUCCESS);
       expect(file_get_contents($workspace . '/src/AppModule.php'))
-        ->toContain("'data_source' => 'blog'");
+        ->toContain("'data_source' => 'mysql:blog'");
       expect(str_contains(file_get_contents($workspace . '/src/Users/UsersModule.php') ?: '', 'data_source'))
         ->toBeFalse();
     } finally {
@@ -161,15 +161,15 @@ PHP,
     );
 
     try {
-      $status = $configurator->configureForAllModules('blog');
+      $status = $configurator->configureForAllModules('mysql:blog');
 
       expect($status)->toBe(Command::SUCCESS);
       expect(file_get_contents($workspace . '/src/AppModule.php'))
         ->toContain("'data_source' => 'legacy'");
-      expect(str_contains(file_get_contents($workspace . '/src/AppModule.php') ?: '', "'data_source' => 'blog'"))
+      expect(str_contains(file_get_contents($workspace . '/src/AppModule.php') ?: '', "'data_source' => 'mysql:blog'"))
         ->toBeFalse();
       expect(file_get_contents($workspace . '/src/Users/UsersModule.php'))
-        ->toContain("'data_source' => 'blog'");
+        ->toContain("'data_source' => 'mysql:blog'");
       expect($output->fetch())
         ->toContain('would collide with')
         ->toContain('src/AppModule.php')
@@ -208,11 +208,11 @@ PHP,
     );
 
     try {
-      $status = $configurator->configureForModules('blog', ['AppModule.php'], true);
+      $status = $configurator->configureForModules('mysql:blog', ['AppModule.php'], true);
 
       expect($status)->toBe(Command::SUCCESS);
       expect(file_get_contents($workspace . '/src/AppModule.php'))
-        ->toContain("'data_source' => 'blog'");
+        ->toContain("'data_source' => 'mysql:blog'");
       expect(str_contains(file_get_contents($workspace . '/src/AppModule.php') ?: '', "'data_source' => 'legacy'"))
         ->toBeFalse();
     } finally {
@@ -235,13 +235,13 @@ PHP,
         'select' => ['all'],
       ]);
 
-      $status = $configurator->promptAndConfigure('blog');
+      $status = $configurator->promptAndConfigure('mysql:blog');
 
       expect($status)->toBe(Command::SUCCESS);
       expect(file_get_contents($workspace . '/src/AppModule.php'))
-        ->toContain("'data_source' => 'blog'");
+        ->toContain("'data_source' => 'mysql:blog'");
       expect(file_get_contents($workspace . '/src/Users/UsersModule.php'))
-        ->toContain("'data_source' => 'blog'");
+        ->toContain("'data_source' => 'mysql:blog'");
     } finally {
       CliPrompt::flushFake();
       deleteModuleDataSourceWorkspace($workspace);

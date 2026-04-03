@@ -39,11 +39,11 @@ class DatabaseConfigure extends Command
     $this->setHelp('This command sets up the connection configuration for a database. It creates a configuration file in the config directory.');
     $this
       ->addArgument(ParameterKey::DB_NAME->value, InputArgument::REQUIRED, 'The name of the database')
-      ->addOption(ParameterKey::DB_TYPE->value,ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL,'The type of the database',DEFAULT_DATABASE_TYPE,DatabaseType::toArray())
-      ->addOption('host', 'H', InputArgument::OPTIONAL,'The host of the database')
-      ->addOption('port', 'P', InputArgument::OPTIONAL,'The port of the database')
-      ->addOption('user', 'u', InputArgument::OPTIONAL, 'The user of the database',)
-      ->addOption('password',  'p',  InputArgument::OPTIONAL, 'The password of the database')
+      ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
+      ->addOption('host', 'H', InputArgument::OPTIONAL, 'The host of the database')
+      ->addOption('port', 'P', InputArgument::OPTIONAL, 'The port of the database')
+      ->addOption('user', 'u', InputArgument::OPTIONAL, 'The user of the database')
+      ->addOption('password', 'p', InputArgument::OPTIONAL, 'The password of the database')
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
@@ -57,13 +57,13 @@ class DatabaseConfigure extends Command
     $inspector = new Inspector($input, $output);
     $workingDirectory = getcwd() ?: '';
     $configFilename = Path::join($workingDirectory, 'config', 'local.php');
-    $type = get_datasource_type($input, $output) ?: throw new AssegaiConsoleException("Database type is not specified. Use the --db-type option to specify the database type.");
+    $type = get_datasource_type($input, $output) ?: throw new AssegaiConsoleException('Database type is not specified. Use the --db-type option to specify the database type.');
 
     if (! $inspector->isValidWorkspace($workingDirectory)) {
       $output->writeln([
         '',
         '<error>This is not a valid workspace.</error>',
-        ''
+        '',
       ]);
       return Command::FAILURE;
     }
@@ -75,21 +75,20 @@ class DatabaseConfigure extends Command
         $output->writeln([
           '',
           '<error>The configuration file does not exist.</error>',
-          ''
+          '',
         ]);
         return Command::FAILURE;
       }
     }
 
     $prompts = new CliPrompt($input, $output);
-
     $name = $input->getArgument(ParameterKey::DB_NAME->value);
 
     if ($type === DatabaseType::SQLITE->value) {
       $output->writeln([
         '',
         'Configuring the SQLite database...',
-        ''
+        '',
       ]);
 
       $dsn = 'sqlite:';
@@ -100,7 +99,7 @@ class DatabaseConfigure extends Command
       $dsn .= match ($sqlType) {
         'on-disk' => ".data/$name.sq3",
         'in-memory (persistent)' => 'file::memory:?cache=shared',
-        default => ':memory:'
+        default => ':memory:',
       };
 
       $dbConfig = new DBConfig($input, $output, $name, $type);
@@ -108,10 +107,11 @@ class DatabaseConfigure extends Command
         $output->writeln([
           '',
           '<error>Failed to load database configuration.</error>',
-          ''
+          '',
         ]);
         return Command::FAILURE;
       }
+
       $dbConfig->set("$type.$name", ['path' => str_replace('sqlite:', '', $dsn)]);
 
       if (Command::SUCCESS !== $dbConfig->commit()) {
@@ -119,7 +119,11 @@ class DatabaseConfigure extends Command
         return Command::FAILURE;
       }
 
-      return $this->configureModuleDataSource((string) $name, $input, $output);
+      return $this->configureModuleDataSource(
+        qualify_datasource_name($type, (string) $name),
+        $input,
+        $output,
+      );
     }
 
     $host = $input->getOption('host');
@@ -129,29 +133,29 @@ class DatabaseConfigure extends Command
 
     $output->writeln("Configuring the database <info>$name</info>...");
 
-    if (! $host ) {
+    if (! $host) {
       $defaultHost = match ($type) {
         'mysql' => DEFAULT_MYSQL_HOST,
         'pgsql' => DEFAULT_POSTGRES_HOST,
-        default => ''
+        default => '',
       };
       $host = $prompts->text('Host', $defaultHost);
     }
 
-    if (! $port ) {
+    if (! $port) {
       $defaultPort = match ($type) {
         'mysql' => DEFAULT_MYSQL_PORT,
         'pgsql' => DEFAULT_POSTGRES_PORT,
-        default => ''
+        default => '',
       };
       $port = $prompts->text('Port', (string) $defaultPort);
     }
 
-    if (! $user ) {
+    if (! $user) {
       $defaultUser = match ($type) {
         'mysql' => DEFAULT_MYSQL_USER,
         'pgsql' => DEFAULT_POSTGRES_USER,
-        default => ''
+        default => '',
       };
       $user = $prompts->text('User', $defaultUser);
     }
@@ -165,16 +169,16 @@ class DatabaseConfigure extends Command
       $output->writeln([
         '',
         '<error>Failed to load database configuration.</error>',
-        ''
+        '',
       ]);
       return Command::FAILURE;
     }
 
     $dbConfig->set("$type.$name", [
       'host' => $host,
-      'port' => (int)$port,
+      'port' => (int) $port,
       'user' => $user,
-      'password' => $password
+      'password' => $password,
     ]);
 
     $output->writeln('');
@@ -183,15 +187,18 @@ class DatabaseConfigure extends Command
       return Command::FAILURE;
     }
 
-    return $this->configureModuleDataSource((string) $name, $input, $output);
+    return $this->configureModuleDataSource(
+      qualify_datasource_name($type, (string) $name),
+      $input,
+      $output,
+    );
   }
 
   protected function configureModuleDataSource(
-    string $databaseName,
+    string $dataSourceName,
     InputInterface $input,
     OutputInterface $output,
-  ): int
-  {
+  ): int {
     $configurator = new ModuleDataSourceConfigurator(
       $input,
       $output,
@@ -199,6 +206,6 @@ class DatabaseConfigure extends Command
       getcwd() ?: ''
     );
 
-    return $configurator->promptAndConfigure($databaseName);
+    return $configurator->promptAndConfigure($dataSourceName);
   }
 }

@@ -3,11 +3,11 @@
 namespace Assegai\Console\Commands\Migration;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
-use Assegai\Console\Core\Database\PostgreSQLDatabase;
-use Assegai\Console\Core\Database\SQLiteDatabase;
 use Assegai\Console\Core\Database\Traits\DatabaseNameValidatorTrait;
 use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
 use Assegai\Console\Core\Migrations\MySQLDatabaseMigrator;
+use Assegai\Console\Core\Migrations\PostgreSQLDatabaseMigrator;
+use Assegai\Console\Core\Migrations\SQLiteDatabaseMigrator;
 use Assegai\Console\Util\Config\AppConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
@@ -85,48 +85,41 @@ class MigrationDown extends Command
       $databaseType = DatabaseType::SQLITE;
     }
 
-    if (! $databaseType ) {
+    if (! $databaseType) {
       $output->writeln("<error>Invalid database type</error>\n");
       return Command::FAILURE;
     }
 
     $dbName = get_datasource_name($input, $output, $databaseType->value);
 
-    if (! $dbName ) {
+    if (! $dbName) {
       /** @var array<int|string, string>|Collection<int|string, string> $databaseChoices */
       $databaseChoices = array_keys($appConfig->get("databases.$databaseType->value", []));
       $dbName = select("<info>?</info> Which <question>$databaseType->value</question> database do you want to run the migrations on? ", $databaseChoices);
     }
 
-    if (! is_string($dbName) ) {
+    if (! is_string($dbName)) {
       $output->writeln("<error>Invalid database name</error>\n");
       return Command::FAILURE;
     }
 
-    if (! $this->isValidDbName($dbName, $databaseType->value, $input, $output) ) {
+    if (! $this->isValidDbName($dbName, $databaseType->value, $input, $output)) {
       $output->writeln("<error>Invalid database name</error>\n");
       return Command::FAILURE;
     }
 
-    # Check if migrations directory exists
     $migrationsDirectory = Path::join($workingDirectory, 'migrations', $databaseType->value, $dbName);
 
-    if (! file_exists($migrationsDirectory) ) {
+    if (! file_exists($migrationsDirectory)) {
       $output->writeln("<error>Migrations directory does not exist</error>\n");
       return Command::FAILURE;
     }
 
-    # Check if the database exists
-    /** @var MigratorInterface $migrator */
-    $migrator = match($databaseType) {
-      DatabaseType::MYSQL => new MySQLDatabaseMigrator($dbName, $input, $output),
-      DatabaseType::POSTGRESQL => new PostgreSQLDatabase($dbName, $input, $output),
-      DatabaseType::SQLITE => new SQLiteDatabase($dbName, $input, $output),
-    };
+    $migrator = $this->createMigrator($databaseType, $dbName, $input, $output);
 
     $numberOfRollbacks = $input->getOption('steps');
 
-    if (! is_numeric($numberOfRollbacks) ) {
+    if (! is_numeric($numberOfRollbacks)) {
       $numberOfRollbacks = null;
     } else {
       $numberOfRollbacks = (int) $numberOfRollbacks;
@@ -143,8 +136,7 @@ class MigrationDown extends Command
       return Command::FAILURE;
     }
 
-    if ($numberOfSuccessfulRollbacks === 0)
-    {
+    if ($numberOfSuccessfulRollbacks === 0) {
       return Command::SUCCESS;
     }
 
@@ -152,4 +144,27 @@ class MigrationDown extends Command
     return Command::SUCCESS;
   }
 
+  /**
+   * @return class-string<MigratorInterface>
+   */
+  protected function getMigratorClass(DatabaseType $databaseType): string
+  {
+    return match ($databaseType) {
+      DatabaseType::MYSQL => MySQLDatabaseMigrator::class,
+      DatabaseType::POSTGRESQL => PostgreSQLDatabaseMigrator::class,
+      DatabaseType::SQLITE => SQLiteDatabaseMigrator::class,
+    };
+  }
+
+  protected function createMigrator(
+    DatabaseType $databaseType,
+    string $dbName,
+    InputInterface $input,
+    OutputInterface $output,
+  ): MigratorInterface {
+    /** @var class-string<MigratorInterface> $migratorClass */
+    $migratorClass = $this->getMigratorClass($databaseType);
+
+    return new $migratorClass($dbName, $input, $output);
+  }
 }

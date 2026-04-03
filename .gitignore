@@ -2,3 +2,10 @@
 /.vscode/
 /vendor/
 *.log
+.cache
+.phpunit
+.env
+.env.local
+.env.*.local
+
+.DS_Store

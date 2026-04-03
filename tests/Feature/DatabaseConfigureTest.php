@@ -117,7 +117,7 @@ describe('database:configure', function () {
       expect($status)->toBe(Command::SUCCESS);
       expect($config['databases']['mysql']['blog']['password'])->toBe('secret');
       expect(file_get_contents($workspace . '/src/AppModule.php'))
-        ->toContain("'data_source' => 'blog'");
+        ->toContain("'data_source' => 'mysql:blog'");
     } finally {
       CliPrompt::flushFake();
       chdir($previousWorkingDirectory);

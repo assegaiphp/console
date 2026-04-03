@@ -547,6 +547,22 @@ if (!function_exists('get_datasource_type')) {
     }
 }
 
+if (!function_exists('qualify_datasource_name')) {
+    function qualify_datasource_name(string $datasourceType, string $dataSourceName): string
+    {
+        if (preg_match('/^[a-z0-9_]+:.+$/i', $dataSourceName)) {
+            return $dataSourceName;
+        }
+
+        $normalizedType = match ($datasourceType) {
+            'postgresql' => DatabaseType::POSTGRESQL->value,
+            default => $datasourceType,
+        };
+
+        return sprintf('%s:%s', $normalizedType, $dataSourceName);
+    }
+}
+
 if (!function_exists('get_datasource_name')) {
     function get_datasource_name(InputInterface $input, OutputInterface $output, string $datasourceType, string $optionName = ParameterKey::DB_NAME->value): string|false
     {

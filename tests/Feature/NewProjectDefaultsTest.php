@@ -115,6 +115,6 @@ describe('New project defaults', function () {
     };
 
     expect($installer->install())->toBe(Command::SUCCESS);
-    expect($installer->configuredDatabaseNames)->toBe(['blog']);
+    expect($installer->configuredDatabaseNames)->toBe(['mysql:blog']);
   });
 });
