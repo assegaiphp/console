@@ -171,9 +171,9 @@ class WorkspaceQueueBridge
    */
   private function collectQueueDefinitions(): array
   {
-    $this->bootstrapFramework();
-    $drivers = config('queues.drivers', []);
-    $connections = config('queues.connections', []);
+    $queueConfig = $this->loadQueueConfiguration();
+    $drivers = $queueConfig['drivers'] ?? [];
+    $connections = $queueConfig['connections'] ?? [];
 
     if (!is_array($drivers) || !is_array($connections)) {
       return [];
@@ -213,6 +213,7 @@ class WorkspaceQueueBridge
 
   /**
    * @param array{path: string, driver: string, driverClass: string, name: string, config: array<string, mixed>} $definition
+   * @return QueueInterface<mixed>
    */
   private function instantiateQueue(array $definition): QueueInterface
   {
@@ -363,9 +364,9 @@ class WorkspaceQueueBridge
     $this->loadWorkspaceAutoload();
     $this->primeCliHttpState();
 
-    $injector = $this->callStaticCoreMethod('Assegai\\Core\\Injector', 'getInstance');
-    $moduleManager = $this->callStaticCoreMethod('Assegai\\Core\\ModuleManager', 'getInstance');
-    $rootModuleClass = $this->apiBridge->resolveRootModuleClass();
+    $injector = $this->requireCoreHelperObject('Assegai\Core\Injector', 'getInstance', ['add', 'resolve']);
+    $moduleManager = $this->requireCoreHelperObject('Assegai\Core\ModuleManager', 'getInstance');
+    $rootModuleClass = $this->requireClassString($this->apiBridge->resolveRootModuleClass(), 'root module');
 
     $dependencies = [
       'Assegai\\Core\\Config\\AppConfig' => $this->newCoreInstance('Assegai\\Core\\Config\\AppConfig'),
@@ -378,8 +379,11 @@ class WorkspaceQueueBridge
       'Psr\\Log\\LoggerInterface' => new NullLogger(),
     ];
 
+    /** @var callable(string, mixed): void $registerDependency */
+    $registerDependency = [$injector, 'add'];
+
     foreach ($dependencies as $entryId => $dependency) {
-      $injector->add($entryId, $dependency);
+      $registerDependency($entryId, $dependency);
     }
 
     if (
@@ -387,9 +391,9 @@ class WorkspaceQueueBridge
       method_exists($moduleManager, 'buildModuleTokensList') &&
       method_exists($moduleManager, 'buildProviderTokensList')
     ) {
-      $moduleManager->setRootModuleClass($rootModuleClass);
-      $moduleManager->buildModuleTokensList($rootModuleClass);
-      $moduleManager->buildProviderTokensList();
+      call_user_func([$moduleManager, 'setRootModuleClass'], $rootModuleClass);
+      call_user_func([$moduleManager, 'buildModuleTokensList'], $rootModuleClass);
+      call_user_func([$moduleManager, 'buildProviderTokensList']);
     }
 
     $this->frameworkBootstrapped = true;
@@ -407,9 +411,11 @@ class WorkspaceQueueBridge
     $moduleManager = $this->callStaticCoreMethod('Assegai\\Core\\ModuleManager', 'getInstance');
 
     if (method_exists($moduleManager, 'getProviderTokens')) {
-      $providerTokens = $moduleManager->getProviderTokens();
+      /** @var callable(): mixed $loadProviderTokens */
+      $loadProviderTokens = [$moduleManager, 'getProviderTokens'];
+      $providerTokens = $loadProviderTokens();
 
-      if (is_array($providerTokens)) {
+      if (is_array($providerTokens) && $providerTokens !== []) {
         return $this->providerClasses = array_values(array_filter(
           array_keys($providerTokens),
           static fn(mixed $providerClass): bool => is_string($providerClass) && $providerClass !== ''
@@ -418,7 +424,7 @@ class WorkspaceQueueBridge
     }
 
     return $this->providerClasses = $this->discoverProviderClassesFromModules(
-      $this->apiBridge->resolveRootModuleClass()
+      $this->requireClassString($this->apiBridge->resolveRootModuleClass(), 'root module')
     );
   }
 
@@ -474,6 +480,24 @@ class WorkspaceQueueBridge
     return array_values($providers);
   }
 
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function loadQueueConfiguration(): array
+  {
+    $this->loadWorkspaceAutoload();
+    $configFile = $this->workspace . '/config/queues.php';
+
+    if (!is_file($configFile)) {
+      return [];
+    }
+
+    $config = require $configFile;
+
+    return is_array($config) ? $config : [];
+  }
+
   private function primeCliHttpState(): void
   {
     $_SERVER['REQUEST_METHOD'] ??= 'GET';
@@ -515,6 +539,39 @@ class WorkspaceQueueBridge
 
     return new $class(...$arguments);
   }
+
+  /**
+   * @param list<string> $requiredMethods
+   */
+  private function requireCoreHelperObject(string $class, string $method, array $requiredMethods = []): object
+  {
+    $instance = $this->callStaticCoreMethod($class, $method);
+
+    if (!is_object($instance)) {
+      throw new RuntimeException("The project did not return a valid object from {$class}::{$method}.");
+    }
+
+    foreach ($requiredMethods as $requiredMethod) {
+      if (!method_exists($instance, $requiredMethod)) {
+        throw new RuntimeException("The project does not expose the required core helper method: {$class}::{$requiredMethod}.");
+      }
+    }
+
+    return $instance;
+  }
+
+  /**
+   * @return class-string
+   */
+  private function requireClassString(string $class, string $label = 'class'): string
+  {
+    if ($class === '' || !class_exists($class)) {
+      throw new RuntimeException("The project does not expose the required {$label}: {$class}.");
+    }
+
+    return $class;
+  }
+
 
   private function withWorkspaceContext(callable $callback): mixed
   {

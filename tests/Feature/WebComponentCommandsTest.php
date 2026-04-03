@@ -9,6 +9,10 @@ use Assegai\Console\WebComponents\HotReload\WebComponentHotReloadState;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
+/**
+ * @param array<string, mixed> $webComponentConfig
+ * @param array<string, string> $componentFiles
+ */
 function createWebComponentCommandWorkspace(array $webComponentConfig = [], array $componentFiles = []): string
 {
   $workspace = sys_get_temp_dir() . '/' . uniqid('web-component-command-', true);
@@ -200,6 +204,7 @@ describe('Web Component commands', function () {
 
     try {
       $command = new class extends DumpAutoload {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function runComposerDumpAutoload(): int
@@ -230,7 +235,7 @@ describe('Web Component commands', function () {
     }
   });
 
-  it('writes and removes the hot reload state file', function () {
+  it('writes and deactivates the hot reload state file', function () {
     $workspace = createWebComponentCommandWorkspace();
     $state = new WebComponentHotReloadState($workspace);
     $filename = $workspace . '/public/.assegai/wc-hot-reload.json';
@@ -261,8 +266,48 @@ describe('Web Component commands', function () {
       expect($updatedState['version'] ?? null)->not->toBe($initialVersion);
 
       $state->deactivate();
-      expect($filename)->not->toBeFile();
+      expect($filename)->toBeFile();
+
+      $inactiveState = json_decode(file_get_contents($filename) ?: '{}', true);
+
+      expect($inactiveState)
+        ->toBeArray()
+        ->toHaveKeys(['active', 'bundleUrl', 'interval', 'version', 'createdAt', 'updatedAt', 'expiresAt']);
+      expect($inactiveState['active'] ?? null)->toBeFalse();
+      expect($inactiveState['bundleUrl'] ?? null)->toBe('/js/assegai-components.min.js');
     } finally {
+      deleteWebComponentCommandWorkspace($workspace);
+    }
+  });
+
+
+  it('treats interrupted watch exits as a normal shutdown', function () {
+    $workspace = createWebComponentCommandWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if (false === $previousWorkingDirectory) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      $command = new class extends WatchWebComponents {
+        protected function watchComponents(WebComponentBuilder $builder, string $workspace, bool $hotReload): int
+        {
+          return 130;
+        }
+      };
+
+      $commandTester = new CommandTester($command);
+      $status = $commandTester->execute([
+        '--directory' => $workspace,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($commandTester->getDisplay())->not->toContain('Failed to watch Web Components');
+    } finally {
+      chdir($previousWorkingDirectory);
       deleteWebComponentCommandWorkspace($workspace);
     }
   });
@@ -279,6 +324,7 @@ describe('Web Component commands', function () {
 
     try {
       $command = new class extends WatchWebComponents {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function watchComponents(WebComponentBuilder $builder, string $workspace, bool $hotReload): int
@@ -303,6 +349,7 @@ describe('Web Component commands', function () {
       expect($commandTester->getDisplay())->toContain('Watching Web Components with hot reload');
 
       $withoutHotReload = new class extends WatchWebComponents {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function watchComponents(WebComponentBuilder $builder, string $workspace, bool $hotReload): int

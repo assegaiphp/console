@@ -8,6 +8,7 @@ use FilesystemIterator;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -42,7 +43,7 @@ class ApiCommandsTest extends TestCase
 
     self::assertSame(Command::SUCCESS, $status);
     self::assertIsArray($contents);
-    self::assertSame('Demo API Collection', $contents['info']['name']);
+    self::assertSame('Demo API API Collection', $contents['info']['name']);
     self::assertSame('Create Post', $contents['item'][0]['name']);
   }
 
@@ -80,9 +81,54 @@ class ApiCommandsTest extends TestCase
     self::assertFalse(str_starts_with(trim($contents), '"'));
   }
 
-  private static function createApiWorkspace(): string
+  public function testItExportsFromANestedWorkspaceUsingCreateFromProjectBootstrap(): void
   {
-    $workspace = sys_get_temp_dir() . '/' . uniqid('api-workspace-', true);
+    $nested = self::createNestedApiWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir(sys_get_temp_dir());
+
+    try {
+      $command = new ApiExport();
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        'format' => 'openapi',
+        '--directory' => $nested['workspace'],
+        '--output' => $nested['workspace'] . '/generated/nested-openapi.json',
+      ]);
+
+      $outputFile = $nested['workspace'] . '/generated/nested-openapi.json';
+      $contents = json_decode(file_get_contents($outputFile) ?: '', true);
+
+      self::assertSame(Command::SUCCESS, $status);
+      self::assertIsArray($contents);
+      self::assertSame('Nested Demo API API', $contents['info']['title']);
+      self::assertSame('1.2.3', $contents['info']['version']);
+    } finally {
+      chdir($previousWorkingDirectory);
+      self::deleteApiWorkspace($nested['root']);
+    }
+  }
+
+  /**
+   * @param array<string, mixed> $options
+   */
+  private static function createApiWorkspace(array $options = []): string
+  {
+    $workspace = $options['workspace'] ?? (sys_get_temp_dir() . '/' . uniqid('api-workspace-', true));
+    $projectName = $options['projectName'] ?? 'Demo API';
+    $composerName = $options['composerName'] ?? 'demo/api';
+    $composerVersion = $options['composerVersion'] ?? '0.1.0';
+    $moduleNamespace = $options['moduleNamespace'] ?? 'Demo';
+    $moduleClass = $options['moduleClass'] ?? 'AppModule';
+    $bootstrapFactoryMethod = $options['bootstrapFactoryMethod'] ?? 'create';
+    $bootstrapFactoryArguments = $bootstrapFactoryMethod === 'createFromProject'
+      ? sprintf('%s::class, __DIR__', $moduleClass)
+      : sprintf('%s::class', $moduleClass);
 
     if (!mkdir($workspace . '/src', 0755, true) && !is_dir($workspace . '/src')) {
       throw new \RuntimeException("Failed to create workspace: $workspace");
@@ -91,175 +137,243 @@ class ApiCommandsTest extends TestCase
     mkdir($workspace . '/vendor', 0755, true);
 
     file_put_contents($workspace . '/assegai.json', json_encode([
-      'name' => 'Demo API',
-      'projectType' => 'project',
+        'name' => $projectName,
+        'projectType' => 'project',
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     file_put_contents($workspace . '/composer.json', json_encode([
-      'name' => 'demo/api',
+      'name' => $composerName,
       'autoload' => [
         'psr-4' => [
-          'Demo\\' => 'src/',
+          $moduleNamespace . '\\' => 'src/',
         ],
       ],
       'require' => [
         'php' => '>=8.3',
         'assegaiphp/core' => '^0.7.0',
       ],
+      'version' => $composerVersion,
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-    file_put_contents($workspace . '/bootstrap.php', <<<'PHP'
+    file_put_contents($workspace . '/bootstrap.php', sprintf(<<<'PHP'
 <?php
 
 use Assegai\Core\AssegaiFactory;
-use Demo\AppModule;
+use %s\%s;
 
-$app = AssegaiFactory::create(AppModule::class);
-PHP);
-    file_put_contents($workspace . '/src/AppModule.php', <<<'PHP'
+$app = AssegaiFactory::%s(%s);
+PHP, $moduleNamespace, $moduleClass, $bootstrapFactoryMethod, $bootstrapFactoryArguments));
+    file_put_contents($workspace . '/src/' . $moduleClass . '.php', sprintf(<<<'PHP'
 <?php
 
-namespace Demo;
+namespace %s;
 
-class AppModule
+class %s
 {
 }
-PHP);
+PHP, $moduleNamespace, $moduleClass));
     file_put_contents($workspace . '/vendor/autoload.php', <<<'PHP'
 <?php
 
 require_once __DIR__ . '/stubs.php';
 PHP);
-    file_put_contents($workspace . '/vendor/stubs.php', <<<'PHP'
+    file_put_contents($workspace . '/vendor/stubs.php', sprintf(<<<'PHP'
 <?php
 
-namespace Demo {
-  class AppModule {}
+namespace %s {
+  if (!class_exists(%s)) {
+    class %s {}
+  }
 }
 
 namespace Assegai\Core {
-  class ControllerManager
-  {
-    public static function getInstance(): self
+  if (!class_exists(ControllerManager::class)) {
+    class ControllerManager
     {
-      return new self();
+      public static function getInstance(): self
+      {
+        return new self();
+      }
     }
   }
 
-  class ModuleManager
-  {
-    public static function getInstance(): self
+  if (!class_exists(ModuleManager::class)) {
+    class ModuleManager
     {
-      return new self();
+      public static function getInstance(): self
+      {
+        return new self();
+      }
     }
   }
 }
 
 namespace Assegai\Core\Http\Requests {
-  class Request
-  {
-    public static function getInstance(): self
+  if (!class_exists(Request::class)) {
+    class Request
     {
-      return new self();
+      public static function getInstance(): self
+      {
+        return new self();
+      }
     }
   }
 }
 
 namespace Assegai\Core\Config {
-  class ComposerConfig {}
-  class ProjectConfig {}
+  if (!class_exists(ComposerConfig::class)) {
+    class ComposerConfig
+    {
+      public function get(string $path): mixed
+      {
+        $filename = (getenv('ASSEGAI_WORKING_DIR') ?: getcwd()) . '/composer.json';
+        $config = json_decode(file_get_contents($filename) ?: '', true);
+        return $config[$path] ?? null;
+      }
+    }
+  }
+
+  if (!class_exists(ProjectConfig::class)) {
+    class ProjectConfig
+    {
+      public function get(string $path): mixed
+      {
+        $filename = (getenv('ASSEGAI_WORKING_DIR') ?: getcwd()) . '/assegai.json';
+        $config = json_decode(file_get_contents($filename) ?: '', true);
+        return $config[$path] ?? null;
+      }
+    }
+  }
 }
 
 namespace Assegai\Core\ApiDocs {
-  class OpenApiGenerator
-  {
-    public function __construct(...$args)
+  if (!class_exists(OpenApiGenerator::class)) {
+    class OpenApiGenerator
     {
-    }
+      private object $composerConfig;
+      private object $projectConfig;
 
-    public function generate(string $rootModuleClass): array
-    {
-      return [
-        'openapi' => '3.1.0',
-        'info' => [
-          'title' => 'Demo API',
-          'version' => '0.1.0',
-        ],
-        'servers' => [
-          ['url' => 'http://localhost:5050'],
-        ],
-        'paths' => [
-          '/posts' => [
-            'post' => [
-              'operationId' => 'postsCreate',
-              'summary' => 'Create Post',
-              'tags' => ['Posts'],
-              'requestBody' => [
-                'content' => [
-                  'application/json' => [
-                    'schema' => ['$ref' => '#/components/schemas/CreatePostDTO'],
-                    'example' => ['title' => 'Hello', 'body' => 'World'],
-                  ],
-                ],
-              ],
-              'responses' => [
-                '201' => [
-                  'description' => 'Created',
+      public function __construct(...$args)
+      {
+        $this->composerConfig = $args[3];
+        $this->projectConfig = $args[4];
+      }
+
+      public function generate(string $rootModuleClass): array
+      {
+        $title = (($this->projectConfig->get('name') ?? 'Demo API') ?: 'Demo API') . ' API';
+        $version = ($this->composerConfig->get('version') ?? '0.1.0') ?: '0.1.0';
+
+        return [
+          'openapi' => '3.1.0',
+          'info' => [
+            'title' => $title,
+            'version' => $version,
+          ],
+          'servers' => [
+            ['url' => 'http://localhost:5050'],
+          ],
+          'paths' => [
+            '/posts' => [
+              'post' => [
+                'operationId' => 'postsCreate',
+                'summary' => 'Create Post',
+                'tags' => ['Posts'],
+                'requestBody' => [
                   'content' => [
                     'application/json' => [
-                      'schema' => ['$ref' => '#/components/schemas/PostDTO'],
+                      'schema' => ['$ref' => '#/components/schemas/CreatePostDTO'],
+                      'example' => ['title' => 'Hello', 'body' => 'World'],
+                    ],
+                  ],
+                ],
+                'responses' => [
+                  '201' => [
+                    'description' => 'Created',
+                    'content' => [
+                      'application/json' => [
+                        'schema' => ['$ref' => '#/components/schemas/PostDTO'],
+                      ],
                     ],
                   ],
                 ],
               ],
             ],
           ],
-        ],
-        'components' => [
-          'schemas' => [
-            'CreatePostDTO' => [
-              'type' => 'object',
-              'required' => ['title', 'body'],
-              'properties' => [
-                'title' => ['type' => 'string'],
-                'body' => ['type' => 'string'],
+          'components' => [
+            'schemas' => [
+              'CreatePostDTO' => [
+                'type' => 'object',
+                'required' => ['title', 'body'],
+                'properties' => [
+                  'title' => ['type' => 'string'],
+                  'body' => ['type' => 'string'],
+                ],
               ],
-            ],
-            'PostDTO' => [
-              'type' => 'object',
-              'required' => ['id', 'title', 'body'],
-              'properties' => [
-                'id' => ['type' => 'integer'],
-                'title' => ['type' => 'string'],
-                'body' => ['type' => 'string'],
+              'PostDTO' => [
+                'type' => 'object',
+                'required' => ['id', 'title', 'body'],
+                'properties' => [
+                  'id' => ['type' => 'integer'],
+                  'title' => ['type' => 'string'],
+                  'body' => ['type' => 'string'],
+                ],
               ],
             ],
           ],
-        ],
-      ];
+        ];
+      }
     }
   }
 
-  class PostmanCollectionGenerator
-  {
-    public function generate(array $document): array
+  if (!class_exists(PostmanCollectionGenerator::class)) {
+    class PostmanCollectionGenerator
     {
-      return [
-        'info' => ['name' => 'Demo API Collection'],
-        'item' => [['name' => 'Create Post']],
-      ];
+      public function generate(array $document): array
+      {
+        return [
+          'info' => ['name' => ($document['info']['title'] ?? 'Demo API') . ' Collection'],
+          'item' => [['name' => 'Create Post']],
+        ];
+      }
     }
   }
 
-  class TypeScriptClientGenerator
-  {
-    public function generate(array $document): string
+  if (!class_exists(TypeScriptClientGenerator::class)) {
+    class TypeScriptClientGenerator
     {
-      return "export function createAssegaiClient() { return { postsCreate() {} }; }\n";
+      public function generate(array $document): string
+      {
+        return "export function createAssegaiClient() { return { postsCreate() {} }; }\n";
+      }
     }
   }
 }
-PHP);
+PHP, $moduleNamespace, var_export($moduleNamespace . '\\' . $moduleClass, true), $moduleClass));
 
     return $workspace;
+  }
+
+  /**
+   * @return array{root: string, workspace: string}
+   */
+  private static function createNestedApiWorkspace(): array
+  {
+    $root = sys_get_temp_dir() . '/' . uniqid('api-workspace-root-', true);
+    $workspace = $root . '/one/two/three/four/five/apilife-srv';
+
+    self::createApiWorkspace([
+      'workspace' => $workspace,
+      'projectName' => 'Nested Demo API',
+      'composerName' => 'nested/demo-api',
+      'composerVersion' => '1.2.3',
+      'moduleNamespace' => 'NestedDemo',
+      'moduleClass' => 'RootApiModule',
+      'bootstrapFactoryMethod' => 'createFromProject',
+    ]);
+
+    return [
+      'root' => $root,
+      'workspace' => $workspace,
+    ];
   }
 
   private static function deleteApiWorkspace(string $directory): void

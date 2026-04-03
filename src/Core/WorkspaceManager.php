@@ -198,7 +198,7 @@ class WorkspaceManager
       $gitInitCommand = "cd " . escapeshellarg($projectDirectory) . " && git init";
       $gitInit = shell_exec($gitInitCommand);
 
-      if (! str_contains($gitInit, 'Initialized empty Git repository') ) {
+      if (! is_string($gitInit) || ! str_contains($gitInit, 'Initialized empty Git repository') ) {
         $this->output->writeln("<error>\nFailed to initialize git repository</error>");
         return Command::FAILURE;
       }
@@ -248,23 +248,6 @@ class WorkspaceManager
     return Command::SUCCESS;
   }
 
-  /**
-   * Filter the version string
-   *
-   * @param string $version The version string
-   * @return string The filtered version string
-   */
-  private function filterVersion(string $version): string
-  {
-    $version = preg_replace('/[^0-9.]/', '', $version);
-
-    return match (true) {
-      empty($version),
-      ! preg_match('/^[0-9]+\.[0-9]+\.[0-9]+$/', $version) => '0.0.1',
-      substr_count($version, '.') < 2 => $version . '.0',
-      default => $version
-    };
-  }
 
   protected function buildDefaultPackageName(Text $projectName): string
   {

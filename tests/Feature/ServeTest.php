@@ -77,16 +77,22 @@ describe('Serve', function () {
 
     try {
       $command = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function startWebComponentWatchProcess(string $root, \Symfony\Component\Console\Output\OutputInterface $output): mixed
         {
           $this->calls[] = ['type' => 'watch', 'root' => $root];
-          return (object)['watching' => true];
+
+          return fopen('php://temp', 'r+');
         }
 
         protected function stopWebComponentWatchProcess(mixed $process, string $root): void
         {
+          if (is_resource($process)) {
+            fclose($process);
+          }
+
           $this->calls[] = ['type' => 'stop-watch', 'root' => $root];
         }
 
@@ -120,6 +126,7 @@ describe('Serve', function () {
       expect($commandTester->getDisplay())->toContain('Assegai dev server listening on http://127.0.0.1:5050 using the php runtime');
 
       $regularServe = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function startWebComponentWatchProcess(string $root, \Symfony\Component\Console\Output\OutputInterface $output): mixed
@@ -149,6 +156,64 @@ describe('Serve', function () {
     }
   });
 
+
+  it('treats interrupted serve exits as a normal shutdown in dev mode', function () {
+    $workspace = createServeWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      $command = new class extends Serve {
+        /** @var array<int, mixed> */
+        public array $calls = [];
+
+        protected function startWebComponentWatchProcess(string $root, \Symfony\Component\Console\Output\OutputInterface $output): mixed
+        {
+          $this->calls[] = ['type' => 'watch', 'root' => $root];
+
+          return fopen('php://temp', 'r+');
+        }
+
+        protected function stopWebComponentWatchProcess(mixed $process, string $root): void
+        {
+          if (is_resource($process)) {
+            fclose($process);
+          }
+
+          $this->calls[] = ['type' => 'stop-watch', 'root' => $root];
+        }
+
+        protected function runServeCommand(string $command): int
+        {
+          $this->calls[] = ['type' => 'serve', 'command' => $command];
+          return 130;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+        '--dev' => true,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($command->calls)->toHaveCount(3);
+      expect($command->calls[2])->toMatchArray([
+        'type' => 'stop-watch',
+        'root' => $workspace,
+      ]);
+      expect($tester->getDisplay())->not->toContain('Failed to serve the project');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
   it('can export OpenAPI on serve when configured', function () {
     $workspace = createServeWorkspace();
     $previousWorkingDirectory = getcwd();
@@ -164,6 +229,7 @@ describe('Serve', function () {
 
     try {
       $command = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function writeOpenApiExport(string $root, string $outputFile, \Symfony\Component\Console\Output\OutputInterface $output): int
@@ -215,6 +281,7 @@ describe('Serve', function () {
 
     try {
       $command = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function validateRuntimeAvailability(string $runtime): ?string
@@ -284,11 +351,74 @@ describe('Serve', function () {
     }
   });
 
+  it('fails early when the configured OpenSwoole settings are invalid', function () {
+    $workspace = createServeWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    $config = json_decode(file_get_contents($workspace . '/assegai.json') ?: '', true);
+    $config['development']['server']['runtime'] = 'openswoole';
+    $config['development']['server']['openswoole'] = [
+      'workerNum' => 0,
+    ];
+    file_put_contents($workspace . '/assegai.json', json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    chdir($workspace);
+
+    try {
+      $command = new class extends Serve {
+        protected function validateRuntimeAvailability(string $runtime): ?string
+        {
+          return null;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+      ]);
+
+      expect($status)->toBe(Command::FAILURE);
+      expect($tester->getDisplay())->toContain('workerNum');
+      expect($tester->getDisplay())->toContain('greater than or equal to 1');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
+  it('fails early when the serve binding is invalid', function () {
+    $workspace = createServeWorkspace();
+
+    try {
+      $command = new class extends Serve {
+        protected function validateRuntimeAvailability(string $runtime): ?string
+        {
+          return null;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+        '--host' => '',
+      ]);
+
+      expect($status)->toBe(Command::FAILURE);
+      expect($tester->getDisplay())->toContain('host must be a non-empty string');
+    } finally {
+      deleteServeWorkspace($workspace);
+    }
+  });
+
   it('passes the configured project root into the runtime environment prefix', function () {
     $workspace = createServeWorkspace();
 
     try {
       $command = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function validateRuntimeAvailability(string $runtime): ?string

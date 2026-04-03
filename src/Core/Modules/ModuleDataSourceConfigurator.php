@@ -148,6 +148,7 @@ class ModuleDataSourceConfigurator
 
   /**
    * @param array<int, array{relativePath: string, displayPath: string, label: string}> $modules
+   * @return string[]
    */
   protected function askSpecificModules(array $modules, string $dataSourceName): array
   {
@@ -426,30 +427,24 @@ class ModuleDataSourceConfigurator
   {
     $moduleMatches = [];
 
-    if (
-      false === preg_match(
-        '/#\[Module\((?<body>[\s\S]*?)\)\]/',
-        $contents,
-        $moduleMatches,
-        PREG_OFFSET_CAPTURE
-      )
-      || ! isset($moduleMatches['body'][0], $moduleMatches['body'][1])
-    ) {
+    if (preg_match(
+      '/#\[Module\((?<body>[\s\S]*?)\)\]/',
+      $contents,
+      $moduleMatches,
+      PREG_OFFSET_CAPTURE
+    ) !== 1) {
       return null;
     }
 
     $moduleBody = $moduleMatches['body'][0];
     $configMatches = [];
 
-    if (
-      false === preg_match(
-        '/(?P<indent>^[ \t]*)config(?P<afterName>\s*:\s*)\[(?P<body>.*?)\](?P<comma>,?)/ms',
-        $moduleBody,
-        $configMatches,
-        PREG_OFFSET_CAPTURE
-      )
-      || ! isset($configMatches['body'][0], $configMatches['body'][1])
-    ) {
+    if (preg_match(
+      '/(?P<indent>^[ \t]*)config(?P<afterName>\s*:\s*)\[(?P<body>.*?)\](?P<comma>,?)/ms',
+      $moduleBody,
+      $configMatches,
+      PREG_OFFSET_CAPTURE
+    ) !== 1) {
       return null;
     }
 

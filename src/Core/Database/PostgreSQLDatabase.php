@@ -145,7 +145,7 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
         return false;
       }
 
-      $database = preg_grep("/$name/", explode("\n", $result));
+      $database = preg_grep("/$name/", explode("\n", (string) ($result ?? '')));
       return ! empty($database);
     }
     catch (Exception)

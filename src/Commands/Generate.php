@@ -70,13 +70,14 @@ class Generate extends Command
     $requestedSchematic = $this->resolveRequestedSchematic($input);
 
     if ($requestedSchematic !== null && $this->registry !== null) {
-      $this->selectedDefinition = $this->registry->get($requestedSchematic);
+      $selectedDefinition = $this->registry->get($requestedSchematic);
+      $this->selectedDefinition = $selectedDefinition;
 
-      if ($this->selectedDefinition !== null) {
-        $this->setDefinition($this->buildDefinitionFor($this->selectedDefinition));
+      if ($selectedDefinition !== null) {
+        $this->setDefinition($this->buildDefinitionFor($selectedDefinition));
         $this->mergeApplicationDefinition();
         $input->bind($this->getDefinition());
-        $this->setHelp($this->buildSchematicHelp($this->selectedDefinition));
+        $this->setHelp($this->buildSchematicHelp($selectedDefinition));
       }
     }
 
@@ -163,9 +164,11 @@ class Generate extends Command
   public function getHelp(): string
   {
     if ($this->registry !== null) {
-      return $this->selectedDefinition !== null
-        ? $this->buildSchematicHelp($this->selectedDefinition)
-        : $this->buildGenericHelp();
+      if ($this->selectedDefinition !== null) {
+        return $this->buildSchematicHelp($this->selectedDefinition);
+      }
+
+      return $this->buildGenericHelp();
     }
 
     try {

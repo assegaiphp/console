@@ -5,14 +5,16 @@ use Assegai\Console\Commands\Queue\QueueWork;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
+/**
+ * @return array{workspace: string, processedLog: string, processorClass: string}
+ */
 function createQueueWorkspace(): array
 {
   $workspace = sys_get_temp_dir() . '/' . uniqid('queue-command-', true);
   $suffix = preg_replace('/[^A-Za-z0-9]/', '', uniqid('', true));
   $namespace = "Assegaiphp\\QueueTest{$suffix}";
-  $repoRoot = resolveAssegaiRepoRoot();
-  $vendorAutoload = $repoRoot . '/blog-api/vendor/autoload.php';
-  $coreFunctions = $repoRoot . '/core/src/Util/Functions.php';
+  $vendorAutoload = resolveConsoleVendorAutoload();
+  $stubsFile = $workspace . '/vendor/stubs.php';
 
   foreach ([
     $workspace . '/vendor',
@@ -27,25 +29,22 @@ function createQueueWorkspace(): array
     }
   }
 
-  $autoload = <<<'PHP'
+  $autoload = <<<'AUTOLOAD'
 <?php
 
-$prefixes = %s;
+$prefix = %s;
+$baseDir = %s;
 
-spl_autoload_register(static function (string $class) use ($prefixes): void {
-  foreach ($prefixes as $prefix => $baseDir) {
-    if (!str_starts_with($class, $prefix)) {
-      continue;
-    }
-
-    $relative = substr($class, strlen($prefix));
-    $file = rtrim($baseDir, '/\\') . '/' . str_replace('\\', '/', $relative) . '.php';
-
-    if (is_file($file)) {
-      require_once $file;
-    }
-
+spl_autoload_register(static function (string $class) use ($prefix, $baseDir): void {
+  if (!str_starts_with($class, $prefix)) {
     return;
+  }
+
+  $relative = substr($class, strlen($prefix));
+  $file = rtrim($baseDir, '/\\') . '/' . str_replace('\\', '/', $relative) . '.php';
+
+  if (is_file($file)) {
+    require_once $file;
   }
 }, prepend: true);
 
@@ -53,26 +52,142 @@ require %s;
 require_once %s;
 
 return true;
-PHP;
+AUTOLOAD;
 
-  $prefixes = [
-    $namespace . '\\' => $workspace . '/src/',
-    'Assegai\\Core\\' => $repoRoot . '/core/src/',
-    'Assegai\\Forms\\' => $repoRoot . '/forms/src/',
-    'Assegai\\Util\\' => $repoRoot . '/util/src/',
-    'Assegai\\Validation\\' => $repoRoot . '/validation/src/',
-    'Assegai\\Collections\\' => $repoRoot . '/collections/src/',
-    'Assegai\\Orm\\' => $repoRoot . '/orm/src/',
-    'Assegai\\Auth\\' => $repoRoot . '/auth/src/',
-  ];
+  file_put_contents($stubsFile, <<<'STUBS'
+<?php
+
+namespace Assegai\Core\Attributes {
+  if (!class_exists(Injectable::class)) {
+    #[\Attribute(\Attribute::TARGET_CLASS)]
+    final class Injectable
+    {
+    }
+  }
+}
+
+namespace Assegai\Core\Attributes\Modules {
+  if (!class_exists(Module::class)) {
+    #[\Attribute(\Attribute::TARGET_CLASS)]
+    final class Module
+    {
+      public function __construct(
+        public array $providers = [],
+        public array $controllers = [],
+        public array $imports = [],
+        public array $exports = [],
+        public array $config = [],
+        public array $declarations = [],
+      ) {
+      }
+    }
+  }
+}
+
+namespace Assegai\Core\Queues\Attributes {
+  if (!class_exists(QueueProcessor::class)) {
+    #[\Attribute(\Attribute::TARGET_CLASS)]
+    final class QueueProcessor
+    {
+      public function __construct(
+        public string $path,
+        public string $method = 'process',
+      ) {
+      }
+    }
+  }
+}
+
+namespace Assegai\Core\Config {
+  if (!class_exists(AppConfig::class)) {
+    final class AppConfig {}
+  }
+
+  if (!class_exists(ComposerConfig::class)) {
+    final class ComposerConfig {}
+  }
+
+  if (!class_exists(ProjectConfig::class)) {
+    final class ProjectConfig {}
+  }
+}
+
+namespace Assegai\Core\Http\Requests {
+  if (!class_exists(Request::class)) {
+    final class Request
+    {
+      private static ?self $instance = null;
+
+      public static function getInstance(): self
+      {
+        return self::$instance ??= new self();
+      }
+    }
+  }
+}
+
+namespace Assegai\Core\Http\Responses {
+  if (!class_exists(Response::class)) {
+    final class Response
+    {
+      private static ?self $instance = null;
+
+      public static function getInstance(): self
+      {
+        return self::$instance ??= new self();
+      }
+    }
+  }
+}
+
+namespace Assegai\Core {
+  if (!class_exists(Injector::class)) {
+    final class Injector
+    {
+      private static ?self $instance = null;
+
+      /** @var array<string, mixed> */
+      private array $entries = [];
+
+      public static function getInstance(): self
+      {
+        return self::$instance ??= new self();
+      }
+
+      public function add(string $id, mixed $dependency): void
+      {
+        $this->entries[$id] = $dependency;
+      }
+
+      public function resolve(string $class): mixed
+      {
+        return new $class();
+      }
+    }
+  }
+
+  if (!class_exists(ModuleManager::class)) {
+    final class ModuleManager
+    {
+      private static ?self $instance = null;
+
+      public static function getInstance(): self
+      {
+        return self::$instance ??= new self();
+      }
+    }
+  }
+}
+STUBS);
 
   file_put_contents(
     $workspace . '/vendor/autoload.php',
     sprintf(
       $autoload,
-      var_export($prefixes, true),
+      var_export($namespace . '\\', true),
+      var_export($workspace . '/src/', true),
       var_export($vendorAutoload, true),
-      var_export($coreFunctions, true),
+      var_export($stubsFile, true),
     )
   );
 
@@ -104,7 +219,7 @@ use {$namespace}\AppModule;
 
 require __DIR__ . '/vendor/autoload.php';
 
-\$app = AssegaiFactory::create(AppModule::class);
+AssegaiFactory::createFromProject(AppModule::class, __DIR__);
 PHP);
 
   file_put_contents($workspace . '/config/default.php', "<?php\n\nreturn [];\n");
@@ -303,26 +418,21 @@ PHP);
   ];
 }
 
-function resolveAssegaiRepoRoot(): string
+function resolveConsoleVendorAutoload(): string
 {
-  $candidates = array_filter(array_unique([
-    '/home/amasiye/development/atatusoft/projects/external/assegaiphp',
-    '/home/amasiye/development/atatusoft/projects/internal/assegaiphp',
-    realpath(dirname(__DIR__, 3)) ?: null,
-    realpath(dirname(getcwd() ?: __DIR__)) ?: null,
-  ]));
+  $repoRoot = realpath(__DIR__ . '/../../');
 
-  foreach ($candidates as $candidate) {
-    if (
-      is_string($candidate) &&
-      is_file($candidate . '/blog-api/vendor/autoload.php') &&
-      is_file($candidate . '/core/src/Util/Functions.php')
-    ) {
-      return $candidate;
-    }
+  if (!is_string($repoRoot)) {
+    throw new RuntimeException('Failed to resolve the console repository root for queue command tests.');
   }
 
-  throw new RuntimeException('Failed to locate the Assegai monorepo root for queue command tests.');
+  $autoloadFile = $repoRoot . '/vendor/autoload.php';
+
+  if (!is_file($autoloadFile)) {
+    throw new RuntimeException('Failed to locate the console Composer autoloader for queue command tests.');
+  }
+
+  return $autoloadFile;
 }
 
 function deleteQueueWorkspace(string $directory): void

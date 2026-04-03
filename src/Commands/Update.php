@@ -2,6 +2,8 @@
 
 namespace Assegai\Console\Commands;
 
+use Assegai\Console\Core\Packages\InstalledPackageExtensionLoader;
+use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\ProjectTemplateDefaults;
 use Assegai\Console\Util\ComposerManifest;
 use Assegai\Console\Util\Enumerations\Color;
@@ -58,6 +60,10 @@ class Update extends Command
     }
 
     if (Command::SUCCESS !== $this->runComposerUpgrade($workspace, $packages, $output)) {
+      return Command::FAILURE;
+    }
+
+    if (Command::SUCCESS !== $this->applyInstalledPackageIntegrations($workspace, $input, $output)) {
       return Command::FAILURE;
     }
 
@@ -166,6 +172,49 @@ class Update extends Command
     $output->writeln('<error>Composer update failed.</error>');
 
     return Command::FAILURE;
+  }
+
+  protected function applyInstalledPackageIntegrations(string $workspace, InputInterface $input, OutputInterface $output): int
+  {
+    try {
+      $composerConfig = ComposerManifest::load($workspace);
+      $directPackageNames = array_keys(array_merge(
+        (array) ($composerConfig['require'] ?? []),
+        (array) ($composerConfig['require-dev'] ?? []),
+      ));
+
+      foreach (InstalledPackageExtensionLoader::load($workspace) as $packageExtension) {
+        if (! in_array($packageExtension->packageName, $directPackageNames, true)) {
+          continue;
+        }
+
+        $installer = $packageExtension->createInstaller();
+
+        if ($installer === null) {
+          continue;
+        }
+
+        $status = $installer->install(new PackageInstallContext(
+          input: $input,
+          output: $output,
+          workspace: $workspace,
+          packageName: $packageExtension->packageName,
+        ));
+
+        if ($status !== Command::SUCCESS) {
+          $output->writeln(sprintf(
+            '<error>Failed to apply package integration for %s.</error>',
+            $packageExtension->packageName,
+          ));
+          return Command::FAILURE;
+        }
+      }
+    } catch (RuntimeException $exception) {
+      $output->writeln(sprintf('<error>%s</error>', $exception->getMessage()));
+      return Command::FAILURE;
+    }
+
+    return Command::SUCCESS;
   }
 
   protected function detectFrontendPackageManager(string $workspace): ?string

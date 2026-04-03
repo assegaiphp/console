@@ -2,9 +2,9 @@ name: PHP Composer
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: [ "main", "develop" ]
   pull_request:
-    branches: [ "develop" ]
+    branches: [ "main", "develop" ]
 
 permissions:
   contents: read
@@ -22,6 +22,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+          tools: composer:v2
 
       - name: Validate composer.json and composer.lock
         run: composer validate --strict

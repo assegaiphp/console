@@ -59,7 +59,12 @@ class QueueProcessorSchematic extends AbstractClassSchematic
   {
     return [
       'use' => [$this->namespace . '\\' . $this->getClassName()],
+      'declarations' => null,
+      'imports' => null,
       'providers' => [$this->getClassName() . '::class'],
+      'controllers' => null,
+      'exports' => null,
+      'config' => null,
     ];
   }
 

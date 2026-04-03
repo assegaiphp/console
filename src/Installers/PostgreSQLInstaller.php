@@ -33,10 +33,10 @@ class PostgreSQLInstaller extends AbstractInstaller
       'databases' => [
         'postgresql' => [
           $dbName => [
-            'host' => $dbHost ?? DEFAULT_POSTGRES_HOST,
-            'user' => $dbUser ?? DEFAULT_POSTGRES_USER,
-            'password' => $dbPassword ?? '',
-            'port' => $dbPort ?? DEFAULT_POSTGRES_PORT,
+            'host' => $dbHost,
+            'user' => $dbUser,
+            'password' => $dbPassword,
+            'port' => $dbPort,
           ]
         ]
       ]

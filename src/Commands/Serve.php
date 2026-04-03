@@ -6,7 +6,6 @@ use Assegai\Console\Api\WorkspaceApiBridge;
 use Assegai\Console\Util\Config\ProjectConfig;
 use Assegai\Console\Util\Path;
 use Assegai\Console\WebComponents\HotReload\WebComponentHotReloadState;
-use Assegai\Core\Runtimes\OpenSwoole\OpenSwooleRuntimeInspector;
 use LogicException;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -25,6 +24,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class Serve extends Command
 {
   private const array SUPPORTED_RUNTIMES = ['php', 'openswoole', 'swoole'];
+  private const array EXPECTED_SHUTDOWN_EXIT_CODES = [Command::SUCCESS, 130, 143];
 
   protected ?ProjectConfig $projectConfig = null;
   protected ?bool $open = null;
@@ -79,6 +79,13 @@ class Serve extends Command
 
     if ($runtimeValidationError !== null) {
       $output->writeln('<error>' . $runtimeValidationError . '</error>');
+      return Command::FAILURE;
+    }
+
+    $runtimeConfigurationError = $this->validateRuntimeConfiguration($runtime, (string) $host, (int) $port);
+
+    if ($runtimeConfigurationError !== null) {
+      $output->writeln('<error>' . $runtimeConfigurationError . '</error>');
       return Command::FAILURE;
     }
 
@@ -142,7 +149,7 @@ class Serve extends Command
       }
     }
 
-    if ($resultCode !== 0) {
+    if (!in_array($resultCode, self::EXPECTED_SHUTDOWN_EXIT_CODES, true)) {
       $output->writeln('');
       $output->writeln("<error>Failed to serve the project on $uri</error>");
       return Command::FAILURE;
@@ -211,7 +218,7 @@ class Serve extends Command
     $status = proc_get_status($process);
 
     if (!$status['running']) {
-      $exitCode = is_int($status['exitcode']) ? $status['exitcode'] : Command::FAILURE;
+      $exitCode = (int) $status['exitcode'];
       proc_close($process);
 
       return $exitCode === 0 ? null : false;
@@ -266,7 +273,148 @@ class Serve extends Command
       return null;
     }
 
-    return (new OpenSwooleRuntimeInspector())->getAvailabilityError();
+    $inspectorClass = 'Assegai\Core\Runtimes\OpenSwoole\OpenSwooleRuntimeInspector';
+
+    if (!class_exists($inspectorClass)) {
+      return 'The installed framework does not expose OpenSwoole runtime inspection.';
+    }
+
+    $inspector = new $inspectorClass();
+
+    if (!is_object($inspector) || !method_exists($inspector, 'getAvailabilityError')) {
+      return 'The installed framework does not expose OpenSwoole runtime inspection.';
+    }
+
+    $availabilityError = $inspector->getAvailabilityError();
+
+    return is_string($availabilityError) || $availabilityError === null
+      ? $availabilityError
+      : 'Failed to determine OpenSwoole runtime availability.';
+  }
+
+  protected function validateRuntimeConfiguration(string $runtime, string $host, int $port): ?string
+  {
+    if (trim($host) === '') {
+      return 'The serve host must be a non-empty string.';
+    }
+
+    if ($port < 1 || $port > 65535) {
+      return 'The serve port must be between 1 and 65535.';
+    }
+
+    if ($runtime !== 'openswoole') {
+      return null;
+    }
+
+    $settings = $this->projectConfig?->get('development.server.openswoole');
+
+    if (!is_array($settings)) {
+      return null;
+    }
+
+    return $this->validateOpenSwooleSettings($settings);
+  }
+
+  /**
+   * @param array<string, mixed> $settings
+   */
+  protected function validateOpenSwooleSettings(array $settings): ?string
+  {
+    $supportedSettings = [
+      'workerNum',
+      'taskWorkerNum',
+      'maxRequest',
+      'enableCoroutine',
+      'hookFlags',
+      'daemonize',
+      'logFile',
+      'pidFile',
+    ];
+
+    foreach (array_keys($settings) as $key) {
+      if (is_string($key) && in_array($key, $supportedSettings, true)) {
+        continue;
+      }
+
+      return sprintf(
+        'Unsupported OpenSwoole setting [%s]. Supported settings are: %s.',
+        (string) $key,
+        implode(', ', $supportedSettings),
+      );
+    }
+
+    $integerRules = [
+      'workerNum' => 1,
+      'taskWorkerNum' => 0,
+      'maxRequest' => 0,
+    ];
+
+    foreach ($integerRules as $key => $minimum) {
+      if (!array_key_exists($key, $settings)) {
+        continue;
+      }
+
+      $value = is_string($settings[$key]) ? trim($settings[$key]) : $settings[$key];
+
+      if ($value === '' || filter_var($value, FILTER_VALIDATE_INT) === false) {
+        return sprintf('The OpenSwoole setting [%s] must be an integer.', $key);
+      }
+
+      if ((int) $value < $minimum) {
+        return $minimum === 1
+          ? sprintf('The OpenSwoole setting [%s] must be greater than or equal to 1.', $key)
+          : sprintf('The OpenSwoole setting [%s] must be greater than or equal to %d.', $key, $minimum);
+      }
+    }
+
+    foreach (['enableCoroutine', 'daemonize'] as $key) {
+      if (!array_key_exists($key, $settings)) {
+        continue;
+      }
+
+      if (filter_var($settings[$key], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) === null) {
+        return sprintf('The OpenSwoole setting [%s] must be a boolean.', $key);
+      }
+    }
+
+    foreach (['logFile', 'pidFile'] as $key) {
+      if (!array_key_exists($key, $settings)) {
+        continue;
+      }
+
+      if (!is_scalar($settings[$key]) || trim((string) $settings[$key]) === '') {
+        return sprintf('The OpenSwoole setting [%s] must be a non-empty string.', $key);
+      }
+    }
+
+    if (array_key_exists('hookFlags', $settings) && !$this->isValidOpenSwooleHookFlags($settings['hookFlags'])) {
+      return 'The OpenSwoole setting [hookFlags] must be an integer, string, list, or null.';
+    }
+
+    return null;
+  }
+
+  protected function isValidOpenSwooleHookFlags(mixed $hookFlags): bool
+  {
+    if ($hookFlags === null || is_int($hookFlags) || is_bool($hookFlags)) {
+      return true;
+    }
+
+    if (is_string($hookFlags)) {
+      return trim($hookFlags) !== '';
+    }
+
+    if (!is_array($hookFlags)) {
+      return false;
+    }
+
+    foreach ($hookFlags as $flag) {
+      if (!is_scalar($flag) || trim((string) $flag) === '') {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   protected function buildServeCommand(

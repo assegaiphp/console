@@ -108,7 +108,12 @@ class SchematicManifestLoader
           return new DeclarativeSchematic($context);
         }
 
-        $handler = $metadata['handler'];
+        $handler = $metadata['handler'] ?? null;
+
+        if (!is_array($handler)) {
+          throw new RuntimeException('Custom schematic handler metadata is missing.');
+        }
+
         $handlerFile = $handler['file'] ?? null;
 
         if (is_string($handlerFile) && $handlerFile !== '') {
@@ -118,9 +123,18 @@ class SchematicManifestLoader
           );
         }
 
-        $className = (string) $handler['class'];
+        $className = $handler['class'];
+        $schematic = new $className($context);
 
-        return new $className($context);
+        if (!$schematic instanceof SchematicInterface) {
+          throw new RuntimeException(sprintf(
+            'Custom schematic class [%s] must implement %s.',
+            $className,
+            SchematicInterface::class,
+          ));
+        }
+
+        return $schematic;
       },
     );
   }

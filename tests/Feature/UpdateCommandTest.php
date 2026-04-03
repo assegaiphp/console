@@ -4,6 +4,9 @@ use Assegai\Console\Commands\Update;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
+/**
+ * @param array{composer?: array<string, mixed>, assegai?: array<string, mixed>, package_json?: bool, files?: array<string, string>} $options
+ */
 function createUpdateWorkspace(array $options = []): string
 {
   $workspace = sys_get_temp_dir() . '/' . uniqid('update-workspace-', true);
@@ -74,6 +77,44 @@ function deleteUpdateWorkspace(string $directory): void
   rmdir($directory);
 }
 
+/**
+ * @param string[] $aliases
+ */
+function installFakeUpdateWorkspacePackage(
+  string $workspace,
+  string $packageName,
+  string $installerClass,
+  string $installerSource,
+  array $aliases = [],
+): void
+{
+  $packageRoot = $workspace . '/vendor/' . $packageName;
+  $sourcePath = $packageRoot . '/src/' . str_replace('\\', '/', $installerClass) . '.php';
+  $sourceDirectory = dirname($sourcePath);
+
+  if (! is_dir($sourceDirectory) && ! mkdir($sourceDirectory, 0755, true) && ! is_dir($sourceDirectory)) {
+    throw new RuntimeException("Failed to create directory: $sourceDirectory");
+  }
+
+  file_put_contents($packageRoot . '/composer.json', json_encode([
+    'name' => $packageName,
+    'extra' => [
+      'assegai' => [
+        'aliases' => $aliases,
+        'installer' => $installerClass,
+      ],
+    ],
+  ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+  file_put_contents($sourcePath, $installerSource);
+
+  if (! is_dir($workspace . '/vendor')) {
+    mkdir($workspace . '/vendor', 0755, true);
+  }
+
+  file_put_contents($workspace . '/vendor/autoload.php', "<?php\nrequire_once " . var_export($sourcePath, true) . ";\n");
+}
+
 describe('Update command', function () {
   it('migrates legacy workspaces and upgrades the tied core and orm packages', function () {
     $workspace = createUpdateWorkspace([
@@ -91,7 +132,9 @@ PHP,
 
     try {
       $command = new class extends Update {
+        /** @var array<int, mixed> */
         public array $composerCalls = [];
+        /** @var array<int, mixed> */
         public array $frontendCalls = [];
 
         protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
@@ -139,7 +182,9 @@ PHP,
 
     try {
       $command = new class extends Update {
+        /** @var array<int, mixed> */
         public array $composerCalls = [];
+        /** @var array<int, mixed> */
         public array $frontendCalls = [];
 
         protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
@@ -166,6 +211,210 @@ PHP,
           ->and($command->composerCalls[0])->toBe([PACKAGE_NAME_CORE])
           ->and($command->frontendCalls)->toBe([])
           ->and($composer['require'])->not->toHaveKey(PACKAGE_NAME_ORM);
+    } finally {
+      deleteUpdateWorkspace($workspace);
+    }
+  });
+
+  it('reapplies installed orm package integration during update for older apps', function () {
+    $workspace = createUpdateWorkspace([
+      'composer' => [
+        'name' => 'acme/legacy-app',
+        'autoload' => [
+          'psr-4' => [
+            'Acme\\Legacy\\' => 'src/',
+          ],
+        ],
+        'require' => [
+          'php' => '>=8.3',
+          PACKAGE_NAME_CORE => '^0.7.0',
+          PACKAGE_NAME_ORM => '^0.7.0',
+        ],
+      ],
+      'files' => [
+        'src/AppModule.php' => <<<'PHP'
+<?php
+
+namespace Acme\Legacy;
+
+use Assegai\Core\Attributes\Modules\Module;
+
+#[Module(
+  providers: [],
+  controllers: [],
+  imports: []
+)]
+class AppModule
+{
+}
+PHP,
+        'bootstrap.php' => <<<'PHP'
+<?php
+
+use Acme\Legacy\AppModule;
+use Assegai\Core\AssegaiFactory;
+
+AssegaiFactory::createFromProject(AppModule::class, __DIR__)->run();
+PHP,
+      ],
+    ]);
+
+    try {
+      $command = new class($workspace) extends Update {
+        public function __construct(
+          private readonly string $workspace,
+        )
+        {
+          parent::__construct();
+        }
+
+        protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
+        {
+          installFakeUpdateWorkspacePackage(
+            $this->workspace,
+            PACKAGE_NAME_ORM,
+            'Assegai\\Orm\\Assegai\\Console\\UpdateCommandOrmPackageInstaller',
+            <<<'PHP'
+<?php
+
+namespace Assegai\Orm\Assegai\Console;
+
+use Assegai\Console\Core\Packages\PackageInstallContext;
+use Assegai\Console\Core\Packages\PackageInstallerInterface;
+use Assegai\Console\Core\Packages\RootModuleIntegrator;
+
+class UpdateCommandOrmPackageInstaller implements PackageInstallerInterface
+{
+  public function install(PackageInstallContext $context): int
+  {
+    return RootModuleIntegrator::importModule(
+      $context->workspace,
+      ['Assegai\\Orm\\Assegai\\OrmModule'],
+      ['OrmModule::class'],
+      $context->output,
+    );
+  }
+}
+PHP,
+            ['orm'],
+          );
+
+          return Command::SUCCESS;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--directory' => $workspace,
+      ]);
+
+      $appModule = file_get_contents($workspace . '/src/AppModule.php') ?: '';
+
+      expect($status)->toBe(Command::SUCCESS)
+        ->and($appModule)->toContain('use Assegai\\Orm\\Assegai\\OrmModule;')
+        ->and($appModule)->toContain('OrmModule::class');
+    } finally {
+      deleteUpdateWorkspace($workspace);
+    }
+  });
+
+  it('reapplies installed events package integration during update for older apps', function () {
+    $workspace = createUpdateWorkspace([
+      'composer' => [
+        'name' => 'acme/legacy-app',
+        'autoload' => [
+          'psr-4' => [
+            'Acme\\Legacy\\' => 'src/',
+          ],
+        ],
+        'require' => [
+          'php' => '>=8.3',
+          PACKAGE_NAME_CORE => '^0.7.0',
+          PACKAGE_NAME_EVENTS => '^0.7.0',
+        ],
+      ],
+      'files' => [
+        'src/AppModule.php' => <<<'PHP'
+<?php
+
+namespace Acme\Legacy;
+
+use Assegai\Core\Attributes\Modules\Module;
+
+#[Module(
+  providers: [],
+  controllers: [],
+  imports: []
+)]
+class AppModule
+{
+}
+PHP,
+        'bootstrap.php' => <<<'PHP'
+<?php
+
+use Acme\Legacy\AppModule;
+use Assegai\Core\AssegaiFactory;
+
+AssegaiFactory::createFromProject(AppModule::class, __DIR__)->run();
+PHP,
+      ],
+    ]);
+
+    try {
+      $command = new class($workspace) extends Update {
+        public function __construct(
+          private readonly string $workspace,
+        )
+        {
+          parent::__construct();
+        }
+
+        protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
+        {
+          installFakeUpdateWorkspacePackage(
+            $this->workspace,
+            PACKAGE_NAME_EVENTS,
+            'Assegai\\Events\\Assegai\\Console\\UpdateCommandEventsPackageInstaller',
+            <<<'PHP'
+<?php
+
+namespace Assegai\Events\Assegai\Console;
+
+use Assegai\Console\Core\Packages\PackageInstallContext;
+use Assegai\Console\Core\Packages\PackageInstallerInterface;
+use Assegai\Console\Core\Packages\RootModuleIntegrator;
+
+class UpdateCommandEventsPackageInstaller implements PackageInstallerInterface
+{
+  public function install(PackageInstallContext $context): int
+  {
+    return RootModuleIntegrator::importModule(
+      $context->workspace,
+      ['Assegai\\Events\\Assegai\\EventsModule'],
+      ['EventsModule::class'],
+      $context->output,
+    );
+  }
+}
+PHP,
+            ['events'],
+          );
+
+          return Command::SUCCESS;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--directory' => $workspace,
+      ]);
+
+      $appModule = file_get_contents($workspace . '/src/AppModule.php') ?: '';
+
+      expect($status)->toBe(Command::SUCCESS)
+        ->and($appModule)->toContain('use Assegai\\Events\\Assegai\\EventsModule;')
+        ->and($appModule)->toContain('EventsModule::class');
     } finally {
       deleteUpdateWorkspace($workspace);
     }

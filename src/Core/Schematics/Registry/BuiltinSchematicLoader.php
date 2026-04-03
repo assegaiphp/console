@@ -192,13 +192,23 @@ class BuiltinSchematicLoader
       options: $options,
       metadata: [],
       factory: static function (SchematicContext $context) use ($className): SchematicInterface {
-        return new $className(
+        $schematic = new $className(
           $context->input,
           $context->output,
           $context->getBaseName(),
           $context->getWorkspace(),
           $context->getSubdirectory(),
         );
+
+        if (!$schematic instanceof SchematicInterface) {
+          throw new \RuntimeException(sprintf(
+            'Built-in schematic class [%s] must implement %s.',
+            $className,
+            SchematicInterface::class,
+          ));
+        }
+
+        return $schematic;
       }
     );
   }

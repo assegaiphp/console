@@ -45,9 +45,31 @@ final class WebComponentHotReloadState
   public function deactivate(): void
   {
     $filename = $this->getFilename();
+    $directory = dirname($filename);
 
-    if (is_file($filename)) {
-      unlink($filename);
+    if (!is_dir($directory) && false === mkdir($directory, 0755, true)) {
+      return;
+    }
+
+    $existingState = $this->readState();
+    $version = $existingState['version'] ?? $this->lastVersion ?? $this->resolveBundleVersion() ?? $this->makeVersion();
+    $pollInterval = WebComponentConfig::getHotReloadPollInterval($this->workspace);
+    $graceSeconds = max(5, (int) ceil(($pollInterval / 1000) * 3));
+    $payload = [
+      'active' => false,
+      'bundleUrl' => $existingState['bundleUrl'] ?? $this->getBundleUrl(),
+      'interval' => $pollInterval,
+      'version' => $version,
+      'createdAt' => $existingState['createdAt'] ?? gmdate(DATE_ATOM),
+      'updatedAt' => gmdate(DATE_ATOM),
+      'expiresAt' => gmdate(DATE_ATOM, time() + $graceSeconds),
+    ];
+
+    if (false !== file_put_contents(
+      $filename,
+      json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+    )) {
+      $this->lastWriteAt = microtime(true);
     }
   }
 
