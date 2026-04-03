@@ -14,6 +14,9 @@ if (! function_exists('env')) {
   }
 }
 
+/**
+ * @param array<string, string> $modules
+ */
 function createModuleDataSourceWorkspace(array $modules = []): string
 {
   $workspace = sys_get_temp_dir() . '/' . uniqid('module-data-source-', true);
@@ -122,8 +125,8 @@ describe('Module data_source configurator', function () {
       expect($status)->toBe(Command::SUCCESS);
       expect(file_get_contents($workspace . '/src/AppModule.php'))
         ->toContain("'data_source' => 'blog'");
-      expect(file_get_contents($workspace . '/src/Users/UsersModule.php'))
-        ->not->toContain('data_source');
+      expect(str_contains(file_get_contents($workspace . '/src/Users/UsersModule.php') ?: '', 'data_source'))
+        ->toBeFalse();
     } finally {
       deleteModuleDataSourceWorkspace($workspace);
     }
@@ -162,8 +165,9 @@ PHP,
 
       expect($status)->toBe(Command::SUCCESS);
       expect(file_get_contents($workspace . '/src/AppModule.php'))
-        ->toContain("'data_source' => 'legacy'")
-        ->not->toContain("'data_source' => 'blog'");
+        ->toContain("'data_source' => 'legacy'");
+      expect(str_contains(file_get_contents($workspace . '/src/AppModule.php') ?: '', "'data_source' => 'blog'"))
+        ->toBeFalse();
       expect(file_get_contents($workspace . '/src/Users/UsersModule.php'))
         ->toContain("'data_source' => 'blog'");
       expect($output->fetch())
@@ -208,8 +212,9 @@ PHP,
 
       expect($status)->toBe(Command::SUCCESS);
       expect(file_get_contents($workspace . '/src/AppModule.php'))
-        ->toContain("'data_source' => 'blog'")
-        ->not->toContain("'data_source' => 'legacy'");
+        ->toContain("'data_source' => 'blog'");
+      expect(str_contains(file_get_contents($workspace . '/src/AppModule.php') ?: '', "'data_source' => 'legacy'"))
+        ->toBeFalse();
     } finally {
       deleteModuleDataSourceWorkspace($workspace);
     }

@@ -114,6 +114,9 @@ class ApiCommandsTest extends TestCase
     }
   }
 
+  /**
+   * @param array<string, mixed> $options
+   */
   private static function createApiWorkspace(array $options = []): string
   {
     $workspace = $options['workspace'] ?? (sys_get_temp_dir() . '/' . uniqid('api-workspace-', true));

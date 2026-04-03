@@ -77,16 +77,22 @@ describe('Serve', function () {
 
     try {
       $command = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function startWebComponentWatchProcess(string $root, \Symfony\Component\Console\Output\OutputInterface $output): mixed
         {
           $this->calls[] = ['type' => 'watch', 'root' => $root];
-          return (object)['watching' => true];
+
+          return fopen('php://temp', 'r+');
         }
 
         protected function stopWebComponentWatchProcess(mixed $process, string $root): void
         {
+          if (is_resource($process)) {
+            fclose($process);
+          }
+
           $this->calls[] = ['type' => 'stop-watch', 'root' => $root];
         }
 
@@ -120,6 +126,7 @@ describe('Serve', function () {
       expect($commandTester->getDisplay())->toContain('Assegai dev server listening on http://127.0.0.1:5050 using the php runtime');
 
       $regularServe = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function startWebComponentWatchProcess(string $root, \Symfony\Component\Console\Output\OutputInterface $output): mixed
@@ -162,16 +169,22 @@ describe('Serve', function () {
 
     try {
       $command = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function startWebComponentWatchProcess(string $root, \Symfony\Component\Console\Output\OutputInterface $output): mixed
         {
           $this->calls[] = ['type' => 'watch', 'root' => $root];
-          return (object) ['watching' => true];
+
+          return fopen('php://temp', 'r+');
         }
 
         protected function stopWebComponentWatchProcess(mixed $process, string $root): void
         {
+          if (is_resource($process)) {
+            fclose($process);
+          }
+
           $this->calls[] = ['type' => 'stop-watch', 'root' => $root];
         }
 
@@ -216,6 +229,7 @@ describe('Serve', function () {
 
     try {
       $command = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function writeOpenApiExport(string $root, string $outputFile, \Symfony\Component\Console\Output\OutputInterface $output): int
@@ -267,6 +281,7 @@ describe('Serve', function () {
 
     try {
       $command = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function validateRuntimeAvailability(string $runtime): ?string
@@ -403,6 +418,7 @@ describe('Serve', function () {
 
     try {
       $command = new class extends Serve {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function validateRuntimeAvailability(string $runtime): ?string

@@ -21,8 +21,8 @@ class DumpAutoload extends Command
   {
     $inspector = new Inspector($input, $output);
 
-    $workspace = getcwd();
-    if ($inspector->isValidWorkspace(is_bool($workspace) ? '' : $workspace) === false)
+    $workspace = getcwd() ?: '';
+    if ($inspector->isValidWorkspace($workspace) === false)
     {
       $output->writeln('<error>Not a valid workspace</error>');
       return Command::FAILURE;
@@ -47,6 +47,7 @@ class DumpAutoload extends Command
 
   protected function runComposerDumpAutoload(): int
   {
+    $statusCode = Command::FAILURE;
     passthru('composer dump-autoload --ansi', $statusCode);
 
     return $statusCode;

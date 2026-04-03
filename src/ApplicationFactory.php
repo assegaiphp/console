@@ -99,7 +99,7 @@ class ApplicationFactory
         return Path::normalize(substr($argument, strlen('--directory=')));
       }
 
-      if (($argument === '--directory' || $argument === '-d') && isset($argv[$index + 1]) && is_string($argv[$index + 1])) {
+      if (($argument === '--directory' || $argument === '-d') && isset($argv[$index + 1])) {
         return Path::normalize($argv[$index + 1]);
       }
     }

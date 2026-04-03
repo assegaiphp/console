@@ -109,9 +109,17 @@ if (!function_exists('env')) {
      */
     function env(string $key, mixed $default = null): mixed
     {
-        $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
+        if (array_key_exists($key, $_ENV)) {
+            return $_ENV[$key];
+        }
 
-        return $value === false || $value === null ? $default : $value;
+        if (array_key_exists($key, $_SERVER)) {
+            return $_SERVER[$key];
+        }
+
+        $value = getenv($key);
+
+        return $value === false ? $default : $value;
     }
 }
 
@@ -144,13 +152,8 @@ if (!function_exists('update_module_file')) {
         $moduleAttributePattern = '/#\[Module\((?<body>[\s\S]*?)\)\]/';
         $moduleMatches = [];
 
-        if (false === preg_match($moduleAttributePattern, $contents, $moduleMatches, PREG_OFFSET_CAPTURE)) {
+        if (preg_match($moduleAttributePattern, $contents, $moduleMatches, PREG_OFFSET_CAPTURE) !== 1) {
             $output->writeln("<error>Failed to parse the Module attribute in $filename.</error>");
-            return Command::FAILURE;
-        }
-
-        if (!isset($moduleMatches['body'][0], $moduleMatches['body'][1])) {
-            $output->writeln("<error>Failed to locate the Module attribute body in $filename.</error>");
             return Command::FAILURE;
         }
 
@@ -238,7 +241,7 @@ if (!function_exists('append_module_use_statements')) {
         }
 
         $namespaceMatch = [];
-        if (false !== preg_match('/^namespace\s+[^;]+;$/m', $contents, $namespaceMatch, PREG_OFFSET_CAPTURE) && isset($namespaceMatch[0])) {
+        if (preg_match('/^namespace\s+[^;]+;$/m', $contents, $namespaceMatch, PREG_OFFSET_CAPTURE) === 1) {
             return substr_replace(
                 $contents,
                 $newline . $renderedImports,
@@ -273,8 +276,8 @@ if (!function_exists('update_module_attribute_property')) {
         $pattern = '/(?P<indent>^[ \t]*)' . preg_quote($propertyName, '/') . '(?P<afterName>\s*:\s*)\[(?P<body>.*?)\](?P<comma>,?)/ms';
         $matches = [];
 
-        if (false !== preg_match($pattern, $moduleBody, $matches, PREG_OFFSET_CAPTURE) && isset($matches[0])) {
-            $existingEntries = parse_module_attribute_entries($matches['body'][0] ?? '');
+        if (preg_match($pattern, $moduleBody, $matches, PREG_OFFSET_CAPTURE) === 1) {
+            $existingEntries = parse_module_attribute_entries($matches['body'][0]);
             $updatedEntries = $existingEntries;
 
             foreach ($newEntries as $entry) {
@@ -289,11 +292,11 @@ if (!function_exists('update_module_attribute_property')) {
 
             $replacement = render_module_attribute_property(
                 $propertyName,
-                $matches['indent'][0] ?? '',
-                $matches['afterName'][0] ?? ': ',
+                $matches['indent'][0],
+                $matches['afterName'][0],
                 $updatedEntries,
-                $matches['comma'][0] ?? '',
-                $matches['body'][0] ?? '',
+                $matches['comma'][0],
+                $matches['body'][0],
                 $context
             );
 
@@ -345,7 +348,7 @@ if (!function_exists('insert_module_attribute_property')) {
 
         if ($trimmedBody === '') {
             $leadingBreak = '';
-            if (preg_match('/^\R/', $moduleBody, $leadingBreakMatch) && isset($leadingBreakMatch[0])) {
+            if (preg_match('/^\R/', $moduleBody, $leadingBreakMatch) === 1) {
                 $leadingBreak = $leadingBreakMatch[0];
                 $trailingWhitespace = substr($moduleBody, strlen($leadingBreak));
             }
@@ -391,17 +394,17 @@ if (!function_exists('render_module_attribute_property')) {
         }
 
         $leadingWhitespace = '';
-        if (preg_match('/^\s*/', $sampleBody, $leadingWhitespaceMatch) && isset($leadingWhitespaceMatch[0])) {
+        if (preg_match('/^\s*/', $sampleBody, $leadingWhitespaceMatch) === 1) {
             $leadingWhitespace = $leadingWhitespaceMatch[0];
         }
 
         $trailingWhitespace = '';
-        if (preg_match('/\s*$/', $sampleBody, $trailingWhitespaceMatch) && isset($trailingWhitespaceMatch[0])) {
+        if (preg_match('/\s*$/', $sampleBody, $trailingWhitespaceMatch) === 1) {
             $trailingWhitespace = $trailingWhitespaceMatch[0];
         }
 
         $separator = ', ';
-        if (preg_match('/,(?<spacing>\s*)/', $sampleBody, $separatorMatch) && isset($separatorMatch['spacing'])) {
+        if (preg_match('/,(?<spacing>\s*)/', $sampleBody, $separatorMatch) === 1) {
             $separator = ',' . $separatorMatch['spacing'];
         } elseif (str_contains($sampleBody, ',')) {
             $separator = ',';
@@ -440,13 +443,13 @@ if (!function_exists('detect_module_property_format')) {
         $matches = [];
         $pattern = '/(?P<indent>^[ \t]*)(?:declarations|imports|controllers|providers|exports|config)(?P<after_name>\s*:\s*)\[(?P<body>.*?)\](?P<comma>,?)/ms';
 
-        if (false !== preg_match($pattern, $moduleBody, $matches) && !empty($matches)) {
+        if (preg_match($pattern, $moduleBody, $matches) === 1) {
             $trimmedModuleBody = rtrim($moduleBody);
 
             return [
-                'indent' => $matches['indent'] ?? '',
-                'after_name' => $matches['after_name'] ?? ': ',
-                'sample_body' => $matches['body'] ?? '',
+                'indent' => $matches['indent'],
+                'after_name' => $matches['after_name'],
+                'sample_body' => $matches['body'],
                 'trailing_comma' => str_ends_with($trimmedModuleBody, ',') ? ',' : '',
             ];
         }
@@ -468,7 +471,7 @@ if (!function_exists('detect_module_array_entry_indent')) {
     {
         $matches = [];
 
-        if (false !== preg_match('/\R([ \t]*)\S/', $sampleBody, $matches) && isset($matches[1])) {
+        if (preg_match('/\R([ \t]*)\S/', $sampleBody, $matches) === 1) {
             return $matches[1];
         }
 
@@ -506,11 +509,7 @@ if (!function_exists('detect_indent_unit')) {
 
         $lengths = array_values(array_unique(array_map('strlen', $matches['indent'])));
 
-        if (empty($lengths)) {
-            return '  ';
-        }
-
-        $unitLength = array_shift($lengths) ?: 2;
+        $unitLength = (int) array_shift($lengths);
 
         foreach ($lengths as $length) {
             $unitLength = greatest_common_divisor($unitLength, $length);

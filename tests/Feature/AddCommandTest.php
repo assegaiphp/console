@@ -130,7 +130,7 @@ describe('Add command', function () {
     installFakeWorkspacePackage(
       $workspace,
       'assegaiphp/events',
-      'Assegai\\Events\\Assegai\\Console\\EventsPackageInstaller',
+      'Assegai\\Events\\Assegai\\Console\\AddCommandEventsPackageInstaller',
       <<<'PHP'
 <?php
 
@@ -140,7 +140,7 @@ use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\Packages\PackageInstallerInterface;
 use Assegai\Console\Core\Packages\RootModuleIntegrator;
 
-class EventsPackageInstaller implements PackageInstallerInterface
+class AddCommandEventsPackageInstaller implements PackageInstallerInterface
 {
   public function install(PackageInstallContext $context): int
   {
@@ -186,7 +186,7 @@ PHP,
     installFakeWorkspacePackage(
       $workspace,
       'assegaiphp/orm',
-      'Assegai\\Orm\\Assegai\\Console\\OrmPackageInstaller',
+      'Assegai\\Orm\\Assegai\\Console\\AddCommandOrmPackageInstaller',
       <<<'PHP'
 <?php
 
@@ -196,7 +196,7 @@ use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\Packages\PackageInstallerInterface;
 use Assegai\Console\Core\Packages\RootModuleIntegrator;
 
-class OrmPackageInstaller implements PackageInstallerInterface
+class AddCommandOrmPackageInstaller implements PackageInstallerInterface
 {
   public function install(PackageInstallContext $context): int
   {
@@ -249,7 +249,7 @@ PHP,
           installFakeWorkspacePackage(
             $this->workspace,
             $packageName,
-            'Assegai\\Orm\\Assegai\\Console\\OrmPackageInstaller',
+            'Assegai\\Orm\\Assegai\\Console\\AddCommandInstallOrmPackageInstaller',
             <<<'PHP'
 <?php
 
@@ -259,7 +259,7 @@ use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\Packages\PackageInstallerInterface;
 use Assegai\Console\Core\Packages\RootModuleIntegrator;
 
-class OrmPackageInstaller implements PackageInstallerInterface
+class AddCommandInstallOrmPackageInstaller implements PackageInstallerInterface
 {
   public function install(PackageInstallContext $context): int
   {

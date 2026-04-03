@@ -31,7 +31,7 @@ class WorkspaceApiBridge
         $this->newCoreInstance('Assegai\\Core\\Config\\ProjectConfig'),
       );
 
-      $document = $generator->generate($rootModuleClass);
+      $document = $this->invokeObjectMethod($generator, 'generate', $rootModuleClass);
 
       if (!is_array($document)) {
         throw new RuntimeException('The OpenAPI generator did not return a valid document.');
@@ -48,7 +48,7 @@ class WorkspaceApiBridge
   public function generatePostmanCollection(array $document): array
   {
     $generator = $this->newCoreInstance('Assegai\\Core\\ApiDocs\\PostmanCollectionGenerator');
-    $collection = $generator->generate($document);
+    $collection = $this->invokeObjectMethod($generator, 'generate', $document);
 
     if (!is_array($collection)) {
       throw new RuntimeException('The Postman exporter did not return a valid collection.');
@@ -63,7 +63,7 @@ class WorkspaceApiBridge
   public function generateTypeScriptClient(array $document): string
   {
     $generator = $this->newCoreInstance('Assegai\\Core\\ApiDocs\\TypeScriptClientGenerator');
-    $client = $generator->generate($document);
+    $client = $this->invokeObjectMethod($generator, 'generate', $document);
 
     if (!is_string($client) || $client === '') {
       throw new RuntimeException('The TypeScript client generator did not return any content.');
@@ -204,6 +204,19 @@ class WorkspaceApiBridge
     }
 
     return new $class(...$arguments);
+  }
+
+  private function invokeObjectMethod(object $instance, string $method, mixed ...$arguments): mixed
+  {
+    if (!method_exists($instance, $method)) {
+      throw new RuntimeException(sprintf(
+        'The project does not expose the required method: %s::%s.',
+        $instance::class,
+        $method,
+      ));
+    }
+
+    return $instance->{$method}(...$arguments);
   }
 
   private function runWithinWorkspace(callable $callback): mixed

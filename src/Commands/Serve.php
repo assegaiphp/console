@@ -6,7 +6,6 @@ use Assegai\Console\Api\WorkspaceApiBridge;
 use Assegai\Console\Util\Config\ProjectConfig;
 use Assegai\Console\Util\Path;
 use Assegai\Console\WebComponents\HotReload\WebComponentHotReloadState;
-use Assegai\Core\Runtimes\OpenSwoole\OpenSwooleRuntimeInspector;
 use LogicException;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -219,7 +218,7 @@ class Serve extends Command
     $status = proc_get_status($process);
 
     if (!$status['running']) {
-      $exitCode = is_int($status['exitcode']) ? $status['exitcode'] : Command::FAILURE;
+      $exitCode = (int) $status['exitcode'];
       proc_close($process);
 
       return $exitCode === 0 ? null : false;
@@ -274,7 +273,23 @@ class Serve extends Command
       return null;
     }
 
-    return (new OpenSwooleRuntimeInspector())->getAvailabilityError();
+    $inspectorClass = 'Assegai\Core\Runtimes\OpenSwoole\OpenSwooleRuntimeInspector';
+
+    if (!class_exists($inspectorClass)) {
+      return 'The installed framework does not expose OpenSwoole runtime inspection.';
+    }
+
+    $inspector = new $inspectorClass();
+
+    if (!is_object($inspector) || !method_exists($inspector, 'getAvailabilityError')) {
+      return 'The installed framework does not expose OpenSwoole runtime inspection.';
+    }
+
+    $availabilityError = $inspector->getAvailabilityError();
+
+    return is_string($availabilityError) || $availabilityError === null
+      ? $availabilityError
+      : 'Failed to determine OpenSwoole runtime availability.';
   }
 
   protected function validateRuntimeConfiguration(string $runtime, string $host, int $port): ?string

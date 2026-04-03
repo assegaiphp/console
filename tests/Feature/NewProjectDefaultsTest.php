@@ -62,6 +62,7 @@ describe('New project defaults', function () {
       new QuestionHelper(),
       '/tmp/my project'
     ) extends DatabaseInstaller {
+      /** @var string[] */
       public array $configuredDatabaseNames = [];
 
       protected function shouldConfigureDatabases(): bool

@@ -9,6 +9,10 @@ use Assegai\Console\WebComponents\HotReload\WebComponentHotReloadState;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
+/**
+ * @param array<string, mixed> $webComponentConfig
+ * @param array<string, string> $componentFiles
+ */
 function createWebComponentCommandWorkspace(array $webComponentConfig = [], array $componentFiles = []): string
 {
   $workspace = sys_get_temp_dir() . '/' . uniqid('web-component-command-', true);
@@ -200,6 +204,7 @@ describe('Web Component commands', function () {
 
     try {
       $command = new class extends DumpAutoload {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function runComposerDumpAutoload(): int
@@ -319,6 +324,7 @@ describe('Web Component commands', function () {
 
     try {
       $command = new class extends WatchWebComponents {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function watchComponents(WebComponentBuilder $builder, string $workspace, bool $hotReload): int
@@ -343,6 +349,7 @@ describe('Web Component commands', function () {
       expect($commandTester->getDisplay())->toContain('Watching Web Components with hot reload');
 
       $withoutHotReload = new class extends WatchWebComponents {
+        /** @var array<int, mixed> */
         public array $calls = [];
 
         protected function watchComponents(WebComponentBuilder $builder, string $workspace, bool $hotReload): int

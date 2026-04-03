@@ -4,6 +4,9 @@ use Assegai\Console\Commands\Update;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
+/**
+ * @param array{composer?: array<string, mixed>, assegai?: array<string, mixed>, package_json?: bool, files?: array<string, string>} $options
+ */
 function createUpdateWorkspace(array $options = []): string
 {
   $workspace = sys_get_temp_dir() . '/' . uniqid('update-workspace-', true);
@@ -129,7 +132,9 @@ PHP,
 
     try {
       $command = new class extends Update {
+        /** @var array<int, mixed> */
         public array $composerCalls = [];
+        /** @var array<int, mixed> */
         public array $frontendCalls = [];
 
         protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
@@ -177,7 +182,9 @@ PHP,
 
     try {
       $command = new class extends Update {
+        /** @var array<int, mixed> */
         public array $composerCalls = [];
+        /** @var array<int, mixed> */
         public array $frontendCalls = [];
 
         protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
@@ -266,7 +273,7 @@ PHP,
           installFakeUpdateWorkspacePackage(
             $this->workspace,
             PACKAGE_NAME_ORM,
-            'Assegai\\Orm\\Assegai\\Console\\OrmPackageInstaller',
+            'Assegai\\Orm\\Assegai\\Console\\UpdateCommandOrmPackageInstaller',
             <<<'PHP'
 <?php
 
@@ -276,7 +283,7 @@ use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\Packages\PackageInstallerInterface;
 use Assegai\Console\Core\Packages\RootModuleIntegrator;
 
-class OrmPackageInstaller implements PackageInstallerInterface
+class UpdateCommandOrmPackageInstaller implements PackageInstallerInterface
 {
   public function install(PackageInstallContext $context): int
   {
@@ -368,7 +375,7 @@ PHP,
           installFakeUpdateWorkspacePackage(
             $this->workspace,
             PACKAGE_NAME_EVENTS,
-            'Assegai\\Events\\Assegai\\Console\\EventsPackageInstaller',
+            'Assegai\\Events\\Assegai\\Console\\UpdateCommandEventsPackageInstaller',
             <<<'PHP'
 <?php
 
@@ -378,7 +385,7 @@ use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\Packages\PackageInstallerInterface;
 use Assegai\Console\Core\Packages\RootModuleIntegrator;
 
-class EventsPackageInstaller implements PackageInstallerInterface
+class UpdateCommandEventsPackageInstaller implements PackageInstallerInterface
 {
   public function install(PackageInstallContext $context): int
   {

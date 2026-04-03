@@ -59,6 +59,9 @@ final class WebComponentBuilder
     return $this->runner->build($entryFilename, $outputFilename, $watch, $onWatchTick);
   }
 
+  /**
+   * @param array<int, array{path: string, relativePath: string, tag: string}> $components
+   */
   private function writeEntryFile(string $entryFilename, array $components): int|false
   {
     $directory = dirname($entryFilename);
@@ -80,8 +83,14 @@ final class WebComponentBuilder
   private function getImportPath(string $entryFilename, string $componentFilename): string
   {
     $entryDirectory = dirname($entryFilename);
-    $from = array_values(array_filter(explode('/', trim(Path::normalize($entryDirectory), '/')), 'strlen'));
-    $to = array_values(array_filter(explode('/', trim(Path::normalize($componentFilename), '/')), 'strlen'));
+    $from = array_values(array_filter(
+      explode('/', trim(Path::normalize($entryDirectory), '/')),
+      static fn(string $segment): bool => $segment !== '',
+    ));
+    $to = array_values(array_filter(
+      explode('/', trim(Path::normalize($componentFilename), '/')),
+      static fn(string $segment): bool => $segment !== '',
+    ));
 
     while (!empty($from) && !empty($to) && $from[0] === $to[0]) {
       array_shift($from);

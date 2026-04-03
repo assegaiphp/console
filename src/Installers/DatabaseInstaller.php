@@ -106,11 +106,14 @@ class DatabaseInstaller extends AbstractInstaller
      */
     protected function selectDatabases(): array
     {
-        return $this->prompts->multiselect(
-            'Which databases do you want to configure?',
-            array_combine($this->supportedDatabase, $this->supportedDatabase) ?: [],
-            [$this->supportedDatabase[0]]
-        );
+        return array_values(array_map(
+            'strval',
+            $this->prompts->multiselect(
+                'Which databases do you want to configure?',
+                array_combine($this->supportedDatabase, $this->supportedDatabase) ?: [],
+                [$this->supportedDatabase[0]]
+            )
+        ));
     }
 
     /**

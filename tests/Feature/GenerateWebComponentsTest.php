@@ -4,6 +4,9 @@ use Assegai\Console\Commands\Generate;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
+/**
+ * @param array<string, mixed> $webComponentConfig
+ */
 function createWebComponentGeneratorWorkspace(array $webComponentConfig = []): string
 {
   $workspace = sys_get_temp_dir() . '/' . uniqid('generate-web-components-', true);

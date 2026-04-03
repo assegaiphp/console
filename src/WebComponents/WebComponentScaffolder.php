@@ -146,8 +146,14 @@ TS;
 
   private static function relativeImportPath(string $fromDirectory, string $toDirectory): string
   {
-    $from = array_values(array_filter(explode('/', trim(Path::normalize($fromDirectory), '/')), 'strlen'));
-    $to = array_values(array_filter(explode('/', trim(Path::normalize($toDirectory), '/')), 'strlen'));
+    $from = array_values(array_filter(
+      explode('/', trim(Path::normalize($fromDirectory), '/')),
+      static fn(string $segment): bool => $segment !== '',
+    ));
+    $to = array_values(array_filter(
+      explode('/', trim(Path::normalize($toDirectory), '/')),
+      static fn(string $segment): bool => $segment !== '',
+    ));
 
     while (!empty($from) && !empty($to) && $from[0] === $to[0]) {
       array_shift($from);

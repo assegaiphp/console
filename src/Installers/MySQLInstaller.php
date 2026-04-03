@@ -37,10 +37,10 @@ class MySQLInstaller extends AbstractInstaller
       'databases' => [
         'mysql' => [
           $dbName => [
-            'host' => $dbHost ?? DEFAULT_MYSQL_HOST,
-            'user' => $dbUser ?? DEFAULT_MYSQL_USER,
-            'password' => $dbPassword ?? '',
-            'port' => $dbPort ?? DEFAULT_MYSQL_PORT,
+            'host' => $dbHost,
+            'user' => $dbUser,
+            'password' => $dbPassword,
+            'port' => $dbPort,
           ]
         ]
       ]
