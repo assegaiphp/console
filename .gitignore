@@ -4,6 +4,7 @@
 *.log
 .cache
 .phpunit
+.phpunit.cache
 .env
 .env.local
 .env.*.local
