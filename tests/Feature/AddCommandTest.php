@@ -22,7 +22,7 @@ function createAddCommandWorkspace(): string
       ],
     ],
     'require' => [
-      'php' => '>=8.3',
+      'php' => '^8.3',
       'assegaiphp/core' => '^0.7.0',
     ],
   ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

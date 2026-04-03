@@ -8,13 +8,11 @@
   },
   "license": "MIT",
   "autoload": {
-    "psr-4": {
-      "Assegai\\App\\": "src/"
-    }
+    "psr-4": {}
   },
   "authors": [],
   "require": {
-    "php": ">=8.3",
+    "php": "^8.3",
     "ext-pdo": "*",
     "ext-curl": "*",
     "vlucas/phpdotenv": "^5.4",

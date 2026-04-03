@@ -11,7 +11,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
   name: 'version',
-  description: 'Output the current version.',
+  description: 'Output the current CLI version and installed framework version.',
   aliases: ['v']
 )]
 class Version extends Command
@@ -26,13 +26,17 @@ class Version extends Command
     $inspector = new Inspector($input, $output);
     $workspace = $input->getOption('directory');
 
-    if ( ! $inspector->isValidWorkspace($workspace) )
-    {
-      return Command::FAILURE;
-    }
+    $output->writeln(sprintf('<info>CLI Version:</info> %s', $inspector->getCLIVersion()));
 
-    $version = $inspector->getCLIVersion();
-    $output->writeln("<info>$version</info>");
+    if (is_string($workspace) && $inspector->isValidWorkspace($workspace)) {
+      $frameworkVersion = $inspector->getInstalledFrameworkVersionInfo($workspace);
+      $label = ($frameworkVersion['source'] ?? null) === 'lock'
+        ? 'Locked Assegai Version'
+        : 'Installed Assegai Version';
+      $version = $frameworkVersion['version'] ?? 'Not installed';
+
+      $output->writeln(sprintf('<info>%s:</info> %s', $label, $version));
+    }
 
     return Command::SUCCESS;
   }

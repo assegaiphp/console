@@ -90,6 +90,14 @@ describe('Workspace manager', function () {
       expect($config['development'])->toBe($expectedDefaults['development']);
       expect($config['apiDocs'])->toBe($expectedDefaults['apiDocs']);
       expect($config['webComponents'])->toBe($expectedDefaults['webComponents']);
+
+      $composerFilename = $workspace . '/my-blog-api/composer.json';
+      $composer = json_decode(file_get_contents($composerFilename) ?: '', true);
+
+      expect($composer)->toBeArray();
+      expect($composer['require']['php'])->toBe('^8.3');
+      expect($composer['autoload']['psr-4'])->toBe(['Acme\\BlogApi\\' => 'src/']);
+      expect(array_key_exists('Assegai\\App\\', $composer['autoload']['psr-4']))->toBeFalse();
     } finally {
       CliPrompt::flushFake();
 

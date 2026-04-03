@@ -38,29 +38,28 @@ class Info extends Command
     $inspector = new Inspector($input, $output);
     $directory = $input->getOption('directory');
     $osFamily = PHP_OS_FAMILY;
+
     if (PHP_EXTRA_VERSION) {
-      $osFamily .= " (" . PHP_EXTRA_VERSION . ")";
+      $osFamily .= ' (' . PHP_EXTRA_VERSION . ')';
     }
+
     $phpVersion = PHP_VERSION;
 
-    # Output information about the system
     $output->writeln("\n" . $formatter->formatBlock('Platform Info', 'question') . "\n");
     $output->writeln("<info>OS Family:</info> $osFamily");
     $output->writeln("<info>PHP Version:</info> $phpVersion");
+    $output->writeln(sprintf('<info>CLI Version:</info> %s', $inspector->getCLIVersion()));
 
-    # Output information about the application
-    if ($inspector->isValidWorkspace($directory)) {
-      $assegaiVersion = $inspector->getInstalledFrameworkVersion($directory);
-      $output->writeln("<info>Assegai Version:</info> $assegaiVersion");
+    if (is_string($directory) && $inspector->isValidWorkspace($directory)) {
+      $frameworkVersion = $inspector->getInstalledFrameworkVersionInfo($directory);
+      $label = ($frameworkVersion['source'] ?? null) === 'lock'
+        ? 'Locked Assegai Version'
+        : 'Installed Assegai Version';
+      $version = $frameworkVersion['version'] ?? 'Not installed';
+
+      $output->writeln(sprintf('<info>%s:</info> %s', $label, $version));
     }
 
-    # Output information about the framework
-    if ($inspector->packageIsInstalledGlobally(PACKAGE_NAME_CLI)) {
-      $cliVersion = $inspector->getCLIVersion();
-      $output->writeln("<info>CLI Version:</info> $cliVersion");
-    }
-
-    # Output information about the available commands
     $output->writeln("\n" . $formatter->formatBlock('Commands', 'question') . "\n");
 
     return $this->getApplication()?->doRun(new ArrayInput([

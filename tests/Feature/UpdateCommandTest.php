@@ -24,7 +24,7 @@ function createUpdateWorkspace(array $options = []): string
       ],
     ],
     'require' => [
-      'php' => '>=8.3',
+      'php' => '^8.3',
       PACKAGE_NAME_CORE => '^0.6.0',
     ],
   ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
@@ -226,7 +226,7 @@ PHP,
           ],
         ],
         'require' => [
-          'php' => '>=8.3',
+          'php' => '^8.3',
           PACKAGE_NAME_CORE => '^0.7.0',
           PACKAGE_NAME_ORM => '^0.7.0',
         ],
@@ -328,7 +328,7 @@ PHP,
           ],
         ],
         'require' => [
-          'php' => '>=8.3',
+          'php' => '^8.3',
           PACKAGE_NAME_CORE => '^0.7.0',
           PACKAGE_NAME_EVENTS => '^0.7.0',
         ],

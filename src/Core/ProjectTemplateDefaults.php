@@ -178,13 +178,11 @@ class ProjectTemplateDefaults
       ],
       'license' => 'MIT',
       'autoload' => [
-        'psr-4' => [
-          DEFAULT_NAMESPACE . '\\' => 'src/',
-        ],
+        'psr-4' => [],
       ],
       'authors' => [],
       'require' => [
-        'php' => '>=' . MIN_PHP_VERSION,
+        'php' => '^' . MIN_PHP_VERSION,
         'ext-pdo' => '*',
         'ext-curl' => '*',
         'vlucas/phpdotenv' => '^5.4',

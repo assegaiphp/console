@@ -23,6 +23,7 @@ use Assegai\Console\Commands\WebComponents\BuildWebComponents;
 use Assegai\Console\Commands\WebComponents\ListWebComponents;
 use Assegai\Console\Commands\WebComponents\WatchWebComponents;
 use Assegai\Console\Core\Packages\InstalledPackageExtensionLoader;
+use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
@@ -34,7 +35,7 @@ class ApplicationFactory
    */
   public static function create(?string $workspace = null, ?array $argv = null): Application
   {
-    $application = new Application('Assegai CLI');
+    $application = new Application('Assegai CLI', Inspector::getRunningCLIVersion());
     $application->addCommands(self::builtinCommands());
 
     $resolvedWorkspace = self::resolveWorkspace($workspace, $argv ?? ($_SERVER['argv'] ?? []));

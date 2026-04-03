@@ -67,7 +67,7 @@ class DatabaseInstaller extends AbstractInstaller
             }
 
             if ($configuredDatabaseName = $dbInstaller->getConfiguredDatabaseName()) {
-                $configuredDatabaseNames[] = $configuredDatabaseName;
+                $configuredDatabaseNames[] = qualify_datasource_name($database, $configuredDatabaseName);
             }
         }
 

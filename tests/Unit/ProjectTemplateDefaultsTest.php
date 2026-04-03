@@ -37,6 +37,7 @@ describe('Project template defaults', function () {
     $composer = ProjectTemplateDefaults::loadComposerConfig();
 
     expect($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT);
-    expect($composer['autoload']['psr-4'][DEFAULT_NAMESPACE . '\\'])->toBe('src/');
+    expect($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION);
+    expect($composer['autoload']['psr-4'])->toBe([]);
   });
 });

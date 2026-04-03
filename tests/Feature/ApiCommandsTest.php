@@ -148,7 +148,7 @@ class ApiCommandsTest extends TestCase
         ],
       ],
       'require' => [
-        'php' => '>=8.3',
+        'php' => '^8.3',
         'assegaiphp/core' => '^0.7.0',
       ],
       'version' => $composerVersion,
