@@ -410,7 +410,7 @@ class ModuleDataSourceConfigurator
       throw new RuntimeException("Failed to write module file: $filename");
     }
 
-    $this->output->writeln('<fg=blue>UPDATE</> ' . $moduleRelativePath);
+    $this->output->writeln('<fg=bright-blue>UPDATE</> ' . $moduleRelativePath);
 
     return Command::SUCCESS;
   }

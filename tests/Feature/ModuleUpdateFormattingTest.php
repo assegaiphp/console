@@ -228,7 +228,7 @@ PHP;
 
       $renderedOutput = $output->fetch();
 
-      expect($renderedOutput)->toContain("\e[34mUPDATE")
+      expect($renderedOutput)->toContain("\e[94mUPDATE")
         ->toContain('FormattingModule.php');
     } finally {
       chdir($previousWorkingDirectory);

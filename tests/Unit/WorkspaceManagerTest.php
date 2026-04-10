@@ -93,11 +93,17 @@ describe('Workspace manager', function () {
 
       $composerFilename = $workspace . '/my-blog-api/composer.json';
       $composer = json_decode(file_get_contents($composerFilename) ?: '', true);
+      $readmeFilename = $workspace . '/my-blog-api/README.md';
+      $readme = file_get_contents($readmeFilename) ?: '';
 
       expect($composer)->toBeArray();
       expect($composer['require']['php'])->toBe('^8.3');
       expect($composer['autoload']['psr-4'])->toBe(['Acme\\BlogApi\\' => 'src/']);
       expect(array_key_exists('Assegai\\App\\', $composer['autoload']['psr-4']))->toBeFalse();
+      expect($readme)->toContain('This project was scaffolded with `assegai new`.');
+      expect($readme)->toContain('assegai serve');
+      expect($readme)->toContain('assegai add orm');
+      expect($readme)->toContain('assegai database:configure cinema_db');
     } finally {
       CliPrompt::flushFake();
 

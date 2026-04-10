@@ -28,6 +28,13 @@ The Assegai Console is the framework CLI for:
 
 It also supports custom schematics so teams can teach `assegai generate` about their own company-specific features.
 
+## Contribution workflow
+
+For commit and pull request conventions in this repo, see:
+
+- [docs/commit-and-pr-guidelines.md](./docs/commit-and-pr-guidelines.md)
+
+
 ## Installation
 
 ### Linux

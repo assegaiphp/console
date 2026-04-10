@@ -3,45 +3,27 @@
 namespace Assegai\Console\Core\Database;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
-use Assegai\Console\Core\Database\Interfaces\DatabaseConnectionInterface;
 use Assegai\Console\Core\Database\Interfaces\SQLDatabaseConnectionInterface;
-use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Tests\Mocks\MockInput;
-use Assegai\Console\Tests\Mocks\MockOutput;
 use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Inspector;
-use Assegai\Console\Util\Path;
-use Exception;
 use PDO;
+use PDOException;
+use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * Class MySQLDatabase. This class is a MySQL database connection.
+ * Class PostgreSQLDatabase. This class is a PostgreSQL database connection.
  *
  * @package Assegai\Console\Core\Database
  */
 class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 {
-  /**
-   * @var Inspector
-   */
   protected Inspector $inspector;
 
-  /**
-   * @var string $sudoUser The sudo user
-   */
-  protected static string $sudoUser = '';
-
-  /**
-   * PostgreSQLDatabase constructor.
-   *
-   * @param string $name The name of the database
-   * @param InputInterface $input The input interface
-   * @param OutputInterface $output
-   */
   public function __construct(
     protected string $name,
     protected InputInterface $input,
@@ -50,303 +32,149 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
   {
     $this->inspector = new Inspector($this->input, $this->output);
 
-    // Check if the workspace is valid
-    if (! $this->inspector->isValidWorkspace(getcwd() ?: '') )
-    {
-      $this->output->writeln('<error>Failed to load PostgreSQL config. Invalid workspace.</error>');
-      exit(Command::FAILURE);
+    if (! $this->inspector->isValidWorkspace(getcwd() ?: '')) {
+      $message = 'Failed to load PostgreSQL config. Invalid workspace.';
+      $this->output->writeln("<error>$message</error>");
+      throw new RuntimeException($message);
     }
 
-    // Check if the database configuration exists
-    $dbConfig = new DBConfig($this->input, $this->output, $this->name, DatabaseType::POSTGRESQL->value);
-    $dbConfig->load();
-    $configPath = DatabaseType::POSTGRESQL->value . ".$this->name";
-    $host = $dbConfig->get("$configPath.host") ?? DEFAULT_POSTGRES_HOST;
-    $port = $dbConfig->get("$configPath.port") ?? DEFAULT_POSTGRES_PORT;
-    $username = $dbConfig->get("$configPath.username") ?? $dbConfig->get("$configPath.user") ?? DEFAULT_POSTGRES_USER;
-    $password = $dbConfig->get("$configPath.password") ?? '';
+    $config = self::loadConnectionConfig($this->name, $this->input, $this->output)
+      ?? throw new RuntimeException("Database config for {$this->name} not found.");
 
-    // Create the DSN
-    $dsn = "pgsql:host=$host;port=$port;dbname=$this->name";
-
-    // Construct the parent class
-    parent::__construct($dsn, $username, $password);
+    try {
+      parent::__construct(
+        self::buildDsn($config['host'], $config['port'], $this->name),
+        $config['username'],
+        $config['password'],
+        self::getDefaultPdoOptions()
+      );
+    } catch (PDOException $exception) {
+      $message = $exception->getMessage();
+      $this->output->writeln("<error>$message</error>");
+      throw new RuntimeException($message, (int) $exception->getCode(), $exception);
+    }
   }
 
-  /**
-   * @inheritDoc
-   */
   public static function exists(string $name): bool
   {
     $input = new MockInput();
     $output = new ConsoleOutput();
-    $type = DatabaseType::POSTGRESQL->value;
+    $config = self::loadConnectionConfig($name, $input, $output);
 
-    try
-    {
-      $inspector = new Inspector($input, $output);
-      $workingDirectory = getcwd() ?: '';
-
-      if (! $inspector->isValidWorkspace($workingDirectory) )
-      {
-        $output->writeln('<error>This is not a valid workspace.</error>');
-        return false;
-      }
-
-      $dbConfig = new DBConfig($input, $output, $name, $type);
-      $dbConfig->load();
-      $configPath = "$type.$name";
-
-      if ( is_null($dbConfig->get($configPath)) )
-      {
-        $output->writeln([
-          "<error>Database config for $name not found.</error>",
-          "\n<comment>Run `assegai database:configure $name` to configure the database.</comment>"
-        ]);
-        exit(Command::FAILURE);
-      }
-
-      $errorOutputPath = Path::join($workingDirectory, time() . '.error.log');
-      $user = $dbConfig->get("$configPath.username") ?? $dbConfig->get("$configPath.user", DEFAULT_POSTGRES_USER);
-      $password = $dbConfig->get("$configPath.password") ?? '';
-      $host = $dbConfig->get("$configPath.host", DEFAULT_POSTGRES_HOST);
-      $port = $dbConfig->get("$configPath.port", DEFAULT_POSTGRES_PORT);
-
-      if (! self::$sudoUser)
-      {
-        $prompts = new CliPrompt($input, $output);
-        self::$sudoUser = $prompts->text('Sudo user', 'postgres');
-      }
-
-      $sudoUser = self::$sudoUser;
-      $result = @shell_exec(
-        "sudo -u " . escapeshellarg($sudoUser) .
-        " psql -l 2>" . escapeshellarg($errorOutputPath)
-      );
-
-      // Scan the error output for errors. If there are any, log them otherwise delete the log file
-      $errorCount = self::scanErrorOutput($errorOutputPath, $output);
-
-      if (false === $errorCount)
-      {
-        $output->writeln("<error>Error scanning $errorOutputPath file</error>");
-        return false;
-      }
-
-      if ($errorCount)
-      {
-        $output->writeln("<error>Errors found! Check $errorOutputPath for more details.</error>");
-        return false;
-      }
-
-      if (false === unlink($errorOutputPath))
-      {
-        $output->writeln("<error>Error deleting $errorOutputPath file</error>");
-        return false;
-      }
-
-      $database = preg_grep("/$name/", explode("\n", (string) ($result ?? '')));
-      return ! empty($database);
+    if ($config === null) {
+      return false;
     }
-    catch (Exception)
-    {
-      $output->writeln('<error>Failed to check if the database exists.</error>');
+
+    try {
+      $connection = self::createAdministrationConnection($config, self::getMaintenanceDatabaseName($name));
+      $exists = self::databaseExists($connection, $name);
+      $connection = null;
+
+      return $exists;
+    } catch (PDOException $exception) {
+      $output->writeln('<error>' . $exception->getMessage() . '</error>');
       return false;
     }
   }
 
-  /**
-   * @inheritDoc
-   */
   public static function doesNotExist(string $name): bool
   {
     return ! self::exists($name);
   }
 
-  /**
-   * Scans the error output for errors.
-   *
-   * @param string $errorOutputPath The path to the error output file
-   * @param OutputInterface $output The output interface
-   * @return false|int
-   */
-  private static function scanErrorOutput(string $errorOutputPath, OutputInterface $output): false|int
-  {
-    $errorOutput = file($errorOutputPath);
-    $errorsFound = 0;
-
-    if (false === $errorOutput)
-    {
-      $output->writeln("<error>Error reading $errorOutputPath file</error>");
-      return false;
-    }
-
-    foreach ($errorOutput as $line)
-    {
-      $matchResult = preg_match('/ERROR/', $line);
-
-      if (false === $matchResult)
-      {
-        $output->writeln("<error>Error scanning $errorOutputPath file</error>");
-        return false;
-      }
-
-      if ($matchResult)
-      {
-        $output->writeln("<error>$line</error>");
-        $errorsFound++;
-      }
-    }
-
-    return $errorsFound;
-  }
-
-  /**
-   * @inheritDoc
-   */
   public static function setup(string $name): int
   {
     $input = new MockInput();
     $output = new ConsoleOutput();
+    $config = self::loadConnectionConfig($name, $input, $output);
 
-    $type = DatabaseType::POSTGRESQL->value;
-    $dbConfig = new DBConfig($input, $output, $name, $type);
-    if (Command::SUCCESS !== $dbConfig->load()) {
-      $output->writeln('<error>Failed to load database configuration.</error>');
+    if ($config === null) {
       return Command::FAILURE;
     }
 
-    $host = $dbConfig->get("$type.$name.host", DEFAULT_POSTGRES_HOST);
-    $port = $dbConfig->get("$type.$name.port", DEFAULT_POSTGRES_PORT);
-    $username = $dbConfig->get("$type.$name.username") ?? $dbConfig->get("$type.$name.user", DEFAULT_POSTGRES_USER);
-    $password = $dbConfig->get("$type.$name.password") ?? '';
+    try {
+      $adminConnection = self::createAdministrationConnection($config, self::getMaintenanceDatabaseName($name));
 
-    if (! self::exists($name) ) {
-      if (! self::$sudoUser) {
-        $prompts = new CliPrompt($input, $output);
-        self::$sudoUser = $prompts->text('Sudo user', 'postgres');
+      if (! self::databaseExists($adminConnection, $name)) {
+        $result = $adminConnection->exec(self::buildCreateDatabaseSql($name));
+
+        if ($result === false) {
+          $output->writeln("<error>Failed to create the database.</error>\n");
+          return Command::FAILURE;
+        }
+      } else {
+        $output->writeln("<comment>Database $name already exists.</comment>\n");
       }
 
-      $workingDirectory = getcwd() ?: '';
-      $errorOutputPath = Path::join($workingDirectory, time() . '.error.log');
-      $sudoUser = self::$sudoUser;
-      $createDatabaseSQL = self::buildCreateDatabaseSql($name);
-      $createResult = @shell_exec(
-        "sudo -u " . escapeshellarg($sudoUser) .
-        " psql -h " . escapeshellarg((string) $host) .
-        " -p " . escapeshellarg((string) $port) .
-        " -c " . escapeshellarg($createDatabaseSQL) .
-        " 2>" . escapeshellarg($errorOutputPath)
-      );
+      $adminConnection = null;
 
-      if (false === $createResult) {
-        $output->writeln("<error>Failed to create the database.</error>\n");
+      $database = new self($name, $input, $output);
+
+      if (Command::SUCCESS !== $database->createMigrationsTable()) {
         return Command::FAILURE;
       }
 
-      $errorCount = self::scanErrorOutput($errorOutputPath, $output);
-
-      if (false === $errorCount) {
-        $output->writeln("<error>Error scanning $errorOutputPath file</error>\n");
-        return Command::FAILURE;
-      }
-
-      if ($errorCount) {
-        $output->writeln("<error>Errors found! Check $errorOutputPath for more details.</error>\n");
-        return Command::FAILURE;
-      }
-
-      if (false === unlink($errorOutputPath)) {
-        $output->writeln("<error>Error deleting $errorOutputPath file</error>\n");
-        return Command::FAILURE;
-      }
-    } else {
-      $output->writeln("<comment>Database $name already exists.</comment>\n");
-    }
-
-    # Create the migrations table
-    $migrationsTableName = self::getMigrationsTableName();
-    $query = "CREATE TABLE IF NOT EXISTS $migrationsTableName (
-      migration VARCHAR(255) NOT NULL PRIMARY KEY,
-      ran_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )";
-
-    $database = new self($name, $input, $output);
-
-    if (false === $database->exec($query) ) {
-      $output->writeln("<error>Failed to create the migrations table.</error>\n");
+      $output->writeln("<info>PostgreSQL database successfully set up.</info>\n", OutputInterface::VERBOSITY_VERBOSE);
+      return Command::SUCCESS;
+    } catch (RuntimeException|PDOException $exception) {
+      $output->writeln('<error>' . $exception->getMessage() . "</error>\n");
       return Command::FAILURE;
     }
-
-    $output->writeln("<info>PostgreSQL database successfully set up.</info>\n", OutputInterface::VERBOSITY_VERBOSE);
-    return Command::SUCCESS;
   }
 
-  private static function buildCreateDatabaseSql(string $name): string
-  {
-    return 'CREATE DATABASE ' . self::quoteIdentifier($name) . ';';
-  }
-
-  private static function quoteIdentifier(string $identifier): string
-  {
-    return '"' . str_replace('"', '""', $identifier) . '"';
-  }
-
-  /**
-   * @inheritDoc
-   */
   public function drop(): int
   {
-    $result = $this->query("DROP DATABASE $this->name");
+    try {
+      $config = self::loadConnectionConfig($this->name, $this->input, $this->output)
+        ?? throw new RuntimeException("Database config for {$this->name} not found.");
+      $adminConnection = self::createAdministrationConnection($config, self::getMaintenanceDatabaseName($this->name));
 
-    if (false === $result) {
+      self::terminateActiveConnections($adminConnection, $this->name);
+
+      $result = $adminConnection->exec(self::buildDropDatabaseSql($this->name));
+      $adminConnection = null;
+
+      if ($result === false) {
+        $this->output->writeln('<error>Failed to drop the database.</error>');
+        return Command::FAILURE;
+      }
+
+      $this->output->writeln('<info>Database dropped.</info>');
+      return Command::SUCCESS;
+    } catch (RuntimeException|PDOException $exception) {
+      $this->output->writeln('<error>' . $exception->getMessage() . '</error>');
       return Command::FAILURE;
     }
-
-    $this->output->writeln('<info>Database dropped.</info>');
-    return Command::SUCCESS;
   }
 
-  /**
-   * @inheritDoc
-   */
   public static function getMigrationsTableName(): string
   {
     return '__migrations';
   }
 
-  /**
-   * @inheritDoc
-   */
   public function hasTable(string $tableName): bool
   {
-    $query = "SELECT EXISTS (
-      SELECT FROM information_schema.tables
-      WHERE table_schema = 'public'
-      AND table_name = '$tableName'
-    )";
+    $statement = $this->prepare(
+      "SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = current_schema()
+          AND table_name = :table
+      )"
+    );
 
-    $result = $this->query($query);
-
-    if (false === $result) {
+    if (false === $statement) {
       $this->output->writeln("<error>Failed to check if the table exists.</error>\n");
       return false;
     }
 
-    if (0 === $result->rowCount()) {
-      $this->output->writeln("<comment>Table $tableName does not exist.</comment>\n");
-      return false;
-    }
+    $statement->execute(['table' => $tableName]);
 
-    return true;
+    return (bool) $statement->fetchColumn();
   }
 
-  /**
-   * @inheritDoc
-   */
   public function createMigrationsTable(): int
   {
-    $migrationsTableName = self::getMigrationsTableName();
+    $migrationsTableName = self::quoteIdentifier(self::getMigrationsTableName());
     $query = "CREATE TABLE IF NOT EXISTS $migrationsTableName (
       migration VARCHAR(255) NOT NULL PRIMARY KEY,
       ran_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -361,5 +189,110 @@ class PostgreSQLDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $this->output->writeln("<info>Migrations table created.</info>\n");
     return Command::SUCCESS;
+  }
+
+  /**
+   * @return array{host:string,port:int,username:string,password:string}|null
+   */
+  private static function loadConnectionConfig(string $name, InputInterface $input, OutputInterface $output): ?array
+  {
+    $inspector = new Inspector($input, $output);
+    $workingDirectory = getcwd() ?: '';
+
+    if (! $inspector->isValidWorkspace($workingDirectory)) {
+      $output->writeln('<error>This is not a valid workspace.</error>');
+      return null;
+    }
+
+    $type = DatabaseType::POSTGRESQL->value;
+    $dbConfig = new DBConfig($input, $output, $name, $type);
+
+    if (Command::SUCCESS !== $dbConfig->load()) {
+      $output->writeln('<error>Failed to load database configuration.</error>');
+      return null;
+    }
+
+    $configPath = "$type.$name";
+
+    if (is_null($dbConfig->get($configPath))) {
+      $output->writeln([
+        "<error>Database config for $name not found.</error>",
+        "\n<comment>Run `assegai database:configure $name --pgsql` to configure the database.</comment>"
+      ]);
+      return null;
+    }
+
+    return [
+      'host' => (string) $dbConfig->get("$configPath.host", DEFAULT_POSTGRES_HOST),
+      'port' => (int) $dbConfig->get("$configPath.port", DEFAULT_POSTGRES_PORT),
+      'username' => (string) ($dbConfig->get("$configPath.username") ?? $dbConfig->get("$configPath.user", DEFAULT_POSTGRES_USER)),
+      'password' => (string) ($dbConfig->get("$configPath.password") ?? ''),
+    ];
+  }
+
+  /**
+   * @param array{host:string,port:int,username:string,password:string} $config
+   */
+  private static function createAdministrationConnection(array $config, string $databaseName): PDO
+  {
+    return new PDO(
+      self::buildDsn($config['host'], $config['port'], $databaseName),
+      $config['username'],
+      $config['password'],
+      self::getDefaultPdoOptions()
+    );
+  }
+
+  private static function databaseExists(PDO $connection, string $databaseName): bool
+  {
+    $statement = $connection->prepare('SELECT 1 FROM pg_database WHERE datname = :database LIMIT 1');
+    $statement->execute(['database' => $databaseName]);
+
+    return $statement->fetchColumn() !== false;
+  }
+
+  private static function terminateActiveConnections(PDO $connection, string $databaseName): void
+  {
+    $statement = $connection->prepare(
+      'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :database AND pid <> pg_backend_pid()'
+    );
+    $statement->execute(['database' => $databaseName]);
+  }
+
+  private static function buildDsn(string $host, int $port, string $databaseName): string
+  {
+    return "pgsql:host=$host;port=$port;dbname=$databaseName";
+  }
+
+  private static function getMaintenanceDatabaseName(string $databaseName): string
+  {
+    return $databaseName === 'postgres' ? 'template1' : 'postgres';
+  }
+
+  /**
+   * @return array<int, mixed>
+   */
+  private static function getDefaultPdoOptions(): array
+  {
+    return [
+      PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+      PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+      PDO::ATTR_STRINGIFY_FETCHES => false,
+    ];
+  }
+
+  private static function buildCreateDatabaseSql(string $name): string
+  {
+    return 'CREATE DATABASE ' . self::quoteIdentifier($name) . ';';
+  }
+
+  private static function buildDropDatabaseSql(string $name): string
+  {
+    return 'DROP DATABASE IF EXISTS ' . self::quoteIdentifier($name) . ';';
+  }
+
+  private static function quoteIdentifier(string $identifier): string
+  {
+    return '"' . str_replace('"', '""', $identifier) . '"';
   }
 }

@@ -23,4 +23,14 @@ describe('database setup SQL generation', function () {
     expect($sql)->toBe('CREATE DATABASE "garconio_db";');
     expect($escapedSql)->toBe('CREATE DATABASE "garconio""prod";');
   });
+
+  it('builds identifier-safe PostgreSQL drop database SQL', function () {
+    $reflection = new ReflectionClass(PostgreSQLDatabase::class);
+    $method = $reflection->getMethod('buildDropDatabaseSql');
+    $sql = $method->invoke(null, 'garconio_db');
+    $escapedSql = $method->invoke(null, 'garconio"prod');
+
+    expect($sql)->toBe('DROP DATABASE IF EXISTS "garconio_db";');
+    expect($escapedSql)->toBe('DROP DATABASE IF EXISTS "garconio""prod";');
+  });
 });

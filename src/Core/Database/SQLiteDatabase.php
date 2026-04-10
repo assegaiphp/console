@@ -4,7 +4,6 @@ namespace Assegai\Console\Core\Database;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\Interfaces\SQLDatabaseConnectionInterface;
-use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Tests\Mocks\MockInput;
 use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Inspector;
@@ -124,14 +123,6 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
 
     $workingDirectory = Path::getProjectRootPath() ?: Path::getWorkingDirectory() ?: '';
     $path = self::normalizePath($path, $workingDirectory);
-
-    if (! self::isSpecialPath($path) && ! file_exists($path) ) {
-      $prompts = new CliPrompt($input, $output);
-
-      if (! $prompts->confirm('Do you want to create the database?', true) ) {
-        return Command::FAILURE;
-      }
-    }
 
     $migrationsTableName = self::getMigrationsTableName();
     $query = "CREATE TABLE $migrationsTableName (migration TEXT PRIMARY KEY, ran_at TEXT)";

@@ -2,6 +2,7 @@
 
 namespace Assegai\Console\Installers;
 
+use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Util\Config\ProjectConfig;
 use Symfony\Component\Console\Command\Command;
 
@@ -31,7 +32,7 @@ class PostgreSQLInstaller extends AbstractInstaller
 
     $newDatabaseConfig = [
       'databases' => [
-        'postgresql' => [
+        DatabaseType::POSTGRESQL->value => [
           $dbName => [
             'host' => $dbHost,
             'user' => $dbUser,
