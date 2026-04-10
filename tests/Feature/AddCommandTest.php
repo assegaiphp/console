@@ -23,7 +23,7 @@ function createAddCommandWorkspace(): string
     ],
     'require' => [
       'php' => '^8.3',
-      'assegaiphp/core' => '^0.7.0',
+      'assegaiphp/core' => RECOMMENDED_CORE_VERSION_CONSTRAINT,
     ],
   ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
