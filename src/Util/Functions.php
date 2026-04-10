@@ -188,7 +188,7 @@ if (!function_exists('update_module_file')) {
         $relativeFilename = str_replace(Path::join((getcwd() ?: ''), 'src') . DIRECTORY_SEPARATOR, '', $filename);
 
         if ((int)$bytes > 0) {
-            $output->writeln("<fg=blue>UPDATE</> $relativeFilename ($bytes)");
+            $output->writeln("<fg=bright-blue>UPDATE</> $relativeFilename ($bytes)");
         }
         return Command::SUCCESS;
     }
