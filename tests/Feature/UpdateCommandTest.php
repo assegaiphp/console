@@ -216,6 +216,53 @@ PHP,
     }
   });
 
+  it('does not downgrade projects that already require a newer assegai line', function () {
+    $workspace = createUpdateWorkspace([
+      'composer' => [
+        'name' => 'acme/future-app',
+        'autoload' => [
+          'psr-4' => [
+            'Acme\\Future\\' => 'src/',
+          ],
+        ],
+        'require' => [
+          'php' => '^8.3',
+          PACKAGE_NAME_CORE => '^0.9.0',
+          PACKAGE_NAME_ORM => '^0.9.0',
+          PACKAGE_NAME_EVENTS => '^1.0.0',
+        ],
+      ],
+    ]);
+
+    try {
+      $command = new class extends Update {
+        /** @var array<int, mixed> */
+        public array $composerCalls = [];
+
+        protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
+        {
+          $this->composerCalls[] = $packages;
+          return Command::SUCCESS;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--directory' => $workspace,
+      ]);
+
+      $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
+
+      expect($status)->toBe(Command::SUCCESS)
+        ->and($composer['require'][PACKAGE_NAME_CORE])->toBe('^0.9.0')
+        ->and($composer['require'][PACKAGE_NAME_ORM])->toBe('^0.9.0')
+        ->and($composer['require'][PACKAGE_NAME_EVENTS])->toBe('^1.0.0')
+        ->and($command->composerCalls[0])->toBe([PACKAGE_NAME_CORE, PACKAGE_NAME_ORM, PACKAGE_NAME_EVENTS]);
+    } finally {
+      deleteUpdateWorkspace($workspace);
+    }
+  });
+
   it('reapplies installed orm package integration during update for older apps', function () {
     $workspace = createUpdateWorkspace([
       'composer' => [

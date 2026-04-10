@@ -232,7 +232,7 @@ class DatabaseInstaller extends AbstractInstaller
     {
         try {
             $composerConfig = ComposerManifest::load($this->projectPath);
-            $composerConfig = ComposerManifest::ensureRequirement(
+            $composerConfig = ComposerManifest::ensureRecommendedRequirement(
                 $composerConfig,
                 PACKAGE_NAME_ORM,
                 RECOMMENDED_ORM_VERSION_CONSTRAINT

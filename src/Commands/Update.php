@@ -118,7 +118,7 @@ class Update extends Command
 
     $composerConfig = ProjectTemplateDefaults::hydrateComposerConfig($composerConfig);
 
-    $composerConfig = ComposerManifest::ensureRequirement(
+    $composerConfig = ComposerManifest::ensureRecommendedRequirement(
       $composerConfig,
       PACKAGE_NAME_CORE,
       RECOMMENDED_CORE_VERSION_CONSTRAINT
@@ -127,7 +127,7 @@ class Update extends Command
     $packages = [PACKAGE_NAME_CORE];
 
     if ($this->projectUsesOrm($workspace, $composerConfig)) {
-      $composerConfig = ComposerManifest::ensureRequirement(
+      $composerConfig = ComposerManifest::ensureRecommendedRequirement(
         $composerConfig,
         PACKAGE_NAME_ORM,
         RECOMMENDED_ORM_VERSION_CONSTRAINT
@@ -136,7 +136,7 @@ class Update extends Command
     }
 
     if ($this->projectUsesEvents($workspace, $composerConfig)) {
-      $composerConfig = ComposerManifest::ensureRequirement(
+      $composerConfig = ComposerManifest::ensureRecommendedRequirement(
         $composerConfig,
         PACKAGE_NAME_EVENTS,
         RECOMMENDED_EVENTS_VERSION_CONSTRAINT

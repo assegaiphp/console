@@ -65,4 +65,59 @@ class ComposerManifest
 
     return $composerConfig;
   }
+
+  /**
+   * Ensure a package meets at least the recommended constraint without lowering newer app constraints.
+   *
+   * @param array<string, mixed> $composerConfig
+   * @return array<string, mixed>
+   */
+  public static function ensureRecommendedRequirement(
+    array $composerConfig,
+    string $packageName,
+    string $recommendedConstraint,
+    string $section = 'require',
+  ): array {
+    $requirements = $composerConfig[$section] ?? [];
+
+    if (! is_array($requirements)) {
+      $requirements = [];
+    }
+
+    $existingConstraint = $requirements[$packageName] ?? null;
+
+    if (! is_string($existingConstraint) || $existingConstraint === '') {
+      return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
+    }
+
+    if (self::constraintVersionCompare($existingConstraint, $recommendedConstraint) >= 0) {
+      return $composerConfig;
+    }
+
+    return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
+  }
+
+  private static function constraintVersionCompare(string $leftConstraint, string $rightConstraint): int
+  {
+    $leftVersion = self::extractLowestComparableVersion($leftConstraint);
+    $rightVersion = self::extractLowestComparableVersion($rightConstraint);
+
+    if ($leftVersion === null || $rightVersion === null) {
+      return 1;
+    }
+
+    return version_compare($leftVersion, $rightVersion);
+  }
+
+  private static function extractLowestComparableVersion(string $constraint): ?string
+  {
+    if (preg_match_all('/\d+\.\d+\.\d+/', $constraint, $matches) !== 1 || empty($matches[0])) {
+      return null;
+    }
+
+    $versions = $matches[0];
+    usort($versions, static fn(string $left, string $right): int => version_compare($left, $right));
+
+    return $versions[0] ?? null;
+  }
 }
