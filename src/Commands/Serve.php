@@ -502,7 +502,7 @@ class Serve extends Command
         throw new RuntimeException('Failed to write the OpenAPI export.');
       }
 
-      $output->writeln('<info>GENERATED</info> ' . $outputFile, OutputInterface::VERBOSITY_VERBOSE);
+      $output->writeln('<info>CREATE</info> ' . $outputFile, OutputInterface::VERBOSITY_VERBOSE);
 
       return Command::SUCCESS;
     } catch (RuntimeException $exception) {
