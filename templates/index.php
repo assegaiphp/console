@@ -13,8 +13,8 @@ if ($publicDirectory !== false && $requestPath !== '/' && $requestPath !== '') {
   $segments = $assetRelativePath === '' ? [] : array_values(array_filter(explode('/', $assetRelativePath), static fn(string $segment): bool => $segment !== ''));
   $hasHiddenSegment = false;
 
-  foreach ($segments as $segment) {
-    if (str_starts_with($segment, '.')) {
+  foreach ($segments as $index => $segment) {
+    if (str_starts_with($segment, '.') && !($index === 0 && $segment === '.well-known')) {
       $hasHiddenSegment = true;
       break;
     }
