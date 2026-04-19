@@ -17,6 +17,7 @@ class SchematicContext
   private string $workspace;
   private string $baseNamespace;
   private string $sourceRoot;
+  private bool $flat;
 
   public function __construct(
     public readonly InputInterface $input,
@@ -30,9 +31,9 @@ class SchematicContext
     $this->requestedName = trim(str_replace('\\', '/', (string) ($requestedName ?? '')), '/');
     $this->baseName = $this->requestedName === '' ? '' : basename($this->requestedName);
 
-    $subdirectory = dirname($this->requestedName);
-    $this->subdirectory = $subdirectory === '.' ? '' : $subdirectory;
     [$this->baseNamespace, $this->sourceRoot] = $this->resolveWorkspaceDefaults();
+    $this->subdirectory = $this->resolveSubdirectory();
+    $this->flat = (bool) $this->getOption('flat', false);
   }
 
   public function getWorkspace(): string
@@ -63,6 +64,11 @@ class SchematicContext
   public function getSourceRoot(): string
   {
     return $this->sourceRoot;
+  }
+
+  public function isFlat(): bool
+  {
+    return $this->flat;
   }
 
   public function getArgument(string $name, mixed $default = null): mixed
@@ -121,7 +127,7 @@ class SchematicContext
   public function getTemplateVariables(): array
   {
     return SchematicTemplateVariables::build(
-      $this->requestedName,
+      $this->getEffectiveRequestedName(),
       $this->baseNamespace,
       $this->sourceRoot,
       $this->getArgumentValues(),
@@ -167,5 +173,60 @@ class SchematicContext
     }
 
     return [$baseNamespace, $sourceRoot];
+  }
+
+  private function resolveSubdirectory(): string
+  {
+    $pathOption = trim(str_replace('\\', '/', (string) $this->getOption('path', '')), '/');
+
+    if ($pathOption !== '') {
+      return $this->normalizeOutputPath($pathOption);
+    }
+
+    $subdirectory = dirname($this->requestedName);
+
+    if ($subdirectory === '.' || $subdirectory === DIRECTORY_SEPARATOR) {
+      return '';
+    }
+
+    return trim(str_replace('\\', '/', $subdirectory), '/');
+  }
+
+  private function normalizeOutputPath(string $path): string
+  {
+    $path = trim(str_replace('\\', '/', $path), '/');
+
+    if ($path === '' || $path === '.') {
+      return '';
+    }
+
+    $sourceRoot = trim(str_replace('\\', '/', $this->sourceRoot), '/');
+
+    if ($path === $sourceRoot) {
+      return '';
+    }
+
+    if (str_starts_with($path, $sourceRoot . '/')) {
+      return substr($path, strlen($sourceRoot) + 1);
+    }
+
+    return $path;
+  }
+
+  private function getEffectiveRequestedName(): string
+  {
+    if ($this->baseName === '') {
+      return '';
+    }
+
+    $segments = [];
+
+    if ($this->subdirectory !== '') {
+      $segments[] = $this->subdirectory;
+    }
+
+    $segments[] = $this->baseName;
+
+    return implode('/', $segments);
   }
 }

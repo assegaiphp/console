@@ -36,7 +36,7 @@ class ResourceSchematic extends AbstractDirectorySchematic
     $moduleName = $this->nameText->pascalCase() . 'Module';
 
     return [
-      'use' => ["{$this->namespace}\\{$this->nameText->pascalCase()}\\$moduleName"],
+      'use' => [$this->getGeneratedNamespace() . '\\' . $moduleName],
       'declarations' => [],
       'providers' => [],
       'controllers' => [],
@@ -55,10 +55,14 @@ class ResourceSchematic extends AbstractDirectorySchematic
    */
   private function getTemplateContent(string $templateType, string $prefix = ''): string
   {
+    $resourceNamespace = $this->getGeneratedNamespace();
+    $dtoNamespace = $this->getGeneratedNamespace('DTOs');
+    $entityNamespace = $this->getGeneratedNamespace('Entities');
+
     $namespace = match ($templateType) {
-      'dto' => "$this->namespace\__NAME__\DTOs",
-      'entity' => "$this->namespace\__NAME__\Entities",
-      default => "$this->namespace\__NAME__"
+      'dto' => $dtoNamespace,
+      'entity' => $entityNamespace,
+      default => $resourceNamespace,
     };
 
     $output = <<<PHP
@@ -102,8 +106,8 @@ use Assegai\Core\Attributes\Http\Post;
 use Assegai\Core\Attributes\Http\Put;
 use Assegai\Core\Attributes\Http\Delete;
 use Assegai\Core\Attributes\Param;
-use $this->namespace\\$prefix\DTOs\Create__SINGULAR__DTO;
-use $this->namespace\\$prefix\DTOs\Update__SINGULAR__DTO;
+use {$dtoNamespace}\Create__SINGULAR__DTO;
+use {$dtoNamespace}\Update__SINGULAR__DTO;
 
 #[Controller('__PLURAL_KEBAB__')]
 readonly class {$prefix}Controller
@@ -184,8 +188,8 @@ PHP,
       'service' => <<<PHP
 
 use Assegai\Core\Attributes\Injectable;
-use $this->namespace\__NAME__\DTOs\Create__SINGULAR__DTO;
-use $this->namespace\__NAME__\DTOs\Update__SINGULAR__DTO;
+use {$dtoNamespace}\Create__SINGULAR__DTO;
+use {$dtoNamespace}\Update__SINGULAR__DTO;
 
 #[Injectable]
 class __NAME__Service
@@ -258,7 +262,7 @@ class __NAME__Module
 {
 }
 PHP,
-      default => ''
+      default => 'Unknown template type',
     };
 
     return $output;

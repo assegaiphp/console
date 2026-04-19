@@ -195,8 +195,21 @@ class Generate extends Command
         'directory',
         'd',
         InputOption::VALUE_REQUIRED,
-        'The directory to generate the schematic in.',
+        'The workspace directory to generate the schematic in.',
         getcwd() ?: '.',
+      ),
+      new InputOption(
+        'path',
+        'p',
+        InputOption::VALUE_REQUIRED,
+        'The source-relative path to place generated files in.',
+        '',
+      ),
+      new InputOption(
+        'flat',
+        'f',
+        InputOption::VALUE_NONE,
+        'Generate files directly in the target path instead of creating a name-based directory.',
       ),
       new InputOption(
         'queue',
@@ -236,8 +249,21 @@ class Generate extends Command
       'directory',
       'd',
       InputOption::VALUE_REQUIRED,
-      'The directory to generate the schematic in.',
+      'The workspace directory to generate the schematic in.',
       getcwd() ?: '.',
+    ));
+    $inputDefinition->addOption(new InputOption(
+      'path',
+      'p',
+      InputOption::VALUE_REQUIRED,
+      'The source-relative path to place generated files in.',
+      '',
+    ));
+    $inputDefinition->addOption(new InputOption(
+      'flat',
+      'f',
+      InputOption::VALUE_NONE,
+      'Generate files directly in the target path instead of creating a name-based directory.',
     ));
 
     foreach ($definition->options as $option) {

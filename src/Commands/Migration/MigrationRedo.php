@@ -30,8 +30,10 @@ class MigrationRedo extends Command
       ->addOption('steps', 's', InputArgument::OPTIONAL, 'The number of migrations to redo', 1)
       ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DatabaseType::MYSQL->value, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use a MySQL database')
+      ->addOption(DatabaseType::MARIADB->value, null, InputOption::VALUE_NONE, 'Use a MariaDB database')
       ->addOption(DatabaseType::POSTGRESQL->value, null,  InputOption::VALUE_NONE, 'Use a PostgreSQL database')
-      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'User an SQLite database');
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use an SQLite database')
+      ->addOption(DatabaseType::MSSQL->value, null, InputOption::VALUE_NONE, 'Use an MSSQL database');
   }
 
   /**
@@ -42,7 +44,7 @@ class MigrationRedo extends Command
   {
     $databaseType = get_datasource_type($input, $output);
 
-    if (false === $databaseType || !DatabaseType::isValid($databaseType)) {
+    if (false === $databaseType || ! DatabaseType::isValid($databaseType)) {
       $output->writeln("<error>Invalid database type $databaseType</error>");
       return Command::FAILURE;
     }
@@ -50,13 +52,13 @@ class MigrationRedo extends Command
     $numberOfMigrations = $input->getOption('steps') ?? 1;
     $application = $this->getApplication();
 
-    if (!$application) {
-      $output->writeln("<error>Failed to get the application</error>");
+    if (! $application) {
+      $output->writeln('<error>Failed to get the application</error>');
       return Command::FAILURE;
     }
 
-    if (!is_numeric($numberOfMigrations)) {
-      $output->writeln("<error>The number of migrations must be a number</error>");
+    if (! is_numeric($numberOfMigrations)) {
+      $output->writeln('<error>The number of migrations must be a number</error>');
       return Command::FAILURE;
     }
 
@@ -66,11 +68,16 @@ class MigrationRedo extends Command
       'command' => 'migration:down',
       ParameterKey::DB_NAME->value => $database,
       '--steps' => $numberOfMigrations,
-      '--database_type' => $databaseType
+      '--database_type' => $databaseType,
+      '--' . DatabaseType::MYSQL->value => $input->getOption(DatabaseType::MYSQL->value),
+      '--' . DatabaseType::MARIADB->value => $input->getOption(DatabaseType::MARIADB->value),
+      '--' . DatabaseType::POSTGRESQL->value => $input->getOption(DatabaseType::POSTGRESQL->value),
+      '--' . DatabaseType::SQLITE->value => $input->getOption(DatabaseType::SQLITE->value),
+      '--' . DatabaseType::MSSQL->value => $input->getOption(DatabaseType::MSSQL->value),
     ]);
 
     if (Command::SUCCESS !== $application->doRun($downInput, $output)) {
-      $output->writeln("<error>Failed to undo the migrations</error>");
+      $output->writeln('<error>Failed to undo the migrations</error>');
       return Command::FAILURE;
     }
 
@@ -78,11 +85,16 @@ class MigrationRedo extends Command
       'command' => 'migration:up',
       ParameterKey::DB_NAME->value => $database,
       '--steps' => $numberOfMigrations,
-      '--database_type' => $databaseType
+      '--database_type' => $databaseType,
+      '--' . DatabaseType::MYSQL->value => $input->getOption(DatabaseType::MYSQL->value),
+      '--' . DatabaseType::MARIADB->value => $input->getOption(DatabaseType::MARIADB->value),
+      '--' . DatabaseType::POSTGRESQL->value => $input->getOption(DatabaseType::POSTGRESQL->value),
+      '--' . DatabaseType::SQLITE->value => $input->getOption(DatabaseType::SQLITE->value),
+      '--' . DatabaseType::MSSQL->value => $input->getOption(DatabaseType::MSSQL->value),
     ]);
 
     if (Command::SUCCESS !== $application->doRun($upInput, $output)) {
-      $output->writeln("<error>Failed to redo the migrations</error>");
+      $output->writeln('<error>Failed to redo the migrations</error>');
       return Command::FAILURE;
     }
 

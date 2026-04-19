@@ -179,4 +179,81 @@ describe('Generate Web Components', function () {
       deleteWebComponentGeneratorWorkspace($workspace);
     }
   });
+  it('can generate a flat component beside the app module', function () {
+    $workspace = createWebComponentGeneratorWorkspace(['prefix' => 'acme']);
+    $previousWorkingDirectory = getcwd();
+
+    if (false === $previousWorkingDirectory) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      $commandTester = new CommandTester(new Generate());
+
+      expect($commandTester->execute([
+        'schematic' => 'component',
+        'name' => 'app',
+        '--directory' => $workspace,
+        '--flat' => true,
+      ]))->toBe(Command::SUCCESS);
+
+      expect($workspace . '/src/AppComponent.php')->toBeFile();
+      expect($workspace . '/src/AppComponent.twig')->toBeFile();
+      expect($workspace . '/src/AppComponent.css')->toBeFile();
+      expect($workspace . '/src/App/AppComponent.php')->not->toBeFile();
+      expect(file_get_contents($workspace . '/src/AppComponent.php') ?: '')
+        ->toContain('namespace Assegai\App;')
+        ->toContain("selector: 'acme-app'");
+      expect(file_get_contents($workspace . '/src/AppModule.php') ?: '')
+        ->toContain('use Assegai\App\AppComponent;')
+        ->toContain('declarations: [AppComponent::class]');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteWebComponentGeneratorWorkspace($workspace);
+    }
+  });
+
+  it('can generate a flat page in an explicit source-relative path', function () {
+    $workspace = createWebComponentGeneratorWorkspace(['prefix' => 'acme']);
+    $previousWorkingDirectory = getcwd();
+
+    if (false === $previousWorkingDirectory) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      $commandTester = new CommandTester(new Generate());
+
+      expect($commandTester->execute([
+        'schematic' => 'page',
+        'name' => 'about',
+        '--directory' => $workspace,
+        '--path' => 'marketing/landing',
+        '--flat' => true,
+        '--wc' => true,
+      ]))->toBe(Command::SUCCESS);
+
+      expect($workspace . '/src/Marketing/Landing/AboutComponent.php')->toBeFile();
+      expect($workspace . '/src/Marketing/Landing/AboutController.php')->toBeFile();
+      expect($workspace . '/src/Marketing/Landing/AboutModule.php')->toBeFile();
+      expect($workspace . '/src/Marketing/Landing/AboutService.php')->toBeFile();
+      expect($workspace . '/src/Marketing/Landing/AboutComponent.wc.ts')->toBeFile();
+      expect($workspace . '/src/Marketing/Landing/About/AboutComponent.php')->not->toBeFile();
+      expect(file_get_contents($workspace . '/src/Marketing/Landing/AboutComponent.php') ?: '')
+        ->toContain('namespace Assegai\App\Marketing\Landing;')
+        ->toContain("selector: 'acme-about'");
+      expect(file_get_contents($workspace . '/src/Marketing/Landing/AboutComponent.wc.ts') ?: '')
+        ->toContain("defineElement('acme-about', AboutElement);");
+      expect(file_get_contents($workspace . '/src/AppModule.php') ?: '')
+        ->toContain('use Assegai\App\Marketing\Landing\AboutModule;')
+        ->toContain('imports: [AboutModule::class]');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteWebComponentGeneratorWorkspace($workspace);
+    }
+  });
 });

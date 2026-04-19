@@ -39,10 +39,12 @@ final class SchematicTemplateVariables
       $subdirectorySegments
     ));
 
+    $isFlat = (bool) ($options['flat'] ?? false);
+
     $currentNamespace = trim(implode('\\', array_filter([
       trim($baseNamespace, '\\'),
       $subdirectoryNamespace,
-      $nameText->pascalCase(),
+      $isFlat ? '' : $nameText->pascalCase(),
     ])), '\\');
 
     $variables = [

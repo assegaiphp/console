@@ -9,8 +9,6 @@ use Symfony\Component\Console\Command\Command;
 
 /**
  * Class DatabaseInstaller. Installs the database.
- *
- * @package
  */
 class DatabaseInstaller extends AbstractInstaller
 {
@@ -19,8 +17,10 @@ class DatabaseInstaller extends AbstractInstaller
      */
     protected array $requiredExtensions = [
         'mysql' => ['intl', 'pdo_mysql', 'mysqli'],
+        'mariadb' => ['intl', 'pdo_mysql', 'mysqli'],
         'postgresql' => ['intl', 'pdo_pgsql'],
-        'sqlite' => ['intl', 'pdo_sqlite']
+        'sqlite' => ['intl', 'pdo_sqlite'],
+        'mssql' => ['intl', 'pdo_sqlsrv', 'sqlsrv'],
     ];
 
     /**
@@ -28,8 +28,10 @@ class DatabaseInstaller extends AbstractInstaller
      */
     protected array $supportedDatabase = [
         'mysql',
+        'mariadb',
         'postgresql',
-        'sqlite'
+        'sqlite',
+        'mssql',
     ];
 
     /**
@@ -37,7 +39,7 @@ class DatabaseInstaller extends AbstractInstaller
      */
     public function install(): int
     {
-        if (!$this->shouldConfigureDatabases()) {
+        if (! $this->shouldConfigureDatabases()) {
             $this->output->writeln('');
             $this->output->writeln('<comment>Skipping database configuration...</comment>');
             $this->output->writeln('');
@@ -46,7 +48,7 @@ class DatabaseInstaller extends AbstractInstaller
 
         $this->output->writeln('');
         $this->output->writeln(
-            $this->formatter->formatBlock("Database Setup", 'question', true)
+            $this->formatter->formatBlock('Database Setup', 'question', true)
         );
         $this->output->writeln('');
 
@@ -67,10 +69,13 @@ class DatabaseInstaller extends AbstractInstaller
             }
 
             if ($configuredDatabaseName = $dbInstaller->getConfiguredDatabaseName()) {
-                $configuredDatabaseNames[] = qualify_datasource_name($database, $configuredDatabaseName);
+                $normalizedDatabaseType = match ($database) {
+                    'postgresql' => 'pgsql',
+                    default => $database,
+                };
+                $configuredDatabaseNames[] = qualify_datasource_name($normalizedDatabaseType, $configuredDatabaseName);
             }
         }
-
 
         if (Command::SUCCESS !== $this->ensureDefaultUserResource()) {
             return Command::FAILURE;
@@ -86,7 +91,7 @@ class DatabaseInstaller extends AbstractInstaller
 
         $this->output->writeln([
             '',
-            "✔️  Database installation complete\n",
+            '✔️  Database installation complete\n',
             ''
         ]);
 
@@ -128,7 +133,7 @@ class DatabaseInstaller extends AbstractInstaller
         $missingExtensions = [];
 
         foreach ($extensions as $extension) {
-            if (!extension_loaded($extension)) {
+            if (! extension_loaded($extension)) {
                 $missingExtensions[] = $extension;
             }
         }
@@ -146,7 +151,21 @@ class DatabaseInstaller extends AbstractInstaller
                 $this->questionHelper,
                 $this->projectPath
             ),
+            'mariadb' => new MariaDbInstaller(
+                $this->input,
+                $this->output,
+                $this->formatter,
+                $this->questionHelper,
+                $this->projectPath
+            ),
             'postgresql' => new PostgreSQLInstaller(
+                $this->input,
+                $this->output,
+                $this->formatter,
+                $this->questionHelper,
+                $this->projectPath
+            ),
+            'mssql' => new MsSqlInstaller(
                 $this->input,
                 $this->output,
                 $this->formatter,
@@ -173,7 +192,7 @@ class DatabaseInstaller extends AbstractInstaller
             "What is the name of the users' resource?",
             'Users'
         );
-        $command = $this->buildGenerateResourceCommand((string)$userServiceName);
+        $command = $this->buildGenerateResourceCommand((string) $userServiceName);
         $statusCode = $this->runCommand($command);
 
         if ($statusCode === Command::SUCCESS) {
@@ -238,7 +257,7 @@ class DatabaseInstaller extends AbstractInstaller
                 RECOMMENDED_ORM_VERSION_CONSTRAINT
             );
 
-            if (!ComposerManifest::save($this->projectPath, $composerConfig)) {
+            if (! ComposerManifest::save($this->projectPath, $composerConfig)) {
                 throw new \RuntimeException('Failed to save composer.json');
             }
         } catch (\RuntimeException) {

@@ -540,8 +540,10 @@ if (!function_exists('get_datasource_type')) {
     {
         return match (true) {
             $input->hasOption(DatabaseType::MYSQL->value) && $input->getOption(DatabaseType::MYSQL->value) => DatabaseType::MYSQL->value,
+            $input->hasOption(DatabaseType::MARIADB->value) && $input->getOption(DatabaseType::MARIADB->value) => DatabaseType::MARIADB->value,
             $input->hasOption(DatabaseType::POSTGRESQL->value) && $input->getOption(DatabaseType::POSTGRESQL->value) => DatabaseType::POSTGRESQL->value,
             $input->hasOption(DatabaseType::SQLITE->value) && $input->getOption(DatabaseType::SQLITE->value) => DatabaseType::SQLITE->value,
+            $input->hasOption(DatabaseType::MSSQL->value) && $input->getOption(DatabaseType::MSSQL->value) => DatabaseType::MSSQL->value,
             default => $input->getOption($optionName) ?? select("Which type of data source do you want to use?", DatabaseType::toArray())
         };
     }
@@ -555,7 +557,9 @@ if (!function_exists('qualify_datasource_name')) {
         }
 
         $normalizedType = match ($datasourceType) {
-            'postgresql' => DatabaseType::POSTGRESQL->value,
+            'postgres', 'postgresql' => DatabaseType::POSTGRESQL->value,
+            'maria', 'mariadb' => DatabaseType::MARIADB->value,
+            'sqlserver', 'sqlsrv', 'mssql' => DatabaseType::MSSQL->value,
             default => $datasourceType,
         };
 

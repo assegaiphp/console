@@ -5,32 +5,60 @@
  * (c) Assegai Team <https://assegaiphp.com>
  */
 
+$publicDirectory = realpath(__DIR__ . '/public');
+$requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
-/*
- * This is a simple router that routes all requests to the bootstrap.php file.
- * It is a simple way to get started with the Assegai framework.
- *
- * You can replace this file with your own router if you want to.
- */
+if ($publicDirectory !== false && $requestPath !== '/' && $requestPath !== '') {
+  $assetRelativePath = trim(str_replace('\\', '/', ltrim($requestPath, '/')), '/');
+  $segments = $assetRelativePath === '' ? [] : array_values(array_filter(explode('/', $assetRelativePath), static fn(string $segment): bool => $segment !== ''));
+  $hasHiddenSegment = false;
+
+  foreach ($segments as $segment) {
+    if (str_starts_with($segment, '.')) {
+      $hasHiddenSegment = true;
+      break;
+    }
+  }
+
+  if (!$hasHiddenSegment && $assetRelativePath !== '') {
+    $assetCandidate = $publicDirectory . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $assetRelativePath);
+    $assetPath = realpath($assetCandidate);
+    $extension = strtolower(pathinfo($assetPath ?: '', PATHINFO_EXTENSION));
+
+    if (
+      $assetPath !== false
+      && is_file($assetPath)
+      && str_starts_with($assetPath, $publicDirectory . DIRECTORY_SEPARATOR)
+      && !in_array($extension, ['php', 'phtml', 'phar', 'inc'], true)
+    ) {
+      $mimeType = mime_content_type($assetPath) ?: 'application/octet-stream';
+      $contentLength = filesize($assetPath);
+
+      header("Content-Type: $mimeType");
+      header('X-Content-Type-Options: nosniff');
+
+      if (is_int($contentLength) && $contentLength >= 0) {
+        header('Content-Length: ' . $contentLength);
+      }
+
+      readfile($assetPath);
+      exit();
+    }
+  }
+}
+
 header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Headers: Origin,X-Requested-With,Content-Type,Accept,X-Access-Token,Authorization,x-api-key");
 header("Access-Control-Allow-Methods: GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE");
 header("Access-Control-Allow-Origin: *");
 
-// Handle preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
   http_response_code(200);
   exit();
 }
 
-/*
- * Set the path to the request URI.
- */
 if (!isset($_GET['path']) || $_GET['path'] === '') {
-  $_GET['path'] = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+  $_GET['path'] = trim($requestPath, '/');
 }
 
-/*
- * This is the entry point of the application.
- */
 require_once './bootstrap.php';

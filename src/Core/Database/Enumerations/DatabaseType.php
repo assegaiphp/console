@@ -10,8 +10,10 @@ namespace Assegai\Console\Core\Database\Enumerations;
 enum DatabaseType: string
 {
   case MYSQL = 'mysql';
+  case MARIADB = 'mariadb';
   case POSTGRESQL = 'pgsql';
   case SQLITE = 'sqlite';
+  case MSSQL = 'mssql';
 
   /**
    * Check if the type is valid.
@@ -21,7 +23,7 @@ enum DatabaseType: string
    */
   public static function isValid(string $type): bool
   {
-    return in_array($type, self::toArray());
+    return in_array($type, self::toArray(), true);
   }
 
   /**
@@ -33,8 +35,10 @@ enum DatabaseType: string
   {
     return [
       self::MYSQL->value,
+      self::MARIADB->value,
       self::POSTGRESQL->value,
       self::SQLITE->value,
+      self::MSSQL->value,
     ];
   }
 }

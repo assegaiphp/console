@@ -3,7 +3,6 @@
 namespace Assegai\Console\Core\Schematics;
 
 use Assegai\Console\Util\Path;
-use Assegai\Console\Util\Text;
 use Assegai\Console\WebComponents\WebComponentConfig;
 use Assegai\Console\WebComponents\WebComponentScaffolder;
 use Override;
@@ -43,10 +42,12 @@ class PageSchematic extends AbstractDirectorySchematic
    */
   public function getComponentTemplateContent(): string
   {
+    $pageNamespace = $this->getGeneratedNamespace();
+
     return <<<PHP
 <?php
 
-namespace $this->namespace\__NAME__;
+namespace $pageNamespace;
 
 use Assegai\Core\Attributes\Component;
 use Assegai\Core\Components\AssegaiComponent;
@@ -70,10 +71,12 @@ PHP;
    */
   public function getControllerTemplateContent(): string
   {
+    $pageNamespace = $this->getGeneratedNamespace();
+
     return <<<PHP
 <?php
 
-namespace $this->namespace\__NAME__;
+namespace $pageNamespace;
 
 use Assegai\Core\Attributes\Controller;
 use Assegai\Core\Attributes\Http\Get;
@@ -108,10 +111,12 @@ PHP;
    */
   public function getModuleTemplateContent(): string
   {
+    $pageNamespace = $this->getGeneratedNamespace();
+
     return <<<PHP
 <?php
 
-namespace $this->namespace\__NAME__;
+namespace $pageNamespace;
 
 use Assegai\Core\Attributes\Modules\Module;
 
@@ -132,10 +137,12 @@ PHP;
    */
   public function getServiceTemplateContent(): string
   {
+    $pageNamespace = $this->getGeneratedNamespace();
+
     return <<<PHP
 <?php
 
-namespace $this->namespace\__NAME__;
+namespace $pageNamespace;
 
 use Assegai\Core\Attributes\Injectable;
 use Assegai\Core\Components\Interfaces\ComponentInterface;
@@ -168,16 +175,7 @@ PHP;
       return Command::SUCCESS;
     }
 
-    $segments = ['src'];
-
-    if ($this->subdirectory) {
-      foreach (array_filter(explode('/', $this->subdirectory)) as $segment) {
-        $segments[] = (new Text($segment))->pascalCase();
-      }
-    }
-
-    $segments[] = $this->nameText->pascalCase();
-    $directory = Path::join($this->path, ...$segments);
+    $directory = $this->getRootDirectoryPath();
     $filename = Path::join($directory, $this->nameText->pascalCase() . 'Component.wc.ts');
 
     return WebComponentScaffolder::createComponentFile(
@@ -199,7 +197,7 @@ PHP;
     $moduleName = $this->nameText->pascalCase() . 'Module';
 
     return [
-      'use' => ["{$this->namespace}\\{$this->nameText->pascalCase()}\\$moduleName"],
+      'use' => [$this->getGeneratedNamespace() . '\\' . $moduleName],
       'declarations' => [],
       'providers' => [],
       'controllers' => [],

@@ -44,6 +44,7 @@ abstract class AbstractFileSchematic implements SchematicInterface
     protected string $subdirectory = '',
     protected string $prefix = '',
     protected string $suffix = '',
+    protected bool $isFlat = false,
   )
   {
     $this->properName = (new Text($this->name))->pascalCase();

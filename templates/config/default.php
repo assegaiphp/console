@@ -25,10 +25,18 @@ return [
         'port' => 3306,
       ],
     ],
-    'pgsql' => [
+    'mariadb' => [
       'db_name' => [
         'host' => '127.0.0.1',
         'user' => 'root',
+        'password' => '',
+        'port' => 3306,
+      ],
+    ],
+    'pgsql' => [
+      'db_name' => [
+        'host' => '127.0.0.1',
+        'user' => 'postgres',
         'password' => '',
         'port' => 5432,
       ],
@@ -36,6 +44,14 @@ return [
     'sqlite' => [
       'db_name' => [
         'path' => '.data/db_name.sq3',
+      ],
+    ],
+    'mssql' => [
+      'db_name' => [
+        'host' => '127.0.0.1',
+        'user' => 'sa',
+        'password' => '',
+        'port' => 1433,
       ],
     ],
     'mongodb' => [],

@@ -91,6 +91,7 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
         protected string          $name,
         protected string          $path,
         protected string          $subdirectory = '',
+        protected bool            $isFlat = false,
         protected string          $prefix = '',
         protected string          $suffix = '',
     )
@@ -266,13 +267,15 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
      *
      * @return string Returns the root directory path
      */
-    private function getRootDirectoryPath(): string
+    protected function getRootDirectoryPath(): string
     {
-        return Path::join(...array_merge(
-            [$this->path, 'src'],
-            $this->getSubdirectorySegments(),
-            [$this->directoryName]
-        ));
+        $segments = array_merge([$this->path, 'src'], $this->getSubdirectorySegments());
+
+        if ($this->shouldNestGeneratedDirectory()) {
+            $segments[] = $this->directoryName;
+        }
+
+        return Path::join(...$segments);
     }
 
     /**
@@ -292,6 +295,25 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
         );
     }
 
+    protected function shouldNestGeneratedDirectory(): bool
+    {
+        return ! $this->isFlat;
+    }
+
+    protected function getGeneratedNamespace(?string $suffix = null): string
+    {
+        $parts = [trim($this->namespace, '\\')];
+
+        if ($this->shouldNestGeneratedDirectory()) {
+            $parts[] = $this->nameText->pascalCase();
+        }
+
+        if (is_string($suffix) && trim($suffix, '\\') !== '') {
+            $parts[] = trim($suffix, '\\');
+        }
+
+        return implode('\\', array_filter($parts, static fn(string $part): bool => $part !== ''));
+    }
     /**
      * @inheritDoc
      */
@@ -366,13 +388,23 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
             return false;
         }
 
-        foreach ($localFiles as $file) {
-            if (str_ends_with($file, 'Module.php')) {
-                return Path::join(...array_merge($segments, [$file]));
-            }
+        $generatedModuleFilename = $this->nameText->pascalCase() . 'Module.php';
+        $candidateModules = array_values(array_filter(
+            $localFiles,
+            static fn(string $file): bool => $file !== $generatedModuleFilename && str_ends_with($file, 'Module.php')
+        ));
+
+        if (empty($candidateModules)) {
+            return false;
         }
 
-        return false;
+        $preferredParentModuleFilename = $segments[array_key_last($segments)] . 'Module.php';
+
+        if (in_array($preferredParentModuleFilename, $candidateModules, true)) {
+            return Path::join(...array_merge($segments, [$preferredParentModuleFilename]));
+        }
+
+        return Path::join(...array_merge($segments, [$candidateModules[0]]));
     }
 
     /**
