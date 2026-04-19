@@ -32,7 +32,7 @@ class DBConfig implements ConfigInterface
   /**
    * @var string[] $possibleConfigFilenames The possible configuration filenames.
    */
-  protected array $possibleConfigFilenames = ['local.php', 'dev.php', 'secure.php', 'default.php'];
+  protected array $possibleConfigFilenames = ['secure.php', 'local.php', 'dev.php', 'default.php'];
 
   /**
    * DatabaseConfig constructor.
@@ -152,14 +152,22 @@ class DBConfig implements ConfigInterface
    */
   public function commit(): int
   {
-    $data = array_to_string($this->config);
+    $contents = file_get_contents($this->path);
 
-    $bytes = file_put_contents($this->path, <<<PHP
-<?php
+    if ($contents === false) {
+      $this->output->writeln('<error>Failed to read the configuration file</error>');
+      return Command::FAILURE;
+    }
 
-return $data;
-PHP
-    );
+    $updatedContents = upsert_php_array_config_section($contents, 'databases', $this->config['databases'] ?? []);
+
+    if ($updatedContents === false) {
+      $this->output->writeln('<error>Failed to update the database configuration section</error>');
+      return Command::FAILURE;
+    }
+
+    $bytes = file_put_contents($this->path, $updatedContents);
+
     if (false === $bytes )
     {
       $this->output->writeln('<error>Failed to write to configuration file</error>');

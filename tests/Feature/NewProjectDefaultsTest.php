@@ -46,16 +46,20 @@ describe('New project defaults', function () {
   });
 
   it('uses loopback addresses for default database hosts', function () {
-    $defaultConfig = require __DIR__ . '/../../templates/config/default.php';
-
     expect(DEFAULT_MYSQL_HOST)->toBe('127.0.0.1');
     expect(DEFAULT_MARIADB_HOST)->toBe('127.0.0.1');
     expect(DEFAULT_POSTGRES_HOST)->toBe('127.0.0.1');
     expect(DEFAULT_MSSQL_HOST)->toBe('127.0.0.1');
-    expect($defaultConfig['databases']['mysql']['db_name']['host'])->toBe('127.0.0.1');
-    expect($defaultConfig['databases']['mariadb']['db_name']['host'])->toBe('127.0.0.1');
-    expect($defaultConfig['databases']['pgsql']['db_name']['host'])->toBe('127.0.0.1');
-    expect($defaultConfig['databases']['mssql']['db_name']['host'])->toBe('127.0.0.1');
+  });
+
+  it('ships secure config defaults for auth-sensitive settings', function () {
+    $secureConfig = require __DIR__ . '/../../templates/config/secure.php';
+
+    expect($secureConfig['databases'])->toBe([]);
+    expect($secureConfig['authentication']['secret'])->toBe('your-secret-key');
+    expect($secureConfig['authentication']['strategies'])->toBe([]);
+    expect($secureConfig['authentication']['jwt']['entityClassName'])
+      ->toBe('Assegai\\App\\Users\\Entities\\UserEntity');
   });
 
   it('offers module data_source enablement after configuring databases during project setup', function () {
@@ -106,6 +110,11 @@ describe('New project defaults', function () {
         return Command::SUCCESS;
       }
 
+      protected function syncSecureAuthenticationDefaults(): int
+      {
+        return Command::SUCCESS;
+      }
+
       protected function installOrmPackage(): int
       {
         return Command::SUCCESS;
@@ -121,6 +130,86 @@ describe('New project defaults', function () {
     expect($installer->install())->toBe(Command::SUCCESS);
     expect($installer->configuredDatabaseNames)->toBe(['mariadb:blog', 'mssql:blog']);
   });
+
+  it('prints the database installation completion message without a literal newline marker', function () {
+    $output = new class extends MockOutput {
+      /**
+       * @return array<int, string>
+       */
+      public function getBuffer(): array
+      {
+        return $this->buffer;
+      }
+    };
+
+    $installer = new class(
+      new MockInput([], [], true),
+      $output,
+      new FormatterHelper(),
+      new QuestionHelper(),
+      '/tmp/my project'
+    ) extends DatabaseInstaller {
+      protected function shouldConfigureDatabases(): bool
+      {
+        return true;
+      }
+
+      protected function selectDatabases(): array
+      {
+        return ['sqlite'];
+      }
+
+      protected function makeDatabaseInstaller(string $database): AbstractInstaller
+      {
+        return new class(
+          $this->input,
+          $this->output,
+          $this->formatter,
+          $this->questionHelper,
+          $this->projectPath
+        ) extends AbstractInstaller {
+          public function install(): int
+          {
+            $this->configuredDatabaseName = 'blog';
+            return Command::SUCCESS;
+          }
+        };
+      }
+
+      protected function checkForMissingExtensions(array $extensions): array
+      {
+        return [];
+      }
+
+      protected function ensureDefaultUserResource(): int
+      {
+        return Command::SUCCESS;
+      }
+
+      protected function syncSecureAuthenticationDefaults(): int
+      {
+        return Command::SUCCESS;
+      }
+
+      protected function installOrmPackage(): int
+      {
+        return Command::SUCCESS;
+      }
+
+      protected function configureModuleDataSources(array $configuredDatabaseNames): int
+      {
+        return Command::SUCCESS;
+      }
+    };
+
+    expect($installer->install())->toBe(Command::SUCCESS);
+
+    $rendered = implode("\n", $output->getBuffer());
+
+    expect($rendered)->toContain('Database installation complete');
+    expect($rendered)->not->toContain('Database installation complete\\n');
+  });
+
   it('ships a front controller that short-circuits safe public assets before bootstrapping PHP routing', function () {
     $frontController = file_get_contents(__DIR__ . '/../../templates/index.php');
 

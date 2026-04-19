@@ -46,6 +46,37 @@ describe('Workspace manager', function () {
     expect($manager->exposeNamespaceValidation('acme/blog-api'))->toBe('Use a PSR-4 namespace such as Acme\\BlogApi\\.');
   });
 
+
+  it('renders the project summary without leaking formatter tags', function () {
+    $output = new \Symfony\Component\Console\Output\BufferedOutput(
+      \Symfony\Component\Console\Output\OutputInterface::VERBOSITY_NORMAL,
+      true,
+    );
+
+    $manager = new class(new MockInput(), $output, new FormatterHelper(), new QuestionHelper()) extends WorkspaceManager {
+      public function exposeRenderProjectSummary(
+        string $projectName,
+        string $projectDirectory,
+        string $packageName,
+        string $namespace,
+      ): void {
+        $this->renderProjectSummary($projectName, $projectDirectory, $packageName, $namespace);
+      }
+    };
+
+    $manager->exposeRenderProjectSummary(
+      'tour-of-heroes',
+      '/tmp/tour-of-heroes',
+      'assegaiphp/tour-of-heroes',
+      'AssegaiPhp\\TourOfHeroes\\',
+    );
+
+    $rendered = $output->fetch();
+
+    expect($rendered)->toContain('AssegaiPhp\\TourOfHeroes\\');
+    expect($rendered)->not->toContain('</comment>');
+  });
+
   it('hydrates the generated assegai.json with the full supported default shape', function () {
     $workspace = sys_get_temp_dir() . '/' . uniqid('workspace-manager-', true);
 
@@ -95,6 +126,8 @@ describe('Workspace manager', function () {
       $composer = json_decode(file_get_contents($composerFilename) ?: '', true);
       $readmeFilename = $workspace . '/my-blog-api/README.md';
       $readme = file_get_contents($readmeFilename) ?: '';
+      $secureConfigFilename = $workspace . '/my-blog-api/config/secure.php';
+      $secureConfig = file_get_contents($secureConfigFilename) ?: '';
 
       expect($composer)->toBeArray();
       expect($composer['require']['php'])->toBe('^8.3');
@@ -104,6 +137,7 @@ describe('Workspace manager', function () {
       expect($readme)->toContain('assegai serve');
       expect($readme)->toContain('assegai add orm');
       expect($readme)->toContain('assegai database:configure cinema_db');
+      expect($secureConfig)->toContain('Acme\\BlogApi\\Users\\Entities\\UserEntity::class');
     } finally {
       CliPrompt::flushFake();
 

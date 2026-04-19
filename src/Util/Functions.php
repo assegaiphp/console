@@ -66,6 +66,115 @@ function array_to_string(array $array): false|string
     return str_replace('":', '" =>', $output);
 }
 
+
+/**
+ * Locate the bounds of a top-level PHP array section inside a config file.
+ *
+ * @return array{int, int, int}|null
+ */
+function find_php_array_section_bounds(string $contents, string $sectionName): ?array
+{
+    $needle = "'" . $sectionName . "' =>";
+    $sectionStart = strpos($contents, $needle);
+
+    if ($sectionStart === false) {
+        return null;
+    }
+
+    $arrayStart = strpos($contents, '[', $sectionStart);
+
+    if ($arrayStart === false) {
+        return null;
+    }
+
+    $depth = 0;
+    $inSingleQuote = false;
+    $inDoubleQuote = false;
+    $escaped = false;
+    $length = strlen($contents);
+
+    for ($index = $arrayStart; $index < $length; $index++) {
+        $character = $contents[$index];
+
+        if ($escaped) {
+            $escaped = false;
+            continue;
+        }
+
+        if (($inSingleQuote || $inDoubleQuote) && $character === '\\') {
+            $escaped = true;
+            continue;
+        }
+
+        if (! $inDoubleQuote && $character === "'") {
+            $inSingleQuote = ! $inSingleQuote;
+            continue;
+        }
+
+        if (! $inSingleQuote && $character === '"') {
+            $inDoubleQuote = ! $inDoubleQuote;
+            continue;
+        }
+
+        if ($inSingleQuote || $inDoubleQuote) {
+            continue;
+        }
+
+        if ($character === '[') {
+            $depth++;
+            continue;
+        }
+
+        if ($character === ']') {
+            $depth--;
+
+            if ($depth === 0) {
+                return [$sectionStart, $arrayStart, $index];
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Insert or replace a top-level PHP array section while preserving the rest of the config source.
+ *
+ * @param array<string, mixed> $sectionValue
+ */
+function upsert_php_array_config_section(string $contents, string $sectionName, array $sectionValue): false|string
+{
+    $renderedArray = array_to_string($sectionValue);
+
+    if ($renderedArray === false) {
+        return false;
+    }
+
+    $replacement = "  '$sectionName' => $renderedArray";
+    $replacement = preg_replace("/\n\]$/", "\n  ]", $replacement) ?? $replacement;
+    $bounds = find_php_array_section_bounds($contents, $sectionName);
+
+    if (is_array($bounds)) {
+        [$sectionStart, , $sectionEnd] = $bounds;
+        return substr_replace($contents, $replacement, $sectionStart, $sectionEnd - $sectionStart + 1);
+    }
+
+    $closing = strrpos($contents, '];');
+
+    if ($closing === false) {
+        return false;
+    }
+
+    $prefix = rtrim(substr($contents, 0, $closing));
+    $separator = "\n";
+
+    if ($prefix !== '' && ! str_ends_with($prefix, '[') && ! str_ends_with($prefix, ',')) {
+        $separator = ",\n";
+    }
+
+    return substr_replace($contents, $separator . $replacement . ",\n", $closing, 0);
+}
+
 /**
  * Checks if a program is installed.
  *
