@@ -24,12 +24,80 @@ if ($publicDirectory !== false && $requestPath !== '/' && $requestPath !== '') {
     $assetCandidate = $publicDirectory . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $assetRelativePath);
     $assetPath = realpath($assetCandidate);
     $extension = strtolower(pathinfo($assetPath ?: '', PATHINFO_EXTENSION));
+    $normalizedRelativePath = trim(str_replace('\\', '/', $assetRelativePath), '/');
+    $shouldBypassStreaming = false;
+
+    if (in_array($extension, ['php', 'phtml', 'phar', 'inc'], true)) {
+      $shouldBypassStreaming = true;
+    } elseif ($extension === '') {
+      $shouldBypassStreaming = !str_starts_with($normalizedRelativePath, '.well-known/');
+    } else {
+      $allowedExtensions = [
+        '7z',
+        'atom',
+        'avif',
+        'bmp',
+        'bz2',
+        'css',
+        'csv',
+        'eot',
+        'gif',
+        'gz',
+        'htm',
+        'html',
+        'ico',
+        'jpeg',
+        'jpg',
+        'js',
+        'json',
+        'map',
+        'md',
+        'mjs',
+        'mp3',
+        'mp4',
+        'mpeg',
+        'oga',
+        'ogv',
+        'ogx',
+        'otf',
+        'pdf',
+        'png',
+        'rss',
+        'rtf',
+        'svg',
+        'svgz',
+        'tgz',
+        'ts',
+        'ttf',
+        'txt',
+        'wasm',
+        'wav',
+        'weba',
+        'webm',
+        'webmanifest',
+        'webp',
+        'woff',
+        'woff2',
+        'xhtml',
+        'xls',
+        'xlsx',
+        'xml',
+        'zip',
+      ];
+
+      $shouldBypassStreaming = !in_array($extension, $allowedExtensions, true)
+        || in_array(
+          strtolower(pathinfo($assetPath ?: '', PATHINFO_BASENAME)),
+          ['index.htm', 'index.html', 'index.php', 'index.xhtml'],
+          true,
+        );
+    }
 
     if (
       $assetPath !== false
       && is_file($assetPath)
       && str_starts_with($assetPath, $publicDirectory . DIRECTORY_SEPARATOR)
-      && !in_array($extension, ['php', 'phtml', 'phar', 'inc'], true)
+      && !$shouldBypassStreaming
     ) {
       $mimeType = mime_content_type($assetPath) ?: 'application/octet-stream';
       $contentLength = filesize($assetPath);

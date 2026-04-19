@@ -66,7 +66,7 @@ class Serve extends Command
     $router = Path::join($root, 'index.php');
     $bootstrap = Path::join($root, 'bootstrap.php');
     $scheme = $https ? 'https' : 'http';
-    $uri = "$host:$port";
+    $uri = "";
     $certPath = Path::join(Path::getCertificatesDirectory(), 'localhost.crt');
     $keyPath = Path::join(Path::getCertificatesDirectory(), 'localhost.key');
 
@@ -88,6 +88,8 @@ class Serve extends Command
       $output->writeln('<error>' . $runtimeConfigurationError . '</error>');
       return Command::FAILURE;
     }
+
+    $uri = $this->buildServeUri((string) $host, (int) $port);
 
     if ($runtime !== 'php' && $https) {
       $output->writeln('<error>The selected runtime does not support the --https serve path yet.</error>');
@@ -123,7 +125,7 @@ class Serve extends Command
         "",
       ], OutputInterface::VERBOSITY_VERBOSE);
 
-      if (false === passthru("sensible-browser $scheme://$uri", $resultCode)) {
+      if (false === passthru('sensible-browser ' . escapeshellarg("$scheme://$uri"), $resultCode)) {
         $output->writeln('');
         $output->writeln("<error>Failed to open the browser</error>");
         return Command::FAILURE;
@@ -294,8 +296,8 @@ class Serve extends Command
 
   protected function validateRuntimeConfiguration(string $runtime, string $host, int $port): ?string
   {
-    if (trim($host) === '') {
-      return 'The serve host must be a non-empty string.';
+    if (!$this->isValidServeHost($host)) {
+      return 'The serve host must be a non-empty hostname or IP address.';
     }
 
     if ($port < 1 || $port > 65535) {
@@ -433,7 +435,7 @@ class Serve extends Command
     $environmentPrefix = $this->buildRuntimeEnvironmentPrefix($runtime, $host, $port, $workingDirectory);
 
     if ($runtime === 'php') {
-      $command = $environmentPrefix . " php -S $uri " . escapeshellarg($router);
+      $command = $environmentPrefix . ' php -S ' . escapeshellarg($uri) . ' ' . escapeshellarg($router);
 
       if ($https && $certPath !== null && $keyPath !== null) {
         $command .= ' --cert ' . escapeshellarg($certPath) . ' --key ' . escapeshellarg($keyPath);
@@ -454,6 +456,47 @@ class Serve extends Command
       escapeshellarg((string) $port),
       escapeshellarg($workingDirectory),
     );
+  }
+
+
+  protected function buildServeUri(string $host, int $port): string
+  {
+    return $this->normalizeServeHostForUri($host) . ':' . $port;
+  }
+
+  protected function normalizeServeHostForUri(string $host): string
+  {
+    $host = trim($host);
+
+    if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
+      return $host;
+    }
+
+    if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+      return '[' . $host . ']';
+    }
+
+    return $host;
+  }
+
+  protected function isValidServeHost(string $host): bool
+  {
+    $host = trim($host);
+
+    if ($host === '' || preg_match('/\s/', $host) === 1 || strpbrk($host, "\"'`;\$&|<>") !== false) {
+      return false;
+    }
+
+    if ($host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP) !== false) {
+      return true;
+    }
+
+    if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
+      $ipv6 = substr($host, 1, -1);
+      return $ipv6 !== '' && filter_var($ipv6, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+    }
+
+    return filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
   }
 
   protected function exportApiDocsIfConfigured(string $root, OutputInterface $output): int

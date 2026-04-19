@@ -217,7 +217,9 @@ describe('New project defaults', function () {
       ->toContain("realpath(__DIR__ . '/public')")
       ->toContain('X-Content-Type-Options: nosniff')
       ->toContain('readfile($assetPath);')
-      ->toContain("!in_array(\$extension, ['php', 'phtml', 'phar', 'inc'], true)")
+      ->toContain("\$allowedExtensions = [")
+      ->toContain("!str_starts_with(\$normalizedRelativePath, '.well-known/')")
+      ->toContain('!$shouldBypassStreaming')
       ->toContain("\$segment === '.well-known'");
   });
 });
