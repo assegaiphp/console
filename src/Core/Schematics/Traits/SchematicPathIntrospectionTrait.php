@@ -58,13 +58,14 @@ trait SchematicPathIntrospectionTrait
       $tail = 'src';
     }
 
-    if (property_exists($this, 'isFlat') && ! $this->isFlat ) {
-      if ($this->subdirectory) {
-        $tokens = explode('/', $this->subdirectory);
-        foreach ($tokens as $token) {
-          $tail = Path::join($tail, (new Text($token))->pascalCase());
-        }
+    if ($this->subdirectory) {
+      $tokens = explode('/', $this->subdirectory);
+      foreach ($tokens as $token) {
+        $tail = Path::join($tail, (new Text($token))->pascalCase());
       }
+    }
+
+    if (! $this->isFlatOutput()) {
       $tail = Path::join($tail, $this->properName);
     }
 
@@ -96,6 +97,15 @@ trait SchematicPathIntrospectionTrait
       }
     }
 
-    return $namespaceSuffix . '\\' . $this->properName;
+    if (! $this->isFlatOutput()) {
+      $namespaceSuffix .= '\\' . $this->properName;
+    }
+
+    return $namespaceSuffix;
+  }
+
+  protected function isFlatOutput(): bool
+  {
+    return property_exists($this, 'isFlat') && $this->isFlat;
   }
 }

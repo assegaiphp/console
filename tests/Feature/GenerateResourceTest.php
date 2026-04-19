@@ -207,4 +207,42 @@ describe('Generate resource', function () {
       deleteDirectory($workspace);
     }
   });
+  it('can generate a flat resource inside an explicit source-relative path', function () {
+    $workspace = createGeneratorWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if (false === $previousWorkingDirectory) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      $commandTester = new CommandTester(new Generate());
+
+      $status = $commandTester->execute([
+        'schematic' => 'resource',
+        'name' => 'profiles',
+        '--directory' => $workspace,
+        '--path' => 'users',
+        '--flat' => true,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($workspace . '/src/Users/ProfilesModule.php')->toBeFile();
+      expect($workspace . '/src/Users/ProfilesController.php')->toBeFile();
+      expect($workspace . '/src/Users/ProfilesService.php')->toBeFile();
+      expect($workspace . '/src/Users/DTOs/CreateProfileDTO.php')->toBeFile();
+      expect($workspace . '/src/Users/Entities/ProfileEntity.php')->toBeFile();
+      expect($workspace . '/src/Users/Profiles')->not->toBeDirectory();
+      expect(file_get_contents($workspace . '/src/Users/ProfilesModule.php'))
+        ->toContain('namespace Assegai\App\Users;');
+      expect(file_get_contents($workspace . '/src/Users/UsersModule.php'))
+        ->toContain('use Assegai\App\Users\ProfilesModule;')
+        ->toContain('imports: [ProfilesModule::class]');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteDirectory($workspace);
+    }
+  });
 });

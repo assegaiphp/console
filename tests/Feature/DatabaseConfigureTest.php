@@ -34,7 +34,7 @@ function createDatabaseConfigureWorkspace(): string
   copy(__DIR__ . '/../../templates/config/default.php', $workspace . '/config/default.php');
 
   mkdir($workspace . '/src', 0755, true);
-  file_put_contents($workspace . '/src/AppModule.php', <<<'PHP'
+  file_put_contents($workspace . '/src/AppModule.php', <<<'PHP2'
 <?php
 
 namespace Assegai\App;
@@ -49,7 +49,7 @@ use Assegai\Core\Attributes\Modules\Module;
 class AppModule
 {
 }
-PHP);
+PHP2);
 
   return $workspace;
 }
@@ -77,8 +77,14 @@ function deleteDatabaseConfigureWorkspace(string $directory): void
   rmdir($directory);
 }
 
+dataset('database-configure-types', [
+  'mysql' => ['--mysql', 'mysql', '3306', 'root'],
+  'mariadb' => ['--mariadb', 'mariadb', '3306', 'root'],
+  'mssql' => ['--mssql', 'mssql', '1433', 'sa'],
+]);
+
 describe('database:configure', function () {
-  it('offers module data_source enablement after saving the database config', function () {
+  it('offers module data_source enablement after saving the database config', function (string $flag, string $type, string $port, string $user) {
     $workspace = createDatabaseConfigureWorkspace();
     $previousWorkingDirectory = getcwd();
 
@@ -103,10 +109,10 @@ describe('database:configure', function () {
 
       $status = $commandTester->execute([
         'database_name' => 'blog',
-        '--mysql' => true,
+        $flag => true,
         '--host' => '127.0.0.1',
-        '--port' => '3306',
-        '--user' => 'root',
+        '--port' => $port,
+        '--user' => $user,
         '--password' => 'secret',
       ], [
         'interactive' => true,
@@ -115,13 +121,13 @@ describe('database:configure', function () {
       $config = require $workspace . '/config/default.php';
 
       expect($status)->toBe(Command::SUCCESS);
-      expect($config['databases']['mysql']['blog']['password'])->toBe('secret');
+      expect($config['databases'][$type]['blog']['password'])->toBe('secret');
       expect(file_get_contents($workspace . '/src/AppModule.php'))
-        ->toContain("'data_source' => 'mysql:blog'");
+        ->toContain("'data_source' => '$type:blog'");
     } finally {
       CliPrompt::flushFake();
       chdir($previousWorkingDirectory);
       deleteDatabaseConfigureWorkspace($workspace);
     }
-  });
+  })->with('database-configure-types');
 });

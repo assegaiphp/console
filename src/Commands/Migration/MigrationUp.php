@@ -3,10 +3,10 @@
 namespace Assegai\Console\Commands\Migration;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
-use Assegai\Console\Core\Database\PostgreSQLDatabase;
-use Assegai\Console\Core\Database\SQLiteDatabase;
 use Assegai\Console\Core\Database\Traits\DatabaseNameValidatorTrait;
 use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
+use Assegai\Console\Core\Migrations\MariaDbDatabaseMigrator;
+use Assegai\Console\Core\Migrations\MsSqlDatabaseMigrator;
 use Assegai\Console\Core\Migrations\MySQLDatabaseMigrator;
 use Assegai\Console\Core\Migrations\PostgreSQLDatabaseMigrator;
 use Assegai\Console\Core\Migrations\SQLiteDatabaseMigrator;
@@ -42,8 +42,10 @@ class MigrationUp extends Command
       ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE)
       ->addOption('steps', 's', InputArgument::OPTIONAL, 'The number of migrations to rollback')
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Run the migrations on a MySQL database')
+      ->addOption(DatabaseType::MARIADB->value, null, InputOption::VALUE_NONE, 'Run the migrations on a MariaDB database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Run the migrations on a PostgreSQL database')
-      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Run the migrations on a SQLite database');
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Run the migrations on a SQLite database')
+      ->addOption(DatabaseType::MSSQL->value, null, InputOption::VALUE_NONE, 'Run the migrations on an MSSQL database');
   }
 
   /**
@@ -74,61 +76,53 @@ class MigrationUp extends Command
       $databaseTypes = array_intersect($databaseTypes, $configuredTypes);
       $databaseTypeChoices = array_values($databaseTypes);
 
-      $databaseType = select('Select the type of the database', $databaseTypeChoices);;
+      $databaseType = select('Select the type of the database', $databaseTypeChoices);
     }
 
     $databaseType = DatabaseType::tryFrom($databaseType);
 
-    if (! $databaseType ) {
+    if (! $databaseType) {
       $output->writeln("<error>Invalid database type</error>\n");
       return Command::FAILURE;
     }
 
-    if ($input->getOption(DatabaseType::MYSQL->value)) {
-      $databaseType = DatabaseType::MYSQL;
-    } elseif ($input->getOption(DatabaseType::POSTGRESQL->value)) {
-      $databaseType = DatabaseType::POSTGRESQL;
-    } elseif ($input->getOption(DatabaseType::SQLITE->value)) {
-      $databaseType = DatabaseType::SQLITE;
-    }
-
     $dbName = get_datasource_name($input, $output, $databaseType->value);
 
-    if (! $dbName ) {
+    if (! $dbName) {
       /** @var array<int|string, string>|Collection<int|string, string> $databaseChoices */
       $databaseChoices = array_keys($appConfig->get("databases.$databaseType->value", []));
       $dbName = select("<info>?</info> Which <question>$databaseType->value</question> database do you want to run the migrations on? ", $databaseChoices);
     }
 
-    if (! is_string($dbName) ) {
+    if (! is_string($dbName)) {
       $output->writeln("<error>Invalid database name</error>\n");
       return Command::FAILURE;
     }
 
-    if (! $this->isValidDbName($dbName, $databaseType->value, $input, $output) ) {
+    if (! $this->isValidDbName($dbName, $databaseType->value, $input, $output)) {
       $output->writeln("<error>Invalid database name</error>\n");
       return Command::FAILURE;
     }
 
-    # Check if migrations directory exists
     $migrationsDirectory = Path::join($workingDirectory, 'migrations', $databaseType->value, $dbName);
 
-    if (! file_exists($migrationsDirectory) ) {
+    if (! file_exists($migrationsDirectory)) {
       $output->writeln("<error>Migrations directory does not exist</error>\n");
       return Command::FAILURE;
     }
 
-    # Check if the database exists
     /** @var MigratorInterface $migrator */
-    $migrator = match($databaseType) {
+    $migrator = match ($databaseType) {
       DatabaseType::MYSQL => new MySQLDatabaseMigrator($dbName, $input, $output),
+      DatabaseType::MARIADB => new MariaDbDatabaseMigrator($dbName, $input, $output),
       DatabaseType::POSTGRESQL => new PostgreSQLDatabaseMigrator($dbName, $input, $output),
-      DatabaseType::SQLITE => new SQLiteDatabaseMigrator($dbName, $input, $output)
+      DatabaseType::SQLITE => new SQLiteDatabaseMigrator($dbName, $input, $output),
+      DatabaseType::MSSQL => new MsSqlDatabaseMigrator($dbName, $input, $output),
     };
 
     $numberOfRuns = $input->getOption('steps');
 
-    if (! is_numeric($numberOfRuns) ) {
+    if (! is_numeric($numberOfRuns)) {
       $numberOfRuns = null;
     } else {
       $numberOfRuns = (int) $numberOfRuns;
@@ -138,7 +132,7 @@ class MigrationUp extends Command
       $numberOfRuns = null;
     }
 
-    $numberOfSuccessfulMigrations = $migrator->up($numberOfRuns ??  null);
+    $numberOfSuccessfulMigrations = $migrator->up($numberOfRuns ?? null);
 
     if (false === $numberOfSuccessfulMigrations) {
       $output->writeln("<error>Failed to run the migrations</error>\n");

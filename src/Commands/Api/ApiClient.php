@@ -57,7 +57,7 @@ class ApiClient extends Command
         throw new RuntimeException('Failed to write the generated client.');
       }
 
-      $output->writeln('<info>GENERATED</info> ' . $outputFile);
+      $output->writeln('<info>CREATE</info> ' . $outputFile);
 
       return Command::SUCCESS;
     } catch (RuntimeException $exception) {

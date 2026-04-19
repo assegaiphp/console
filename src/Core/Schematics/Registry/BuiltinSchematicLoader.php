@@ -193,11 +193,12 @@ class BuiltinSchematicLoader
       metadata: [],
       factory: static function (SchematicContext $context) use ($className): SchematicInterface {
         $schematic = new $className(
-          $context->input,
-          $context->output,
-          $context->getBaseName(),
-          $context->getWorkspace(),
-          $context->getSubdirectory(),
+          input: $context->input,
+          output: $context->output,
+          name: $context->getBaseName(),
+          path: $context->getWorkspace(),
+          subdirectory: $context->getSubdirectory(),
+          isFlat: $context->isFlat(),
         );
 
         if (!$schematic instanceof SchematicInterface) {

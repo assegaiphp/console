@@ -68,7 +68,7 @@ class ApiExport extends Command
         throw new RuntimeException('Failed to write the exported API artifact.');
       }
 
-      $output->writeln('<info>GENERATED</info> ' . $outputFile);
+      $output->writeln('<info>CREATE</info> ' . $outputFile);
 
       return Command::SUCCESS;
     } catch (RuntimeException $exception) {

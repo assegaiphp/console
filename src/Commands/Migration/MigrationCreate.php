@@ -30,6 +30,7 @@ use function Laravel\Prompts\select;
 class MigrationCreate extends Command
 {
   const string OPTION_DB_NAME = 'database';
+
   /**
    * @inheritDoc
    */
@@ -41,8 +42,10 @@ class MigrationCreate extends Command
       ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The database type of the migration', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
       ->addOption(self::OPTION_DB_NAME, 'db', InputArgument::OPTIONAL, 'The name of the database')
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
+      ->addOption(DatabaseType::MARIADB->value, null, InputOption::VALUE_NONE, 'Use MariaDB database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
-      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database')
+      ->addOption(DatabaseType::MSSQL->value, null, InputOption::VALUE_NONE, 'Use MSSQL database');
   }
 
   /**
@@ -53,15 +56,14 @@ class MigrationCreate extends Command
     $inspector = new Inspector($input, $output);
     $config = new AppConfig($input, $output);
 
-    if (!$inspector->isValidWorkspace(getcwd() ?: '')) {
+    if (! $inspector->isValidWorkspace(getcwd() ?: '')) {
       $output->writeln("<error>Invalid workspace.</error>\n");
       return Command::FAILURE;
     }
 
-    // Check if migrations directory exists
     $migrationDirectory = Path::getMigrationsDirectory();
 
-    if (!file_exists($migrationDirectory)) {
+    if (! file_exists($migrationDirectory)) {
       $output->writeln("<error>Migrations directory does not exist.</error>\n");
       $output->writeln("<fg=gray>Run 'assegai migration:setup' to create the migrations directory.</>\n");
       return Command::FAILURE;
@@ -72,7 +74,6 @@ class MigrationCreate extends Command
       return Command::FAILURE;
     }
 
-    // Create migration subdirectory if it does not exist
     $type = get_datasource_type($input, $output);
 
     if (false === $type) {
@@ -80,48 +81,38 @@ class MigrationCreate extends Command
       return Command::FAILURE;
     }
 
-    if (!DatabaseType::isValid($type)) {
+    if (! DatabaseType::isValid($type)) {
       $output->writeln("<error>Invalid database type.</error>\n");
       return Command::FAILURE;
     }
 
-    if ($input->getOption(DatabaseType::MYSQL->value)) {
-      $type = DatabaseType::MYSQL->value;
-    } elseif ($input->getOption(DatabaseType::POSTGRESQL->value)) {
-      $type = DatabaseType::POSTGRESQL->value;
-    } elseif ($input->getOption(DatabaseType::SQLITE->value)) {
-      $type = DatabaseType::SQLITE->value;
-    }
-
     $dbName = get_datasource_name($input, $output, $type, self::OPTION_DB_NAME);
 
-    if (! $dbName ) {
+    if (! $dbName) {
       $path = "databases.$type";
 
       /** @var array<int|string, string>|Collection<int|string, string> $databases */
       $databases = array_keys($config->get($path, []));
-      $dbName = select("<info>?</info> Which <question>$type</question> database would you like to create the migration for? ", $databases, 0);;
+      $dbName = select("<info>?</info> Which <question>$type</question> database would you like to create the migration for? ", $databases, 0);
     }
 
-    if (! $dbName || !is_string($dbName) ) {
+    if (! $dbName || ! is_string($dbName)) {
       $output->writeln("<error>Invalid database name.</error>\n");
       return Command::FAILURE;
     }
 
-    // Get the migration name
     $migrationName = $this->getMigrationName($input->getArgument(ParameterKey::MIGRATION_NAME->value));
     $path = Path::join($migrationDirectory, $type, $dbName, $migrationName);
 
-    if (!file_exists($path)) {
+    if (! file_exists($path)) {
       if (! mkdir($path, recursive: true)) {
         $output->writeln("<error>Failed to create migration directory.</error>\n");
         return Command::FAILURE;
       }
     }
 
-    // Create the migration files
-    $upFileBytes = file_put_contents(Path::join($path, 'up.sql'), "");
-    $downFileBytes = file_put_contents(Path::join($path, 'down.sql'), "");
+    $upFileBytes = file_put_contents(Path::join($path, 'up.sql'), '');
+    $downFileBytes = file_put_contents(Path::join($path, 'down.sql'), '');
     if (false === $upFileBytes || false === $downFileBytes) {
       $output->writeln("<error>Failed to create migration files.</error>\n");
       return Command::FAILURE;
@@ -129,7 +120,6 @@ class MigrationCreate extends Command
 
     $relativePath = Path::join('migrations', str_replace($migrationDirectory, '', $path));
 
-    // Output success message
     $output->writeln([
       "<info>CREATE</info> $relativePath/up.sql ($upFileBytes bytes)",
       "<info>CREATE</info> $relativePath/down.sql ($downFileBytes bytes)\n",
@@ -139,10 +129,7 @@ class MigrationCreate extends Command
   }
 
   /**
-   * Get the migration name
-   *
-   * @param string $name
-   * @return string
+   * Get the migration name.
    */
   public function getMigrationName(string $name): string
   {

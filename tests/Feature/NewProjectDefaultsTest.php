@@ -49,9 +49,13 @@ describe('New project defaults', function () {
     $defaultConfig = require __DIR__ . '/../../templates/config/default.php';
 
     expect(DEFAULT_MYSQL_HOST)->toBe('127.0.0.1');
+    expect(DEFAULT_MARIADB_HOST)->toBe('127.0.0.1');
     expect(DEFAULT_POSTGRES_HOST)->toBe('127.0.0.1');
+    expect(DEFAULT_MSSQL_HOST)->toBe('127.0.0.1');
     expect($defaultConfig['databases']['mysql']['db_name']['host'])->toBe('127.0.0.1');
+    expect($defaultConfig['databases']['mariadb']['db_name']['host'])->toBe('127.0.0.1');
     expect($defaultConfig['databases']['pgsql']['db_name']['host'])->toBe('127.0.0.1');
+    expect($defaultConfig['databases']['mssql']['db_name']['host'])->toBe('127.0.0.1');
   });
 
   it('offers module data_source enablement after configuring databases during project setup', function () {
@@ -72,7 +76,7 @@ describe('New project defaults', function () {
 
       protected function selectDatabases(): array
       {
-        return ['mysql'];
+        return ['mariadb', 'mssql'];
       }
 
       protected function makeDatabaseInstaller(string $database): AbstractInstaller
@@ -115,6 +119,15 @@ describe('New project defaults', function () {
     };
 
     expect($installer->install())->toBe(Command::SUCCESS);
-    expect($installer->configuredDatabaseNames)->toBe(['mysql:blog']);
+    expect($installer->configuredDatabaseNames)->toBe(['mariadb:blog', 'mssql:blog']);
+  });
+  it('ships a front controller that short-circuits safe public assets before bootstrapping PHP routing', function () {
+    $frontController = file_get_contents(__DIR__ . '/../../templates/index.php');
+
+    expect($frontController)
+      ->toContain("realpath(__DIR__ . '/public')")
+      ->toContain('X-Content-Type-Options: nosniff')
+      ->toContain('readfile($assetPath);')
+      ->toContain("!in_array(\$extension, ['php', 'phtml', 'phar', 'inc'], true)");
   });
 });

@@ -165,8 +165,15 @@ describe('Web Component commands', function () {
     }
   });
 
-  it('lists the discovered Web Components', function () {
-    $workspace = createWebComponentCommandWorkspace();
+  it('lists the discovered Web Components with aligned highlighted tags', function () {
+    $workspace = createWebComponentCommandWorkspace([], [
+      'src/WebComponents/Layout/Drawer/DrawerComponent.wc.ts' => <<<'TS'
+class DrawerContentElement extends HTMLElement {
+}
+
+customElements.define('app-drawer-content', DrawerContentElement);
+TS,
+    ]);
     $previousWorkingDirectory = getcwd();
 
     if (false === $previousWorkingDirectory) {
@@ -179,13 +186,20 @@ describe('Web Component commands', function () {
       $commandTester = new CommandTester(new ListWebComponents());
       $status = $commandTester->execute([
         '--directory' => $workspace,
-      ]);
+      ], ['decorated' => true]);
 
       expect($status)->toBe(Command::SUCCESS);
-      expect($commandTester->getDisplay())
-        ->toContain('app-alert')
+
+      $display = $commandTester->getDisplay();
+      $tagColumnWidth = 20;
+
+      expect($display)
+        ->toContain(sprintf("\e[33m%s\e[39m", str_pad('app-alert', $tagColumnWidth)))
+        ->toContain(sprintf("\e[33m%s\e[39m", str_pad('app-drawer-content', $tagColumnWidth)))
+        ->toContain(sprintf("\e[33m%s\e[39m", str_pad('app-user-card', $tagColumnWidth)))
         ->toContain('src/WebComponents/UI/Alert/AlertComponent.wc.ts')
-        ->toContain('app-user-card');
+        ->toContain('src/WebComponents/Layout/Drawer/DrawerComponent.wc.ts')
+        ->toContain('src/WebComponents/UserCard/UserCardComponent.wc.ts');
     } finally {
       chdir($previousWorkingDirectory);
       deleteWebComponentCommandWorkspace($workspace);

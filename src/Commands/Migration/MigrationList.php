@@ -6,6 +6,8 @@ use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Migrations\Enumerations\MigrationListerType;
 use Assegai\Console\Core\Migrations\Interfaces\MigrationListerInterface;
 use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
+use Assegai\Console\Core\Migrations\MariaDbDatabaseMigrator;
+use Assegai\Console\Core\Migrations\MsSqlDatabaseMigrator;
 use Assegai\Console\Core\Migrations\MySQLDatabaseMigrator;
 use Assegai\Console\Core\Migrations\PostgreSQLDatabaseMigrator;
 use Assegai\Console\Core\Migrations\SQLiteDatabaseMigrator;
@@ -26,12 +28,12 @@ use Symfony\Component\Console\Output\OutputInterface;
 class MigrationList extends Command
 {
   /**
-   * @var string[] $migrationStatuses The list types
+   * @var string[] $migrationStatuses The list types.
    */
   protected array $migrationStatuses = ['all', 'pending', 'executed'];
 
   /**
-   * @var MigrationListerInterface|null $migrationLister The migration lister
+   * @var MigrationListerInterface|null $migrationLister The migration lister.
    */
   protected ?MigrationListerInterface $migrationLister = null;
 
@@ -40,8 +42,10 @@ class MigrationList extends Command
     $this->addArgument(ParameterKey::DB_NAME->value, InputArgument::OPTIONAL, 'The name of the database')
       ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
+      ->addOption(DatabaseType::MARIADB->value, null, InputOption::VALUE_NONE, 'Use MariaDB database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
       ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database')
+      ->addOption(DatabaseType::MSSQL->value, null, InputOption::VALUE_NONE, 'Use MSSQL database')
       ->addOption('status', 's', InputArgument::OPTIONAL, 'Filter migration status', 'all', $this->migrationStatuses)
       ->addOption('all', null, InputOption::VALUE_NONE, 'List all migrations')
       ->addOption('pending', null, InputOption::VALUE_NONE, 'List pending migrations')
@@ -64,22 +68,13 @@ HELP);
   {
     $databaseType = get_datasource_type($input, $output);
 
-    if (false === $databaseType || ! DatabaseType::isValid($databaseType) ) {
+    if (false === $databaseType || ! DatabaseType::isValid($databaseType)) {
       $output->writeln('<error>Invalid database type</error>');
       return Command::FAILURE;
     }
 
     $databaseType = DatabaseType::tryFrom($databaseType);
-
     $status = $input->getOption('status');
-
-    if ($input->getOption(DatabaseType::MYSQL->value)) {
-      $databaseType = DatabaseType::MYSQL;
-    } elseif ($input->getOption(DatabaseType::POSTGRESQL->value)) {
-      $databaseType = DatabaseType::POSTGRESQL;
-    } elseif ($input->getOption(DatabaseType::SQLITE->value)) {
-      $databaseType = DatabaseType::SQLITE;
-    }
 
     if (! $databaseType) {
       $output->writeln('<error>Invalid database type</error>');
@@ -94,9 +89,11 @@ HELP);
 
     /** @var MigratorInterface $migrator */
     $migrator = match ($databaseType) {
+      DatabaseType::MYSQL => new MySQLDatabaseMigrator($databaseName, $input, $output),
+      DatabaseType::MARIADB => new MariaDbDatabaseMigrator($databaseName, $input, $output),
       DatabaseType::POSTGRESQL => new PostgreSQLDatabaseMigrator($databaseName, $input, $output),
       DatabaseType::SQLITE => new SQLiteDatabaseMigrator($databaseName, $input, $output),
-      default => new MySQLDatabaseMigrator($databaseName, $input, $output),
+      DatabaseType::MSSQL => new MsSqlDatabaseMigrator($databaseName, $input, $output),
     };
 
     $status = MigrationListerType::tryFrom($status);
@@ -109,14 +106,14 @@ HELP);
       $status = MigrationListerType::RAN;
     }
 
-    if (!$status) {
+    if (! $status) {
       $output->writeln('<error>Invalid list type</error>');
       return Command::FAILURE;
     }
 
-    $migrations = match($status) {
+    $migrations = match ($status) {
       MigrationListerType::ALL => $migrator->listAll(),
-      MigrationListerType::RAN => array_map(function($ranMigration) {
+      MigrationListerType::RAN => array_map(function ($ranMigration) {
         return $ranMigration['migration'];
       }, $migrator->listRan() ?: []),
       MigrationListerType::PENDING => $migrator->listPending()
@@ -139,7 +136,7 @@ TABLE
       $createdSecond = substr($createdAt, 12, 2);
 
       $createdAt = "$createdYear/$createdMonth/$createdDay $createdHour:$createdMinute:$createdSecond";
-      $executed = $this->wasRun($migration, $ranMigrations ?: []) ? "<info>✓</info>" : "<fg=red>✕</>";
+      $executed = $this->wasRun($migration, $ranMigrations ?: []) ? '<info>✓</info>' : '<fg=red>✕</>';
       $migrationDescription = new Text($name);
       $formattedDescription = sprintf('%-44s', $migrationDescription->titleCase());
       $output->writeln(<<<TABLE
@@ -156,9 +153,8 @@ TABLE
   /**
    * Check if a migration was run.
    *
-   * @param string $migration The migration
-   * @param array<array{migration: string, ranAt: string}> $ranMigrations The ran migrations
-   * @return bool True if the migration was run, false otherwise
+   * @param string $migration The migration.
+   * @param array<array{migration: string, ranAt: string}> $ranMigrations The ran migrations.
    */
   public function wasRun(string $migration, array $ranMigrations): bool
   {

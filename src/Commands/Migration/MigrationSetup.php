@@ -4,12 +4,13 @@ namespace Assegai\Console\Commands\Migration;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\Interfaces\SQLDatabaseConnectionInterface;
+use Assegai\Console\Core\Database\MariaDbDatabase;
+use Assegai\Console\Core\Database\MsSqlDatabase;
 use Assegai\Console\Core\Database\MySQLDatabase;
 use Assegai\Console\Core\Database\PostgreSQLDatabase;
 use Assegai\Console\Core\Database\SQLiteDatabase;
 use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Util\Config\DBConfig;
-use Assegai\Console\Util\Config\ProjectConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
@@ -30,46 +31,35 @@ class MigrationSetup extends Command
   public function configure(): void
   {
     $this
-      ->setHelp('This command sets up the migrations table in the database and creates the migrations directory ' .
-      'in the project root')
+      ->setHelp('This command sets up the migrations table in the database and creates the migrations directory in the project root')
       ->addArgument(ParameterKey::DB_NAME->value, InputArgument::REQUIRED, 'The name of the database')
       ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
+      ->addOption(DatabaseType::MARIADB->value, null, InputOption::VALUE_NONE, 'Use MariaDB database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
-      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database')
+      ->addOption(DatabaseType::MSSQL->value, null, InputOption::VALUE_NONE, 'Use MSSQL database');
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
   {
     $prompts = new CliPrompt($input, $output);
-
-    // Get project root
     $inspector = new Inspector($input, $output);
     $root = getcwd() ?: '';
 
-    if (! $inspector->isValidWorkspace($root) ) {
+    if (! $inspector->isValidWorkspace($root)) {
       $output->writeln("<error>Invalid workspace</error>\n");
       return Command::FAILURE;
     }
 
     $migrationsDirectory = Path::join($root, 'migrations');
-
-    // Create a migrations directory for the specific database type
     $defaultDatabaseType = DEFAULT_DATABASE_TYPE;
-    $databaseType = match(true)  {
-      $input->getOption(DatabaseType::MYSQL->value) => DatabaseType::MYSQL->value,
-      $input->getOption(DatabaseType::POSTGRESQL->value) => DatabaseType::POSTGRESQL->value,
-      $input->getOption(DatabaseType::SQLITE->value) => DatabaseType::SQLITE->value,
-      default =>
-        $input->getOption(ParameterKey::DB_TYPE->value) ??
-        (string) $prompts->select(
-          'Enter the database type',
-          DatabaseType::toArray(),
-          $defaultDatabaseType
-        )
-    };
+    $databaseType = get_datasource_type($input, $output) ?: (string) $prompts->select(
+      'Enter the database type',
+      DatabaseType::toArray(),
+      $defaultDatabaseType
+    );
 
-    // Create a migrations directory for the specific database
     $databaseName =
       $input->getArgument(ParameterKey::DB_NAME->value) ??
       $prompts->text('Enter the database name');
@@ -78,10 +68,8 @@ class MigrationSetup extends Command
 
     $output->writeln("<comment>Setting up migrations for <info>$databaseType:$databaseName</info>...</comment>\n");
 
-    // Check if the migrations directory exists in the project root
-    if (! is_dir($migrationsDirectory) ) {
-      // If it does not exist, create it
-      if (false === mkdir($migrationsDirectory, 0777, true) ) {
+    if (! is_dir($migrationsDirectory)) {
+      if (false === mkdir($migrationsDirectory, 0777, true)) {
         $output->writeln("<error>Failed to create the migrations directory</error>\n");
         return Command::FAILURE;
       }
@@ -91,10 +79,9 @@ class MigrationSetup extends Command
       $output->writeln("<comment>The migrations directory already exists</comment>\n");
     }
 
-    # Migrations table setup
-    $dbConfig = new DBCOnfig($input, $output, $databaseName, $databaseType);
+    $dbConfig = new DBConfig($input, $output, $databaseName, $databaseType);
 
-    if (Command::SUCCESS !== $dbConfig->load() ) {
+    if (Command::SUCCESS !== $dbConfig->load()) {
       $output->writeln("<error>Failed to load database configuration</error>\n");
       return Command::FAILURE;
     }
@@ -103,11 +90,13 @@ class MigrationSetup extends Command
     $database = match ($databaseType) {
       DatabaseType::SQLITE->value => new SQLiteDatabase($databaseName, $input, $output),
       DatabaseType::POSTGRESQL->value => new PostgreSQLDatabase($databaseName, $input, $output),
+      DatabaseType::MARIADB->value => new MariaDbDatabase($databaseName, $input, $output),
+      DatabaseType::MSSQL->value => new MsSqlDatabase($databaseName, $input, $output),
       default => new MySQLDatabase($databaseName, $input, $output)
     };
 
-    if (! $database->hasTable($database::getMigrationsTableName()) ) {
-      if (Command::SUCCESS !== $database->createMigrationsTable() ) {
+    if (! $database->hasTable($database::getMigrationsTableName())) {
+      if (Command::SUCCESS !== $database->createMigrationsTable()) {
         $output->writeln("<error>Failed to create the migrations table</error>\n");
         return Command::FAILURE;
       }

@@ -18,7 +18,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * Class DatabaseConfig. This class is a command that sets up the database configuration.
+ * Class DatabaseConfigure. This class is a command that sets up the database configuration.
  *
  * @package Assegai\Console\Commands\Database
  */
@@ -32,7 +32,7 @@ class DatabaseConfigure extends Command
   /**
    * @var string[] $validTypes The valid types of the database.
    */
-  protected array $validTypes = ['mysql', 'pgsql', 'sqlite'];
+  protected array $validTypes = ['mysql', 'mariadb', 'pgsql', 'sqlite', 'mssql'];
 
   public function configure(): void
   {
@@ -45,8 +45,10 @@ class DatabaseConfigure extends Command
       ->addOption('user', 'u', InputArgument::OPTIONAL, 'The user of the database')
       ->addOption('password', 'p', InputArgument::OPTIONAL, 'The password of the database')
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
+      ->addOption(DatabaseType::MARIADB->value, null, InputOption::VALUE_NONE, 'Use MariaDB database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
-      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database')
+      ->addOption(DatabaseType::MSSQL->value, null, InputOption::VALUE_NONE, 'Use MSSQL database');
   }
 
   /**
@@ -135,8 +137,10 @@ class DatabaseConfigure extends Command
 
     if (! $host) {
       $defaultHost = match ($type) {
-        'mysql' => DEFAULT_MYSQL_HOST,
-        'pgsql' => DEFAULT_POSTGRES_HOST,
+        DatabaseType::MYSQL->value => DEFAULT_MYSQL_HOST,
+        DatabaseType::MARIADB->value => DEFAULT_MARIADB_HOST,
+        DatabaseType::POSTGRESQL->value => DEFAULT_POSTGRES_HOST,
+        DatabaseType::MSSQL->value => DEFAULT_MSSQL_HOST,
         default => '',
       };
       $host = $prompts->text('Host', $defaultHost);
@@ -144,8 +148,10 @@ class DatabaseConfigure extends Command
 
     if (! $port) {
       $defaultPort = match ($type) {
-        'mysql' => DEFAULT_MYSQL_PORT,
-        'pgsql' => DEFAULT_POSTGRES_PORT,
+        DatabaseType::MYSQL->value => DEFAULT_MYSQL_PORT,
+        DatabaseType::MARIADB->value => DEFAULT_MARIADB_PORT,
+        DatabaseType::POSTGRESQL->value => DEFAULT_POSTGRES_PORT,
+        DatabaseType::MSSQL->value => DEFAULT_MSSQL_PORT,
         default => '',
       };
       $port = $prompts->text('Port', (string) $defaultPort);
@@ -153,8 +159,10 @@ class DatabaseConfigure extends Command
 
     if (! $user) {
       $defaultUser = match ($type) {
-        'mysql' => DEFAULT_MYSQL_USER,
-        'pgsql' => DEFAULT_POSTGRES_USER,
+        DatabaseType::MYSQL->value => DEFAULT_MYSQL_USER,
+        DatabaseType::MARIADB->value => DEFAULT_MARIADB_USER,
+        DatabaseType::POSTGRESQL->value => DEFAULT_POSTGRES_USER,
+        DatabaseType::MSSQL->value => DEFAULT_MSSQL_USER,
         default => '',
       };
       $user = $prompts->text('User', $defaultUser);

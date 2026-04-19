@@ -4,6 +4,8 @@ namespace Assegai\Console\Commands\Database;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\Interfaces\DatabaseConnectionInterface;
+use Assegai\Console\Core\Database\MariaDbDatabase;
+use Assegai\Console\Core\Database\MsSqlDatabase;
 use Assegai\Console\Core\Database\MySQLDatabase;
 use Assegai\Console\Core\Database\PostgreSQLDatabase;
 use Assegai\Console\Core\Database\SQLiteDatabase;
@@ -16,7 +18,6 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\ConfirmationQuestion;
 
 /**
  * Class DatabaseSetup. This class is a command that sets up the database.
@@ -34,8 +35,10 @@ class DatabaseSetup extends Command
       ->addArgument(ParameterKey::DB_NAME->value, InputArgument::REQUIRED, 'The name of the database')
       ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
+      ->addOption(DatabaseType::MARIADB->value, null, InputOption::VALUE_NONE, 'Use MariaDB database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
-      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database');
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Use SQLite database')
+      ->addOption(DatabaseType::MSSQL->value, null, InputOption::VALUE_NONE, 'Use MSSQL database');
   }
 
   /**
@@ -43,51 +46,37 @@ class DatabaseSetup extends Command
    */
   public function execute(InputInterface $input, OutputInterface $output): int
   {
-    // Check if the workspace is valid
     $inspector = new Inspector($input, $output);
 
-    if (! $inspector->isValidWorkspace(getcwd() ?: '') ) {
+    if (! $inspector->isValidWorkspace(getcwd() ?: '')) {
       $output->writeln("<error>Invalid workspace.</error>\n");
       return Command::FAILURE;
     }
 
-    // Check if the database configuration exists
     $name = $input->getArgument(ParameterKey::DB_NAME->value);
     $type = get_datasource_type($input, $output)
-      ?: throw new Exception("Database type is not specified. Use the --db-type option to specify the database type.");;
+      ?: throw new Exception('Database type is not specified. Use the --db-type option to specify the database type.');
 
-    if (! DatabaseType::isValid($type) ) {
+    if (! DatabaseType::isValid($type)) {
       $output->writeln("<error>Invalid database type.</error>\n");
       return Command::FAILURE;
     }
 
-    // Check if the database exists
-    $databaseClass = match($type) {
+    /** @var class-string<DatabaseConnectionInterface> $databaseClass */
+    $databaseClass = match ($type) {
       DatabaseType::SQLITE->value => SQLiteDatabase::class,
       DatabaseType::POSTGRESQL->value => PostgreSQLDatabase::class,
-      default => MySQLDatabase::class
+      DatabaseType::MARIADB->value => MariaDbDatabase::class,
+      DatabaseType::MSSQL->value => MsSqlDatabase::class,
+      default => MySQLDatabase::class,
     };
 
-    // Create the database
     if (Command::SUCCESS !== $databaseClass::setup($name)) {
       $output->writeln("<error>Failed to create the database.</error>\n");
       return Command::FAILURE;
     }
 
-    try {
-      // Check if the database connection is successful
-      /** @var DatabaseConnectionInterface $database */
-      $database = new $databaseClass($name, $input, $output);
-    } catch (Exception $exception) {
-      $message = match ($exception->getCode() ) {
-        MySQLDatabase::ERROR_UNKNOWN_DATABASE => 'Database not found',
-        MySQLDatabase::ERROR_INVALID_CREDENTIALS => 'Invalid credentials',
-        default => $exception->getMessage()
-      };
-
-      $output->writeln("<error>({$exception->getCode()}): $message</error>\n");
-      return Command::FAILURE;
-    }
+    new $databaseClass($name, $input, $output);
 
     $output->writeln("✔️  Database <info>$name</info>, successfully setup!.");
     return Command::SUCCESS;

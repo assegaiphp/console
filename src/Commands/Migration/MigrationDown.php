@@ -5,6 +5,8 @@ namespace Assegai\Console\Commands\Migration;
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\Traits\DatabaseNameValidatorTrait;
 use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
+use Assegai\Console\Core\Migrations\MariaDbDatabaseMigrator;
+use Assegai\Console\Core\Migrations\MsSqlDatabaseMigrator;
 use Assegai\Console\Core\Migrations\MySQLDatabaseMigrator;
 use Assegai\Console\Core\Migrations\PostgreSQLDatabaseMigrator;
 use Assegai\Console\Core\Migrations\SQLiteDatabaseMigrator;
@@ -40,8 +42,10 @@ class MigrationDown extends Command
       ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE)
       ->addOption('steps', 's', InputArgument::OPTIONAL, 'The number of migrations to rollback', 1)
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Run the migrations on a MySQL database')
+      ->addOption(DatabaseType::MARIADB->value, null, InputOption::VALUE_NONE, 'Run the migrations on a MariaDB database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Run the migrations on a PostgreSQL database')
-      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Run the migrations on a SQLite database');
+      ->addOption(DatabaseType::SQLITE->value, null, InputOption::VALUE_NONE, 'Run the migrations on a SQLite database')
+      ->addOption(DatabaseType::MSSQL->value, null, InputOption::VALUE_NONE, 'Run the migrations on an MSSQL database');
   }
 
   /**
@@ -76,14 +80,6 @@ class MigrationDown extends Command
     }
 
     $databaseType = DatabaseType::tryFrom($databaseType);
-
-    if ($input->getOption(DatabaseType::MYSQL->value)) {
-      $databaseType = DatabaseType::MYSQL;
-    } elseif ($input->getOption(DatabaseType::POSTGRESQL->value)) {
-      $databaseType = DatabaseType::POSTGRESQL;
-    } elseif ($input->getOption(DatabaseType::SQLITE->value)) {
-      $databaseType = DatabaseType::SQLITE;
-    }
 
     if (! $databaseType) {
       $output->writeln("<error>Invalid database type</error>\n");
@@ -151,8 +147,10 @@ class MigrationDown extends Command
   {
     return match ($databaseType) {
       DatabaseType::MYSQL => MySQLDatabaseMigrator::class,
+      DatabaseType::MARIADB => MariaDbDatabaseMigrator::class,
       DatabaseType::POSTGRESQL => PostgreSQLDatabaseMigrator::class,
       DatabaseType::SQLITE => SQLiteDatabaseMigrator::class,
+      DatabaseType::MSSQL => MsSqlDatabaseMigrator::class,
     };
   }
 
