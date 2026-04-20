@@ -207,7 +207,7 @@ describe('New project defaults', function () {
     $rendered = implode("\n", $output->getBuffer());
 
     expect($rendered)->toContain('Database installation complete');
-    expect($rendered)->not->toContain('Database installation complete\\n');
+    expect(str_contains($rendered, 'Database installation complete\n'))->toBeFalse();
   });
 
   it('ships a front controller that short-circuits safe public assets before bootstrapping PHP routing', function () {
