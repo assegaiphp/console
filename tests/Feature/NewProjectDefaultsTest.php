@@ -222,4 +222,18 @@ describe('New project defaults', function () {
       ->toContain('!$shouldBypassStreaming')
       ->toContain("\$segment === '.well-known'");
   });
+
+  it('ships a starter view that renders props without declaring them', function () {
+    $starterView = file_get_contents(__DIR__ . '/../../templates/src/Views/index.php');
+
+    expect($starterView)
+      ->not->toContain('$projectName =')
+      ->not->toContain('$title =')
+      ->not->toContain('$titleNote =')
+      ->not->toContain('$status =')
+      ->not->toContain('$summary =')
+      ->not->toContain('??')
+      ->toContain("htmlspecialchars(\$title, ENT_QUOTES, 'UTF-8')")
+      ->toContain("htmlspecialchars(\$guideLink, ENT_QUOTES, 'UTF-8')");
+  });
 });
