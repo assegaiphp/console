@@ -8,6 +8,7 @@ use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
@@ -330,14 +331,19 @@ class WorkspaceManager
     string $namespace,
   ): void
   {
+    $escapedProjectName = OutputFormatter::escape($projectName);
+    $escapedProjectDirectory = OutputFormatter::escape($projectDirectory);
+    $escapedPackageName = OutputFormatter::escape($packageName);
+    $escapedNamespace = OutputFormatter::escape($namespace);
+
     $this->output->writeln('');
     $this->output->writeln($this->formatter->formatBlock('Scaffolding Project', 'question', true));
     $this->output->writeln([
         "",
-        "<fg=gray>Project</>   <info>$projectName</info>",
-        "<fg=gray>Path</>      <comment>$projectDirectory</comment>",
-        "<fg=gray>Package</>   <comment>$packageName</comment>",
-        "<fg=gray>Namespace</> <comment>{$namespace}</comment>",
+        "<fg=gray>Project</>   <info>$escapedProjectName</info>",
+        "<fg=gray>Path</>      <comment>$escapedProjectDirectory</comment>",
+        "<fg=gray>Package</>   <comment>$escapedPackageName</comment>",
+        "<fg=gray>Namespace</> <comment>$escapedNamespace</comment>",
         ""
     ]);
   }
@@ -362,6 +368,10 @@ class WorkspaceManager
   private function updateNamespace(string $projectDirectory, string $namespace): int
   {
     $filePaths = ['bootstrap.php', 'src/AppModule.php', 'src/AppController.php', 'src/AppService.php'];
+
+    if (file_exists(Path::join($projectDirectory, 'config', 'secure.php'))) {
+      $filePaths[] = 'config/secure.php';
+    }
 
     if (str_ends_with($namespace, '\\'))
     {

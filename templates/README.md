@@ -10,7 +10,8 @@ It gives you a working Assegai app with:
 - a root module in `src/AppModule.php`
 - a controller and service in `src/`
 - project settings in `assegai.json`
-- environment-aware app config in `config/default.php`
+- shared app config in `config/default.php`
+- sensitive overrides in `config/secure.php`
 
 ## Requirements
 
@@ -82,7 +83,8 @@ The OpenSwoole path is currently experimental. Treat it as an opt-in runtime for
 - `src/AppModule.php`: the root module for your app
 - `src/AppController.php`: a starter controller
 - `src/AppService.php`: a starter service
-- `config/default.php`: shared app and database configuration
+- `config/default.php`: shared app configuration
+- `config/secure.php`: database credentials, auth secrets, and other sensitive overrides; it overrides the lower-priority config files when present
 - `assegai.json`: Assegai project settings, scripts, runtime config, and CLI behavior
 - `bootstrap.php`: entry point used by the local server
 

@@ -32,6 +32,7 @@ function createDatabaseConfigureWorkspace(): string
   file_put_contents($workspace . '/assegai.json', "{}\n");
   file_put_contents($workspace . '/bootstrap.php', "<?php\n");
   copy(__DIR__ . '/../../templates/config/default.php', $workspace . '/config/default.php');
+  copy(__DIR__ . '/../../templates/config/secure.php', $workspace . '/config/secure.php');
 
   mkdir($workspace . '/src', 0755, true);
   file_put_contents($workspace . '/src/AppModule.php', <<<'PHP2'
@@ -118,10 +119,13 @@ describe('database:configure', function () {
         'interactive' => true,
       ]);
 
-      $config = require $workspace . '/config/default.php';
+      $config = require $workspace . '/config/secure.php';
+      $secureConfigContents = file_get_contents($workspace . '/config/secure.php') ?: '';
 
       expect($status)->toBe(Command::SUCCESS);
       expect($config['databases'][$type]['blog']['password'])->toBe('secret');
+      expect($secureConfigContents)->toContain("env('APP_SECRET_KEY', 'your-secret-key')");
+      expect($secureConfigContents)->toContain('UserEntity::class');
       expect(file_get_contents($workspace . '/src/AppModule.php'))
         ->toContain("'data_source' => '$type:blog'");
     } finally {

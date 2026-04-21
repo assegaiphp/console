@@ -28,25 +28,50 @@ trait SchematicModuleManagementTrait
   }
 
   /**
-   * Retrieve the local module filename if it exists.
+   * Retrieve the nearest module filename if it exists.
    *
-   * @return false|string The local module filename, or false if not found
+   * @return false|string The nearest module filename, or false if not found
    */
   private function getLocalModuleFilename(): false|string
   {
+    $srcRoot = Path::join(getcwd() ?: '', 'src');
     $workingDirectory = dirname($this->getFilePath());
-    $localFiles = scandir($workingDirectory);
 
-    if (false === $localFiles) {
-      $this->output->writeln("<error>Failed to scan the directory: $workingDirectory</error>");
-      return false;
-    }
+    while (str_starts_with($workingDirectory, $srcRoot)) {
+      $localFiles = scandir($workingDirectory);
 
-    foreach ($localFiles as $file) {
-      if (str_ends_with($file, 'Module.php')) {
-        $filename = Path::join($workingDirectory, $file);
-        return str_replace(Path::join(getcwd() ?: '', 'src'), '', $filename);
+      if (false === $localFiles) {
+        $this->output->writeln("<error>Failed to scan the directory: $workingDirectory</error>");
+        return false;
       }
+
+      $directoryName = basename($workingDirectory);
+      $preferredModuleFilename = $directoryName . 'Module.php';
+      $candidateModules = array_values(array_filter(
+        $localFiles,
+        static fn(string $file): bool => str_ends_with($file, 'Module.php')
+      ));
+
+      if (!empty($candidateModules)) {
+        $selectedModuleFilename = in_array($preferredModuleFilename, $candidateModules, true)
+          ? $preferredModuleFilename
+          : $candidateModules[0];
+
+        $filename = Path::join($workingDirectory, $selectedModuleFilename);
+        return ltrim(str_replace($srcRoot, '', $filename), DIRECTORY_SEPARATOR);
+      }
+
+      if ($workingDirectory === $srcRoot) {
+        break;
+      }
+
+      $parentDirectory = dirname($workingDirectory);
+
+      if ($parentDirectory === $workingDirectory) {
+        break;
+      }
+
+      $workingDirectory = $parentDirectory;
     }
 
     return false;

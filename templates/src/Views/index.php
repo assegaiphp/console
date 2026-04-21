@@ -1,11 +1,3 @@
-<?php
-  $projectName = htmlspecialchars($projectName ?? 'Your app', ENT_QUOTES, 'UTF-8');
-  $title = htmlspecialchars($title ?? 'Muli Bwanji', ENT_QUOTES, 'UTF-8');
-  $titleNote = htmlspecialchars($titleNote ?? 'Hello in Chichewa', ENT_QUOTES, 'UTF-8');
-  $status = htmlspecialchars($status ?? 'Your app is running.', ENT_QUOTES, 'UTF-8');
-  $summary = htmlspecialchars($summary ?? '', ENT_QUOTES, 'UTF-8');
-?>
-
 <main class="starter-page">
   <div class="starter-glow starter-glow-left"></div>
   <div class="starter-glow starter-glow-right"></div>
@@ -16,26 +8,26 @@
         <img class="starter-logo" src="/images/logo.png" alt="AssegaiPHP logo">
       </div>
 
-      <p class="starter-kicker"><?= $titleNote; ?></p>
-      <h1 class="starter-title"><?= $title; ?></h1>
-      <p class="starter-status"><?= $status; ?></p>
-      <p class="starter-summary"><?= $summary; ?></p>
+      <p class="starter-kicker"><?= htmlspecialchars($titleNote, ENT_QUOTES, 'UTF-8'); ?></p>
+      <h1 class="starter-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></h1>
+      <p class="starter-status"><?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8'); ?></p>
+      <p class="starter-summary"><?= htmlspecialchars($summary, ENT_QUOTES, 'UTF-8'); ?></p>
 
       <div class="starter-actions">
-        <a class="starter-button starter-button-primary" href="<?= htmlspecialchars($guideLink ?? '', ENT_QUOTES, 'UTF-8'); ?>">Read the guide</a>
-        <a class="starter-button" href="<?= htmlspecialchars($websiteLink ?? '', ENT_QUOTES, 'UTF-8'); ?>">Visit the website</a>
+        <a class="starter-button starter-button-primary" href="<?= htmlspecialchars($guideLink, ENT_QUOTES, 'UTF-8'); ?>">Read the guide</a>
+        <a class="starter-button" href="<?= htmlspecialchars($websiteLink, ENT_QUOTES, 'UTF-8'); ?>">Visit the website</a>
       </div>
 
       <div class="starter-link-grid">
-        <a class="starter-link-card" href="<?= htmlspecialchars($websiteLink ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+        <a class="starter-link-card" href="<?= htmlspecialchars($websiteLink, ENT_QUOTES, 'UTF-8'); ?>">
           <span class="starter-link-label">Website</span>
           <span class="starter-link-copy">See the wider AssegaiPHP ecosystem and release updates.</span>
         </a>
-        <a class="starter-link-card" href="<?= htmlspecialchars($guideLink ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+        <a class="starter-link-card" href="<?= htmlspecialchars($guideLink, ENT_QUOTES, 'UTF-8'); ?>">
           <span class="starter-link-label">Get Started</span>
           <span class="starter-link-copy">Follow the setup and first-feature guides in your own environment.</span>
         </a>
-        <a class="starter-link-card" href="<?= htmlspecialchars($supportLink ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+        <a class="starter-link-card" href="<?= htmlspecialchars($supportLink, ENT_QUOTES, 'UTF-8'); ?>">
           <span class="starter-link-label">Support</span>
           <span class="starter-link-copy">Find community links, sponsorship info, and support channels.</span>
         </a>
@@ -51,7 +43,7 @@
         </div>
         <div class="starter-terminal-body">
           <div class="starter-terminal-line"><span class="starter-terminal-comment"># Welcome</span></div>
-          <div class="starter-terminal-line"><span class="starter-terminal-key">$</span> <span class="starter-terminal-command">cd "<?= $projectName; ?>"</span></div>
+          <div class="starter-terminal-line"><span class="starter-terminal-key">$</span> <span class="starter-terminal-command">cd "<?= htmlspecialchars($projectName, ENT_QUOTES, 'UTF-8'); ?>"</span></div>
           <div class="starter-terminal-line"><span class="starter-terminal-key">$</span> <span class="starter-terminal-command">assegai serve</span></div>
           <div class="starter-terminal-line"><span class="starter-terminal-key">$</span> <span class="starter-terminal-command">assegai g r posts</span></div>
           <div class="starter-terminal-line"><span class="starter-terminal-key">$</span> <span class="starter-terminal-command">assegai database:configure</span></div>

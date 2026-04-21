@@ -115,19 +115,46 @@ class ProjectConfig implements ConfigInterface
    */
   public function updateDatabaseConfig(array $newDatabaseConfig, string $projectPath): false|int
   {
-    $configPath = Path::join($projectPath, 'config', 'default.php');
-    $oldDatabaseConfig = require($configPath);
+    $configPath = $this->resolveDatabaseConfigPath($projectPath);
 
-    if (! isset($oldDatabaseConfig['databases']) )
-    {
-      $oldDatabaseConfig['databases'] = [];
+    if ($configPath === null) {
+      return false;
     }
 
-    $databaseConfig = $oldDatabaseConfig;
-    $databaseConfig['databases'] = array_merge($oldDatabaseConfig['databases'], $newDatabaseConfig['databases']);
-    $configContent = "<?php\n\nreturn " . array_to_string($databaseConfig) . ';';
+    $existingConfig = require $configPath;
+    $existingDatabases = is_array($existingConfig['databases'] ?? null)
+      ? $existingConfig['databases']
+      : [];
+    $incomingDatabases = is_array($newDatabaseConfig['databases'] ?? null)
+      ? $newDatabaseConfig['databases']
+      : [];
+    $mergedDatabases = array_replace_recursive($existingDatabases, $incomingDatabases);
+    $contents = file_get_contents($configPath);
 
-    return file_put_contents($configPath, $configContent);
+    if ($contents === false) {
+      return false;
+    }
+
+    $updatedContents = upsert_php_array_config_section($contents, 'databases', $mergedDatabases);
+
+    if ($updatedContents === false) {
+      return false;
+    }
+
+    return file_put_contents($configPath, $updatedContents);
+  }
+
+  private function resolveDatabaseConfigPath(string $projectPath): ?string
+  {
+    foreach (['secure.php', 'local.php', 'dev.php', 'default.php'] as $filename) {
+      $path = Path::join($projectPath, 'config', $filename);
+
+      if (file_exists($path)) {
+        return $path;
+      }
+    }
+
+    return null;
   }
 
   /**

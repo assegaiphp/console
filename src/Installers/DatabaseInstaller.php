@@ -5,6 +5,7 @@ namespace Assegai\Console\Installers;
 use Assegai\Console\Core\Modules\ModuleDataSourceConfigurator;
 use Assegai\Console\Util\ComposerManifest;
 use Assegai\Console\Util\Path;
+use Assegai\Console\Util\Text;
 use Symfony\Component\Console\Command\Command;
 
 /**
@@ -33,6 +34,8 @@ class DatabaseInstaller extends AbstractInstaller
         'sqlite',
         'mssql',
     ];
+
+    protected string $userResourceName = 'Users';
 
     /**
      * @inheritDoc
@@ -81,6 +84,10 @@ class DatabaseInstaller extends AbstractInstaller
             return Command::FAILURE;
         }
 
+        if (Command::SUCCESS !== $this->syncSecureAuthenticationDefaults()) {
+            return Command::FAILURE;
+        }
+
         if (Command::SUCCESS !== $this->installOrmPackage()) {
             return Command::FAILURE;
         }
@@ -91,7 +98,7 @@ class DatabaseInstaller extends AbstractInstaller
 
         $this->output->writeln([
             '',
-            '✔️  Database installation complete\n',
+            '✔️  Database installation complete',
             ''
         ]);
 
@@ -185,17 +192,20 @@ class DatabaseInstaller extends AbstractInstaller
     protected function ensureDefaultUserResource(): int
     {
         if (file_exists(Path::join($this->projectPath, 'src', 'Users'))) {
+            $this->userResourceName = 'Users';
             return Command::SUCCESS;
         }
 
-        $userServiceName = $this->prompts->text(
+        $userServiceName = trim((string) $this->prompts->text(
             "What is the name of the users' resource?",
             'Users'
-        );
-        $command = $this->buildGenerateResourceCommand((string) $userServiceName);
+        ));
+        $userServiceName = $userServiceName !== '' ? $userServiceName : 'Users';
+        $command = $this->buildGenerateResourceCommand($userServiceName);
         $statusCode = $this->runCommand($command);
 
         if ($statusCode === Command::SUCCESS) {
+            $this->userResourceName = $userServiceName;
             return Command::SUCCESS;
         }
 
@@ -206,6 +216,69 @@ class DatabaseInstaller extends AbstractInstaller
         ]);
 
         return Command::FAILURE;
+    }
+
+    protected function syncSecureAuthenticationDefaults(): int
+    {
+        $secureConfigPath = Path::join($this->projectPath, 'config', 'secure.php');
+
+        if (! file_exists($secureConfigPath)) {
+            return Command::SUCCESS;
+        }
+
+        $contents = file_get_contents($secureConfigPath);
+
+        if ($contents === false) {
+            $this->output->writeln('<error>Failed to read config/secure.php</error>');
+            return Command::FAILURE;
+        }
+
+        $entityClassConstant = $this->buildUserEntityClassConstant();
+        $updatedContents = preg_replace(
+            "/(^\s*'entityClassName'\s*=>\s*)([^,]+)(,\s*$)/m",
+            "${1}{$entityClassConstant}${3}",
+            $contents,
+            1,
+            $replacementCount
+        );
+
+        if (! is_string($updatedContents) || $replacementCount < 1) {
+            $this->output->writeln('<error>Failed to update config/secure.php</error>');
+            return Command::FAILURE;
+        }
+
+        if (false === file_put_contents($secureConfigPath, $updatedContents)) {
+            $this->output->writeln('<error>Failed to write config/secure.php</error>');
+            return Command::FAILURE;
+        }
+
+        $this->output->writeln('<fg=bright-blue>UPDATE</> config/secure.php');
+
+        return Command::SUCCESS;
+    }
+
+    protected function buildUserEntityClassConstant(): string
+    {
+        $workspaceNamespace = $this->resolveWorkspaceNamespace();
+        $resourceNamespace = (new Text($this->userResourceName))->pascalCase();
+        $entityClassName = (new Text($this->userResourceName))->getSingularForm();
+        $entityClassName = (new Text($entityClassName))->pascalCase() . 'Entity';
+
+        return sprintf('%s\\%s\\Entities\\%s::class', $workspaceNamespace, $resourceNamespace, $entityClassName);
+    }
+
+    protected function resolveWorkspaceNamespace(): string
+    {
+        $composerConfig = ComposerManifest::load($this->projectPath);
+        $psr4 = $composerConfig['autoload']['psr-4'] ?? [];
+
+        foreach ($psr4 as $namespace => $directory) {
+            if ($directory === 'src/' || $directory === 'src') {
+                return rtrim((string) $namespace, '\\');
+            }
+        }
+
+        return 'Assegai\\App';
     }
 
     /**

@@ -117,7 +117,7 @@ describe('Serve', function () {
       ]);
       expect($command->calls[1]['type'])->toBe('serve');
       expect($command->calls[1]['command'])->toContain("ASSEGAI_RUNTIME='php'");
-      expect($command->calls[1]['command'])->toContain('php -S 127.0.0.1:5050');
+      expect($command->calls[1]['command'])->toContain("php -S '127.0.0.1:5050'");
       expect($command->calls[1]['command'])->toContain($workspace . '/index.php');
       expect($command->calls[2])->toMatchArray([
         'type' => 'stop-watch',
@@ -407,12 +407,35 @@ describe('Serve', function () {
       ]);
 
       expect($status)->toBe(Command::FAILURE);
-      expect($tester->getDisplay())->toContain('host must be a non-empty string');
+      expect($tester->getDisplay())->toContain('host must be a non-empty hostname or IP address');
     } finally {
       deleteServeWorkspace($workspace);
     }
   });
 
+  it('fails early when the serve host contains shell metacharacters', function () {
+    $workspace = createServeWorkspace();
+
+    try {
+      $command = new class extends Serve {
+        protected function validateRuntimeAvailability(string $runtime): ?string
+        {
+          return null;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => $workspace,
+        '--host' => '127.0.0.1; touch /tmp/pwned #',
+      ]);
+
+      expect($status)->toBe(Command::FAILURE);
+      expect($tester->getDisplay())->toContain('host must be a non-empty hostname or IP address');
+    } finally {
+      deleteServeWorkspace($workspace);
+    }
+  });
   it('passes the configured project root into the runtime environment prefix', function () {
     $workspace = createServeWorkspace();
 

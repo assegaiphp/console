@@ -4,6 +4,13 @@ use Assegai\Console\Tests\Mocks\MockInput;
 use Assegai\Console\Tests\Mocks\MockOutput;
 use Assegai\Console\Util\Config\ProjectConfig;
 
+if (! function_exists('env')) {
+  function env(string $key, mixed $default = null): mixed
+  {
+    return $default;
+  }
+}
+
 function createProjectConfigWorkspace(): string
 {
   $workspace = sys_get_temp_dir() . '/' . uniqid('project-config-update-', true);
@@ -13,6 +20,7 @@ function createProjectConfigWorkspace(): string
   }
 
   copy(__DIR__ . '/../../templates/config/default.php', $workspace . '/config/default.php');
+  copy(__DIR__ . '/../../templates/config/secure.php', $workspace . '/config/secure.php');
 
   return $workspace;
 }
@@ -41,7 +49,7 @@ function deleteProjectConfigWorkspace(string $directory): void
 }
 
 describe('ProjectConfig database updates', function () {
-  it('can update the template database config even when it uses env()', function () {
+  it('can update the secure database config without flattening auth expressions', function () {
     $workspace = createProjectConfigWorkspace();
 
     try {
@@ -62,9 +70,12 @@ describe('ProjectConfig database updates', function () {
 
       expect($bytes)->not->toBeFalse();
 
-      $config = require $workspace . '/config/default.php';
+      $config = require $workspace . '/config/secure.php';
+      $contents = file_get_contents($workspace . '/config/secure.php') ?: '';
 
       expect($config['databases']['mysql']['users']['host'])->toBe('127.0.0.1');
+      expect($contents)->toContain("env('APP_SECRET_KEY', 'your-secret-key')");
+      expect($contents)->toContain('Assegai\\App\\Users\\Entities\\UserEntity::class');
     } finally {
       deleteProjectConfigWorkspace($workspace);
     }
@@ -88,9 +99,10 @@ describe('ProjectConfig database updates', function () {
 
       expect($bytes)->not->toBeFalse();
 
-      $contents = file_get_contents($workspace . '/config/default.php');
+      $contents = file_get_contents($workspace . '/config/secure.php');
       expect($contents)->toContain('.data/users.sq3');
       expect($contents)->not->toContain('.data\\/users.sq3');
+      expect($contents)->toContain("env('APP_SECRET_KEY', 'your-secret-key')");
     } finally {
       deleteProjectConfigWorkspace($workspace);
     }

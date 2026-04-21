@@ -28,7 +28,7 @@ function createWebComponentGeneratorWorkspace(array $webComponentConfig = []): s
   ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
   file_put_contents($workspace . '/bootstrap.php', "<?php\n");
 
-  file_put_contents($workspace . '/src/AppModule.php', <<<'PHP'
+  file_put_contents($workspace . '/src/AppModule.php', <<<'INNER'
 <?php
 
 namespace Assegai\App;
@@ -44,7 +44,7 @@ use Assegai\Core\Attributes\Modules\Module;
 class AppModule
 {
 }
-PHP);
+INNER);
 
   return $workspace;
 }
@@ -179,6 +179,57 @@ describe('Generate Web Components', function () {
       deleteWebComponentGeneratorWorkspace($workspace);
     }
   });
+
+  it('declares nested generated components in the nearest existing module', function () {
+    $workspace = createWebComponentGeneratorWorkspace(['prefix' => 'acme']);
+    $previousWorkingDirectory = getcwd();
+
+    if (false === $previousWorkingDirectory) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    mkdir($workspace . '/src/Heroes', 0755, true);
+    file_put_contents($workspace . '/src/Heroes/HeroesModule.php', <<<'INNER'
+<?php
+
+namespace Assegai\App\Heroes;
+
+use Assegai\Core\Attributes\Modules\Module;
+
+#[Module(
+  declarations: [],
+  providers: [],
+  controllers: [],
+  imports: []
+)]
+class HeroesModule
+{
+}
+INNER);
+
+    chdir($workspace);
+
+    try {
+      $commandTester = new CommandTester(new Generate());
+
+      expect($commandTester->execute([
+        'schematic' => 'component',
+        'name' => 'heroes/hero-detail',
+        '--directory' => $workspace,
+      ]))->toBe(Command::SUCCESS);
+
+      expect($workspace . '/src/Heroes/HeroDetail/HeroDetailComponent.php')->toBeFile();
+      expect(file_get_contents($workspace . '/src/Heroes/HeroesModule.php') ?: '')
+        ->toContain('use Assegai\\App\\Heroes\\HeroDetail\\HeroDetailComponent;')
+        ->toContain('declarations: [HeroDetailComponent::class]');
+      expect(file_get_contents($workspace . '/src/AppModule.php') ?: '')
+        ->not->toContain('HeroDetailComponent::class');
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteWebComponentGeneratorWorkspace($workspace);
+    }
+  });
+
   it('can generate a flat component beside the app module', function () {
     $workspace = createWebComponentGeneratorWorkspace(['prefix' => 'acme']);
     $previousWorkingDirectory = getcwd();
@@ -204,10 +255,10 @@ describe('Generate Web Components', function () {
       expect($workspace . '/src/AppComponent.css')->toBeFile();
       expect($workspace . '/src/App/AppComponent.php')->not->toBeFile();
       expect(file_get_contents($workspace . '/src/AppComponent.php') ?: '')
-        ->toContain('namespace Assegai\App;')
+        ->toContain('namespace Assegai\\App;')
         ->toContain("selector: 'acme-app'");
       expect(file_get_contents($workspace . '/src/AppModule.php') ?: '')
-        ->toContain('use Assegai\App\AppComponent;')
+        ->toContain('use Assegai\\App\\AppComponent;')
         ->toContain('declarations: [AppComponent::class]');
     } finally {
       chdir($previousWorkingDirectory);
@@ -244,12 +295,12 @@ describe('Generate Web Components', function () {
       expect($workspace . '/src/Marketing/Landing/AboutComponent.wc.ts')->toBeFile();
       expect($workspace . '/src/Marketing/Landing/About/AboutComponent.php')->not->toBeFile();
       expect(file_get_contents($workspace . '/src/Marketing/Landing/AboutComponent.php') ?: '')
-        ->toContain('namespace Assegai\App\Marketing\Landing;')
+        ->toContain('namespace Assegai\\App\\Marketing\\Landing;')
         ->toContain("selector: 'acme-about'");
       expect(file_get_contents($workspace . '/src/Marketing/Landing/AboutComponent.wc.ts') ?: '')
         ->toContain("defineElement('acme-about', AboutElement);");
       expect(file_get_contents($workspace . '/src/AppModule.php') ?: '')
-        ->toContain('use Assegai\App\Marketing\Landing\AboutModule;')
+        ->toContain('use Assegai\\App\\Marketing\\Landing\\AboutModule;')
         ->toContain('imports: [AboutModule::class]');
     } finally {
       chdir($previousWorkingDirectory);
