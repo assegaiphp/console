@@ -22,7 +22,19 @@ class ProjectTemplateDefaults
    */
   public static function loadComposerConfig(): array
   {
-    return self::loadJsonTemplate('composer.json', self::defaultComposerConfig());
+    $config = self::loadJsonTemplate('composer.json', self::defaultComposerConfig());
+    $requirements = $config['require'] ?? [];
+
+    if (! is_array($requirements)) {
+      $requirements = [];
+    }
+
+    $requirements['php'] = '^' . MIN_PHP_VERSION;
+    $requirements[PACKAGE_NAME_CORE] = RECOMMENDED_CORE_VERSION_CONSTRAINT;
+    ksort($requirements);
+    $config['require'] = $requirements;
+
+    return $config;
   }
 
   /**

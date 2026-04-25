@@ -111,13 +111,24 @@ class ComposerManifest
 
   private static function extractLowestComparableVersion(string $constraint): ?string
   {
-    if (preg_match_all('/\d+\.\d+\.\d+/', $constraint, $matches) !== 1 || empty($matches[0])) {
+    if (preg_match_all('/\d+(?:\.\d+){0,2}/', $constraint, $matches) !== 1 || empty($matches[0])) {
       return null;
     }
 
-    $versions = $matches[0];
+    $versions = array_map(self::normalizeComparableVersion(...), $matches[0]);
     usort($versions, static fn(string $left, string $right): int => version_compare($left, $right));
 
     return $versions[0] ?? null;
+  }
+
+  private static function normalizeComparableVersion(string $version): string
+  {
+    $parts = explode('.', $version);
+
+    while (count($parts) < 3) {
+      $parts[] = '0';
+    }
+
+    return implode('.', array_slice($parts, 0, 3));
   }
 }
