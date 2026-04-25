@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/assegaiphp/console/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/assegaiphp/console?display_name=tag&sort=semver&style=flat-square"></a>
   <a href="https://github.com/assegaiphp/console/actions/workflows/php.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/assegaiphp/console/php.yml?branch=main&label=tests&style=flat-square"></a>
-  <img alt="PHP 8.3+" src="https://img.shields.io/badge/PHP-8.3%2B-777BB4?style=flat-square&logo=php&logoColor=white">
+  <img alt="PHP 8.4+" src="https://img.shields.io/badge/PHP-8.4%2B-777BB4?style=flat-square&logo=php&logoColor=white">
   <a href="https://github.com/assegaiphp/console/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/assegaiphp/console?style=flat-square"></a>
   <img alt="Status active" src="https://img.shields.io/badge/status-active-10b981?style=flat-square">
 </p>
@@ -13,7 +13,7 @@
 # Assegai Console
 
 ## Requirements
-- PHP 8.3 (minimum)
+- PHP 8.4 (minimum)
 - Composer 2.x.x
 
 ## Description
@@ -25,6 +25,7 @@ The Assegai Console is the framework CLI for:
 - generating framework features
 - exporting API contracts and clients
 - working with queues, migrations, databases, and Web Components
+- upgrading existing workspaces across supported framework release lines
 
 It also supports custom schematics so teams can teach `assegai generate` about their own company-specific features.
 
@@ -37,37 +38,25 @@ For commit and pull request conventions in this repo, see:
 
 ## Installation
 
-### Linux
-
 Install the Assegai Console globally using Composer:
+
 ```bash
 $ composer global require assegaiphp/console
 ```
 
-Create a symbolic link to the Assegai Console binary in a directory that is included in your system's `PATH` environment variable. For example, you can create a symbolic link in the `/usr/local/bin` directory:
-```bash
-$ sudo ln -s ~/.config/composer/vendor/bin/assegai /usr/local/bin/assegai
-```
-
-Alternatively, you can add the [Composer](https://getcomposer.org/doc/00-intro.md#installation-linux-unix-macos) bin directory to your `$PATH` to make `assegai` 
-available globally. To do so, add the following line to your shell configuration file (e.g., `~/.bashrc`, `~/.zshrc`, 
-etc.):
+Then make sure Composer's global bin directory is on your `PATH`:
 
 ```bash
-$ export PATH="$PATH:$HOME/.config/composer/vendor/bin"
+$ composer global config bin-dir --absolute
 ```
 
-> **Note:** The path to the Composer bin directory may vary depending on your system configuration. Please refer to the [official Composer documentation](https://getcomposer.org/doc/00-intro.md#installation-linux-unix-macos) for more information.
+If the printed directory is not already on your `PATH`, add it in your shell profile. For example:
 
-### Windows
+```bash
+$ export PATH="$PATH:$(composer global config bin-dir --absolute)"
+```
 
-> **Note:** The following instructions are for Windows 10/11. If you are using an older version of Windows, please refer to the [official Composer documentation](https://getcomposer.org/doc/00-intro.md#installation-windows) for installation instructions.
-
-For Windows, you can use WSL (Windows Subsystem for Linux) to install the Assegai Console. Follow the instructions for [Linux](#linux) above.
-
-### macOS
-
-For macOS, you can use the same instructions as for [Linux](#linux).
+Refer to the [official Composer documentation](https://getcomposer.org/doc/00-intro.md) if your global Composer home is configured differently.
 
 ## Usage
 
@@ -79,6 +68,13 @@ $ assegai new my-app
 ```
 
 This command will create a new Assegai project in the `my-app` directory.
+
+The scaffold flow can also:
+
+- initialize git
+- configure a database
+- write sensitive config to `config/secure.php`
+- set up a starter users resource when ORM is enabled
 
 ### Development
 
@@ -126,6 +122,33 @@ You can also persist that choice in `assegai.json`:
 If the extension is not installed, the CLI now stops early with a direct setup message instead of falling into a runtime bootstrap failure.
 
 The current OpenSwoole path is still experimental. It is intended for careful testing and advanced runtime work, not as a blanket replacement for the default `php` runtime in every project.
+
+## Upgrading existing projects
+
+Use the update command to move an existing workspace onto the current supported framework line:
+
+```bash
+$ assegai update
+```
+
+The CLI now upgrades installed first-party packages more deliberately and is aware of the active framework release line.
+
+## Generating code
+
+Use `assegai generate` (or `assegai g`) to scaffold framework artifacts:
+
+```bash
+$ assegai g resource users
+$ assegai g component app --flat
+$ assegai g page dashboard --path src/Admin
+```
+
+Useful options include:
+
+- `--flat` to generate directly into the target path instead of creating a name-based subdirectory
+- `--path` to place generated files at a source-relative path
+
+Database-aware commands also support MySQL, MariaDB, PostgreSQL, SQLite, and MSSQL where applicable.
 
 ## Custom schematics
 
@@ -182,7 +205,7 @@ Learn more in the [official documentation](https://assegaiphp.com/guide/getting-
 ## Stay in touch
 
 * Author - [Andrew Masiye](https://twitter.com/feenix11), [Daniel Kaluba](https://twitter.com/ZombieKlassic)
-* Website - [https://atatusoft.com](https://atatusoft.com/)
+* Website - [https://assegaiphp.com](https://assegaiphp.com/)
 * X - [@assegaiphp](https://twitter.com/assegaiphp)
 
 ## License
