@@ -137,6 +137,9 @@ PHP,
         /** @var array<int, mixed> */
         public array $frontendCalls = [];
 
+        /**
+         * @param string[] $packages
+         */
         protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
         {
           $this->composerCalls[] = [
@@ -167,6 +170,7 @@ PHP,
       $assegaiConfig = json_decode(file_get_contents($workspace . '/assegai.json') ?: '', true);
 
       expect($status)->toBe(Command::SUCCESS)
+          ->and($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION)
           ->and($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT)
           ->and($composer['require'][PACKAGE_NAME_ORM])->toBe(RECOMMENDED_ORM_VERSION_CONSTRAINT)
           ->and($assegaiConfig['webComponents']['hotReload']['enabled'])->toBeTrue()
@@ -187,6 +191,9 @@ PHP,
         /** @var array<int, mixed> */
         public array $frontendCalls = [];
 
+        /**
+         * @param string[] $packages
+         */
         protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
         {
           $this->composerCalls[] = $packages;
@@ -208,6 +215,7 @@ PHP,
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
 
       expect($status)->toBe(Command::SUCCESS)
+          ->and($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION)
           ->and($command->composerCalls[0])->toBe([PACKAGE_NAME_CORE])
           ->and($command->frontendCalls)->toBe([])
           ->and($composer['require'])->not->toHaveKey(PACKAGE_NAME_ORM);
@@ -216,6 +224,65 @@ PHP,
     }
   });
 
+  it('updates direct first-party release-line packages that are already installed', function () {
+    $workspace = createUpdateWorkspace([
+      'composer' => [
+        'name' => 'acme/legacy-app',
+        'autoload' => [
+          'psr-4' => [
+            'Acme\\Legacy\\' => 'src/',
+          ],
+        ],
+        'require' => [
+          'php' => '^8.3',
+          PACKAGE_NAME_CORE => '^0.8.0',
+          'assegaiphp/auth' => '^0.8.0',
+          'assegaiphp/rabbitmq' => '^0.8.0',
+        ],
+        'require-dev' => [
+          'assegaiphp/forms' => '^0.8.0',
+        ],
+      ],
+    ]);
+
+    try {
+      $command = new class extends Update {
+        /** @var array<int, mixed> */
+        public array $composerCalls = [];
+
+        /**
+         * @param string[] $packages
+         */
+        protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
+        {
+          $this->composerCalls[] = $packages;
+          return Command::SUCCESS;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--directory' => $workspace,
+      ]);
+
+      $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
+
+      expect($status)->toBe(Command::SUCCESS)
+        ->and($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION)
+        ->and($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT)
+        ->and($composer['require']['assegaiphp/auth'])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
+        ->and($composer['require']['assegaiphp/rabbitmq'])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
+        ->and($composer['require-dev']['assegaiphp/forms'])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
+        ->and($command->composerCalls[0])->toBe([
+          PACKAGE_NAME_CORE,
+          'assegaiphp/auth',
+          'assegaiphp/rabbitmq',
+          'assegaiphp/forms',
+        ]);
+    } finally {
+      deleteUpdateWorkspace($workspace);
+    }
+  });
   it('does not downgrade projects that already require a newer assegai line', function () {
     $workspace = createUpdateWorkspace([
       'composer' => [
@@ -239,6 +306,9 @@ PHP,
         /** @var array<int, mixed> */
         public array $composerCalls = [];
 
+        /**
+         * @param string[] $packages
+         */
         protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
         {
           $this->composerCalls[] = $packages;
@@ -254,6 +324,7 @@ PHP,
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
 
       expect($status)->toBe(Command::SUCCESS)
+        ->and($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION)
         ->and($composer['require'][PACKAGE_NAME_CORE])->toBe('^0.9.0')
         ->and($composer['require'][PACKAGE_NAME_ORM])->toBe('^0.9.0')
         ->and($composer['require'][PACKAGE_NAME_EVENTS])->toBe('^1.0.0')
@@ -315,6 +386,9 @@ PHP,
           parent::__construct();
         }
 
+        /**
+         * @param string[] $packages
+         */
         protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
         {
           installFakeUpdateWorkspacePackage(
@@ -417,6 +491,9 @@ PHP,
           parent::__construct();
         }
 
+        /**
+         * @param string[] $packages
+         */
         protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
         {
           installFakeUpdateWorkspacePackage(

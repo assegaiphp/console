@@ -13,7 +13,7 @@ describe('Info', function () {
 
     try {
       $application = new Application('test');
-      $application->add(new Info());
+      $application->addCommands([new Info()]);
 
       $tester = new CommandTester($application->find('info'));
       $status = $tester->execute([

@@ -130,7 +130,7 @@ describe('Workspace manager', function () {
       $secureConfig = file_get_contents($secureConfigFilename) ?: '';
 
       expect($composer)->toBeArray();
-      expect($composer['require']['php'])->toBe('^8.3');
+      expect($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION);
       expect($composer['autoload']['psr-4'])->toBe(['Acme\\BlogApi\\' => 'src/']);
       expect(array_key_exists('Assegai\\App\\', $composer['autoload']['psr-4']))->toBeFalse();
       expect($readme)->toContain('This project was scaffolded with `assegai new`.');

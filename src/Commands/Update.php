@@ -27,6 +27,20 @@ use RuntimeException;
 )]
 class Update extends Command
 {
+  private const FIRST_PARTY_RELEASE_LINE_PACKAGES = [
+    PACKAGE_NAME_CORE,
+    PACKAGE_NAME_ORM,
+    PACKAGE_NAME_EVENTS,
+    'assegaiphp/auth',
+    'assegaiphp/beanstalkd',
+    'assegaiphp/collections',
+    'assegaiphp/common',
+    'assegaiphp/forms',
+    'assegaiphp/rabbitmq',
+    'assegaiphp/util',
+    'assegaiphp/validation',
+  ];
+
   public function configure(): void
   {
     $this->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The workspace directory to update', getcwd());
@@ -120,6 +134,12 @@ class Update extends Command
 
     $composerConfig = ComposerManifest::ensureRecommendedRequirement(
       $composerConfig,
+      'php',
+      '^' . MIN_PHP_VERSION
+    );
+
+    $composerConfig = ComposerManifest::ensureRecommendedRequirement(
+      $composerConfig,
       PACKAGE_NAME_CORE,
       RECOMMENDED_CORE_VERSION_CONSTRAINT
     );
@@ -144,6 +164,8 @@ class Update extends Command
       $packages[] = PACKAGE_NAME_EVENTS;
     }
 
+    [$composerConfig, $packages] = $this->ensureDirectFirstPartyReleaseLineRequirements($composerConfig, $packages);
+
     if (! ComposerManifest::save($workspace, $composerConfig)) {
       $output->writeln('<error>Failed to update composer.json.</error>');
       return false;
@@ -154,6 +176,37 @@ class Update extends Command
     return $packages;
   }
 
+  /**
+   * @param array<string, mixed> $composerConfig
+   * @param string[] $packages
+   * @return array{0: array<string, mixed>, 1: string[]}
+   */
+  protected function ensureDirectFirstPartyReleaseLineRequirements(array $composerConfig, array $packages): array
+  {
+    foreach (['require', 'require-dev'] as $section) {
+      $requirements = $composerConfig[$section] ?? [];
+
+      if (! is_array($requirements)) {
+        continue;
+      }
+
+      foreach (self::FIRST_PARTY_RELEASE_LINE_PACKAGES as $packageName) {
+        if (! array_key_exists($packageName, $requirements)) {
+          continue;
+        }
+
+        $composerConfig = ComposerManifest::ensureRecommendedRequirement(
+          $composerConfig,
+          $packageName,
+          RECOMMENDED_FRAMEWORK_RELEASE_LINE,
+          $section,
+        );
+        $packages[] = $packageName;
+      }
+    }
+
+    return [$composerConfig, array_values(array_unique($packages))];
+  }
   /**
    * @param string[] $packages
    */

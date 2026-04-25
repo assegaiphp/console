@@ -50,5 +50,6 @@ describe('Project template defaults', function () {
     expect(recommended_framework_release_line_for_version('v0.9.4'))->toBe('^0.9.0');
     expect(recommended_framework_release_line_for_version('0.10.x-dev'))->toBe('^0.10.0');
     expect(recommended_framework_release_line_for_version('1.1.3'))->toBe('^1.1.0');
+    expect(recommended_framework_release_line_for_version('unknown'))->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE_FALLBACK);
   });
 });

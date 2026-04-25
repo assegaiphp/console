@@ -41,9 +41,7 @@ class ApplicationFactory
     $resolvedWorkspace = self::resolveWorkspace($workspace, $argv ?? ($_SERVER['argv'] ?? []));
 
     foreach (InstalledPackageExtensionLoader::load($resolvedWorkspace) as $extension) {
-      foreach ($extension->instantiateCommands() as $command) {
-        $application->add($command);
-      }
+      $application->addCommands($extension->instantiateCommands());
     }
 
     $application->setDefaultCommand('info');

@@ -170,7 +170,7 @@ PHP,
       $assegai = json_decode(file_get_contents($workspace . '/assegai.json') ?: '', true);
       $appModule = file_get_contents($workspace . '/src/AppModule.php') ?: '';
 
-      expect($composer['require']['assegaiphp/events'] ?? null)->toBe('*');
+      expect($composer['require']['assegaiphp/events'] ?? null)->toBe(RECOMMENDED_EVENTS_VERSION_CONSTRAINT);
       expect($assegai['events']['wildcards'] ?? null)->toBeTrue();
       expect($assegai['events']['delimiter'] ?? null)->toBe('.');
       expect(array_key_exists('maxListeners', $assegai['events'] ?? []))->toBeTrue();

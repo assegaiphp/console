@@ -14,7 +14,6 @@ use Assegai\Console\Util\Config\AppConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
-use Illuminate\Support\Collection;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -89,7 +88,7 @@ class MigrationDown extends Command
     $dbName = get_datasource_name($input, $output, $databaseType->value);
 
     if (! $dbName) {
-      /** @var array<int|string, string>|Collection<int|string, string> $databaseChoices */
+      /** @var array<int|string, string> $databaseChoices */
       $databaseChoices = array_keys($appConfig->get("databases.$databaseType->value", []));
       $dbName = select("<info>?</info> Which <question>$databaseType->value</question> database do you want to run the migrations on? ", $databaseChoices);
     }

@@ -8,7 +8,6 @@ use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
 use Assegai\Console\Util\Text;
-use Illuminate\Support\Collection;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -91,7 +90,7 @@ class MigrationCreate extends Command
     if (! $dbName) {
       $path = "databases.$type";
 
-      /** @var array<int|string, string>|Collection<int|string, string> $databases */
+      /** @var array<int|string, string> $databases */
       $databases = array_keys($config->get($path, []));
       $dbName = select("<info>?</info> Which <question>$type</question> database would you like to create the migration for? ", $databases, 0);
     }
