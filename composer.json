@@ -24,7 +24,8 @@
         "ext-pdo": "*",
         "atatusoft-ltd/plural": "^1.2",
         "assegaiphp/common": "^0.9.0",
-        "symfony/console": "^8.0"
+        "symfony/console": "^8.0",
+        "laravel/prompts": "^0.3"
     },
     "config": {
         "allow-plugins": {
