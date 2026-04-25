@@ -140,6 +140,11 @@ describe('New project defaults', function () {
       {
         return $this->buffer;
       }
+
+      public function isSilent(): bool
+      {
+        return parent::isSilent();
+      }
     };
 
     $installer = new class(

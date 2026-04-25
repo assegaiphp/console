@@ -64,6 +64,14 @@ class MockOutput implements OutputInterface
   /**
    * @inheritDoc
    */
+  public function isSilent(): bool
+  {
+    return self::VERBOSITY_SILENT === $this->verbosity;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public function isVerbose(): bool
   {
     return self::VERBOSITY_VERBOSE <= $this->verbosity;
