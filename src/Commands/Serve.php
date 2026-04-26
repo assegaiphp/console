@@ -90,6 +90,7 @@ class Serve extends Command
     }
 
     $uri = $this->buildServeUri((string) $host, (int) $port);
+    $documentRoot = $this->resolveDocumentRoot($root);
 
     if ($runtime !== 'php' && $https) {
       $output->writeln('<error>The selected runtime does not support the --https serve path yet.</error>');
@@ -110,6 +111,7 @@ class Serve extends Command
       workingDirectory: $root,
       host: (string) $host,
       port: (int) $port,
+      documentRoot: $documentRoot,
       router: $router,
       bootstrap: $bootstrap,
       https: (bool) $https,
@@ -425,6 +427,7 @@ class Serve extends Command
     string $workingDirectory,
     string $host,
     int $port,
+    string $documentRoot,
     string $router,
     string $bootstrap,
     bool $https = false,
@@ -435,7 +438,9 @@ class Serve extends Command
     $environmentPrefix = $this->buildRuntimeEnvironmentPrefix($runtime, $host, $port, $workingDirectory);
 
     if ($runtime === 'php') {
-      $command = $environmentPrefix . ' php -S ' . escapeshellarg($uri) . ' ' . escapeshellarg($router);
+      $command = $environmentPrefix . ' php -S ' . escapeshellarg($uri)
+        . ' -t ' . escapeshellarg($documentRoot)
+        . ' ' . escapeshellarg($router);
 
       if ($https && $certPath !== null && $keyPath !== null) {
         $command .= ' --cert ' . escapeshellarg($certPath) . ' --key ' . escapeshellarg($keyPath);
@@ -445,6 +450,13 @@ class Serve extends Command
     }
 
     return $environmentPrefix . ' ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($bootstrap);
+  }
+
+  protected function resolveDocumentRoot(string $workingDirectory): string
+  {
+    $publicDirectory = Path::join($workingDirectory, 'public');
+
+    return is_dir($publicDirectory) ? $publicDirectory : $workingDirectory;
   }
 
   protected function buildRuntimeEnvironmentPrefix(string $runtime, string $host, int $port, string $workingDirectory): string

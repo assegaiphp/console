@@ -234,9 +234,9 @@ class DatabaseInstaller extends AbstractInstaller
         }
 
         $entityClassConstant = $this->buildUserEntityClassConstant();
-        $updatedContents = preg_replace(
+        $updatedContents = preg_replace_callback(
             "/(^\s*'entityClassName'\s*=>\s*)([^,]+)(,\s*$)/m",
-            "${1}{$entityClassConstant}${3}",
+            static fn(array $matches): string => $matches[1] . $entityClassConstant . $matches[3],
             $contents,
             1,
             $replacementCount
