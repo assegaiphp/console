@@ -118,6 +118,7 @@ describe('Serve', function () {
       expect($command->calls[1]['type'])->toBe('serve');
       expect($command->calls[1]['command'])->toContain("ASSEGAI_RUNTIME='php'");
       expect($command->calls[1]['command'])->toContain("php -S '127.0.0.1:5050'");
+      expect($command->calls[1]['command'])->toContain('-t ' . escapeshellarg($workspace . '/public'));
       expect($command->calls[1]['command'])->toContain($workspace . '/index.php');
       expect($command->calls[2])->toMatchArray([
         'type' => 'stop-watch',

@@ -15,6 +15,49 @@ if (! function_exists('env')) {
   }
 }
 
+function createNewProjectDefaultsWorkspace(): string
+{
+  $workspace = sys_get_temp_dir() . '/' . uniqid('new-project-defaults-', true);
+
+  if (! mkdir($workspace . '/config', 0755, true) && ! is_dir($workspace . '/config')) {
+    throw new RuntimeException("Failed to create test workspace: $workspace");
+  }
+
+  copy(__DIR__ . '/../../templates/config/secure.php', $workspace . '/config/secure.php');
+  file_put_contents($workspace . '/composer.json', json_encode([
+    'autoload' => [
+      'psr-4' => [
+        'Acme\\Saas\\' => 'src/',
+      ],
+    ],
+  ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+  return $workspace;
+}
+
+function deleteNewProjectDefaultsWorkspace(string $directory): void
+{
+  if (! is_dir($directory)) {
+    return;
+  }
+
+  $items = new RecursiveIteratorIterator(
+    new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
+    RecursiveIteratorIterator::CHILD_FIRST
+  );
+
+  foreach ($items as $item) {
+    if ($item->isDir()) {
+      rmdir($item->getPathname());
+      continue;
+    }
+
+    unlink($item->getPathname());
+  }
+
+  rmdir($directory);
+}
+
 describe('New project defaults', function () {
   it('forces ansi when generating the default users resource', function () {
     $installer = new class(
@@ -60,6 +103,54 @@ describe('New project defaults', function () {
     expect($secureConfig['authentication']['strategies'])->toBe([]);
     expect($secureConfig['authentication']['jwt']['entityClassName'])
       ->toBe('Assegai\\App\\Users\\Entities\\UserEntity');
+  });
+
+  it('syncs secure auth defaults without regex replacement interpolation warnings', function () {
+    $workspace = createNewProjectDefaultsWorkspace();
+    $warnings = [];
+
+    try {
+      $installer = new class(
+        new MockInput(),
+        new MockOutput(),
+        new FormatterHelper(),
+        new QuestionHelper(),
+        $workspace
+      ) extends DatabaseInstaller {
+        public function syncForResource(string $resourceName): int
+        {
+          $this->userResourceName = $resourceName;
+
+          return $this->syncSecureAuthenticationDefaults();
+        }
+      };
+
+      set_error_handler(static function (int $severity, string $message) use (&$warnings): bool {
+        if ($severity === E_WARNING || $severity === E_NOTICE || $severity === E_USER_WARNING) {
+          $warnings[] = $message;
+        }
+
+        return true;
+      });
+
+      try {
+        $status = $installer->syncForResource('Team Members');
+      } finally {
+        restore_error_handler();
+      }
+
+      $secureConfigContents = file_get_contents($workspace . '/config/secure.php') ?: '';
+      $secureConfig = require $workspace . '/config/secure.php';
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($warnings)->toBe([]);
+      expect($secureConfigContents)
+        ->toContain("'entityClassName' => Acme\\Saas\\TeamMembers\\Entities\\TeamMemberEntity::class");
+      expect($secureConfig['authentication']['jwt']['entityClassName'])
+        ->toBe('Acme\\Saas\\TeamMembers\\Entities\\TeamMemberEntity');
+    } finally {
+      deleteNewProjectDefaultsWorkspace($workspace);
+    }
   });
 
   it('offers module data_source enablement after configuring databases during project setup', function () {
@@ -221,10 +312,15 @@ describe('New project defaults', function () {
     expect($frontController)
       ->toContain("realpath(__DIR__ . '/public')")
       ->toContain('X-Content-Type-Options: nosniff')
+      ->toContain("PHP_SAPI === 'cli-server'")
+      ->toContain("realpath(" . '$_SERVER' . "['DOCUMENT_ROOT'] ?? '')")
+      ->toContain('return false;')
+      ->toContain('assegai_stream_public_asset($assetPath);')
       ->toContain('readfile($assetPath);')
       ->toContain("\$allowedExtensions = [")
-      ->toContain("!str_starts_with(\$normalizedRelativePath, '.well-known/')")
-      ->toContain('!$shouldBypassStreaming')
+      ->toContain("return str_starts_with(\$normalizedRelativePath, '.well-known/');")
+      ->toContain("'css' => 'text/css'")
+      ->toContain("'js', 'mjs' => 'text/javascript'")
       ->toContain("\$segment === '.well-known'");
   });
 
