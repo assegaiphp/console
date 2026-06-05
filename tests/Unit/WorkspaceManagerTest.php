@@ -128,6 +128,8 @@ describe('Workspace manager', function () {
       $readme = file_get_contents($readmeFilename) ?: '';
       $agentsFilename = $workspace . '/my-blog-api/AGENTS.md';
       $agents = file_get_contents($agentsFilename) ?: '';
+      $gitignoreFilename = $workspace . '/my-blog-api/.gitignore';
+      $gitignore = file_get_contents($gitignoreFilename) ?: '';
       $secureConfigFilename = $workspace . '/my-blog-api/config/secure.php';
       $secureConfig = file_get_contents($secureConfigFilename) ?: '';
 
@@ -142,6 +144,10 @@ describe('Workspace manager', function () {
       expect($agents)->toContain('Guidance for coding agents working in this AssegaiPHP application.');
       expect($agents)->toContain('Prefer the Assegai CLI generators');
       expect($agents)->toContain('composer test');
+      expect(file_exists($gitignoreFilename))->toBeTrue();
+      expect(file_exists($workspace . '/my-blog-api/gitignore.stub'))->toBeFalse();
+      expect($gitignore)->toContain('/config/secure*.php');
+      expect($gitignore)->not->toContain('!/config/secure.php');
       expect($secureConfig)->toContain('Acme\\BlogApi\\Users\\Entities\\UserEntity::class');
     } finally {
       CliPrompt::flushFake();
