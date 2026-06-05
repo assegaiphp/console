@@ -2,6 +2,7 @@
 
 namespace Assegai\Console\Util\Config;
 
+use Assegai\Console\Util\ComposerManifest;
 use Assegai\Console\Util\Config\Interfaces\ConfigInterface;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Command\Command;
@@ -172,12 +173,19 @@ class ProjectConfig implements ConfigInterface
     }
 
     $secureTemplatePath = Path::join(Path::getTemplatesDirectory(), 'config', 'secure.php');
+    $contents = file_get_contents($secureTemplatePath);
 
-    if (! file_exists($secureTemplatePath)) {
+    if ($contents === false) {
       return false;
     }
 
-    return copy($secureTemplatePath, $securePath);
+    $contents = str_replace(
+      'Assegai\\App',
+      ComposerManifest::resolvePsr4Namespace($projectPath),
+      $contents
+    );
+
+    return false !== file_put_contents($securePath, $contents);
   }
 
   /**

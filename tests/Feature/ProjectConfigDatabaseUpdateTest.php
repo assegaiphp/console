@@ -25,6 +25,17 @@ function createProjectConfigWorkspace(): string
   return $workspace;
 }
 
+function writeProjectConfigComposer(string $workspace, string $namespace = 'Acme\\ClonedApp\\'): void
+{
+  file_put_contents($workspace . '/composer.json', json_encode([
+    'autoload' => [
+      'psr-4' => [
+        $namespace => 'src/',
+      ],
+    ],
+  ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+}
+
 function deleteProjectConfigWorkspace(string $directory): void
 {
   if (! is_dir($directory)) {
@@ -89,6 +100,7 @@ describe('ProjectConfig database updates', function () {
       $defaultConfigPath = $workspace . '/config/default.php';
       unlink($secureConfigPath);
       $defaultConfigBefore = file_get_contents($defaultConfigPath) ?: '';
+      writeProjectConfigComposer($workspace);
       $projectConfig = new ProjectConfig(new MockInput(), new MockOutput());
 
       $bytes = $projectConfig->updateDatabaseConfig([
@@ -112,6 +124,8 @@ describe('ProjectConfig database updates', function () {
       $defaultConfig = require $defaultConfigPath;
 
       expect($secureConfig['databases']['mysql']['cloned_app']['password'])->toBe('secret');
+      expect($secureConfig['authentication']['jwt']['entityClassName'])
+        ->toBe('Acme\\ClonedApp\\Users\\Entities\\UserEntity');
       expect($defaultConfig['databases'] ?? null)->toBeNull();
     } finally {
       deleteProjectConfigWorkspace($workspace);

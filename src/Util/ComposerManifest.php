@@ -42,6 +42,33 @@ class ComposerManifest
     );
   }
 
+  public static function resolvePsr4Namespace(string $workspace, string $fallback = 'Assegai\\App'): string
+  {
+    try {
+      $composerConfig = self::load($workspace);
+    } catch (RuntimeException) {
+      return $fallback;
+    }
+
+    $psr4 = $composerConfig['autoload']['psr-4'] ?? [];
+
+    if (! is_array($psr4)) {
+      return $fallback;
+    }
+
+    foreach ($psr4 as $namespace => $directory) {
+      if (! is_string($directory)) {
+        continue;
+      }
+
+      if ($directory === 'src/' || $directory === 'src') {
+        return rtrim((string) $namespace, '\\');
+      }
+    }
+
+    return $fallback;
+  }
+
   /**
    * @param array<string, mixed> $composerConfig
    * @return array<string, mixed>
