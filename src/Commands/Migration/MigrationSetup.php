@@ -10,7 +10,6 @@ use Assegai\Console\Core\Database\MySQLDatabase;
 use Assegai\Console\Core\Database\PostgreSQLDatabase;
 use Assegai\Console\Core\Database\SQLiteDatabase;
 use Assegai\Console\Prompts\CliPrompt;
-use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
@@ -34,6 +33,10 @@ class MigrationSetup extends Command
       ->setHelp('This command sets up the migrations table in the database and creates the migrations directory in the project root')
       ->addArgument(ParameterKey::DB_NAME->value, InputArgument::REQUIRED, 'The name of the database')
       ->addOption(ParameterKey::DB_TYPE->value, ParameterKey::DB_TYPE->getShortName(), InputArgument::OPTIONAL, 'The type of the database', DEFAULT_DATABASE_TYPE, DatabaseType::toArray())
+      ->addOption('host', 'H', InputArgument::OPTIONAL, 'The host of the database when creating a missing connection config')
+      ->addOption('port', 'P', InputArgument::OPTIONAL, 'The port of the database when creating a missing connection config')
+      ->addOption('user', 'u', InputArgument::OPTIONAL, 'The user of the database when creating a missing connection config')
+      ->addOption('password', 'p', InputArgument::OPTIONAL, 'The password of the database when creating a missing connection config')
       ->addOption(DatabaseType::MYSQL->value, null, InputOption::VALUE_NONE, 'Use MySQL database')
       ->addOption(DatabaseType::MARIADB->value, null, InputOption::VALUE_NONE, 'Use MariaDB database')
       ->addOption(DatabaseType::POSTGRESQL->value, null, InputOption::VALUE_NONE, 'Use PostgreSQL database')
@@ -53,16 +56,24 @@ class MigrationSetup extends Command
     }
 
     $migrationsDirectory = Path::join($root, 'migrations');
-    $defaultDatabaseType = DEFAULT_DATABASE_TYPE;
-    $databaseType = get_datasource_type($input, $output) ?: (string) $prompts->select(
-      'Enter the database type',
-      DatabaseType::toArray(),
-      $defaultDatabaseType
-    );
-
-    $databaseName =
+    $databaseName = (string) (
       $input->getArgument(ParameterKey::DB_NAME->value) ??
-      $prompts->text('Enter the database name');
+      $prompts->text('Enter the database name')
+    );
+    $databaseType = get_datasource_type($input, $output);
+
+    if (! $databaseType || ! DatabaseType::isValid($databaseType)) {
+      $output->writeln("<error>Invalid database type</error>\n");
+      return Command::FAILURE;
+    }
+
+    if (! has_configured_datasource($databaseType, $databaseName)) {
+      $output->writeln("<comment>Creating database configuration for <info>$databaseType:$databaseName</info>...</comment>\n");
+
+      if (Command::SUCCESS !== configure_datasource($input, $output, $databaseType, $databaseName, $root, false)) {
+        return Command::FAILURE;
+      }
+    }
 
     $migrationsDirectory = Path::join($migrationsDirectory, $databaseType, $databaseName);
 
@@ -77,13 +88,6 @@ class MigrationSetup extends Command
       $output->writeln("📂 Migrations directory created successfully\n");
     } else {
       $output->writeln("<comment>The migrations directory already exists</comment>\n");
-    }
-
-    $dbConfig = new DBConfig($input, $output, $databaseName, $databaseType);
-
-    if (Command::SUCCESS !== $dbConfig->load()) {
-      $output->writeln("<error>Failed to load database configuration</error>\n");
-      return Command::FAILURE;
     }
 
     /** @var SQLDatabaseConnectionInterface $database */
