@@ -269,16 +269,7 @@ class DatabaseInstaller extends AbstractInstaller
 
     protected function resolveWorkspaceNamespace(): string
     {
-        $composerConfig = ComposerManifest::load($this->projectPath);
-        $psr4 = $composerConfig['autoload']['psr-4'] ?? [];
-
-        foreach ($psr4 as $namespace => $directory) {
-            if ($directory === 'src/' || $directory === 'src') {
-                return rtrim((string) $namespace, '\\');
-            }
-        }
-
-        return 'Assegai\\App';
+        return ComposerManifest::resolvePsr4Namespace($this->projectPath);
     }
 
     /**

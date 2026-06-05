@@ -1,7 +1,9 @@
 <?php
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
+use Assegai\Console\Prompts\CliPrompt;
 use Assegai\Console\Util\Config\AppConfig;
+use Assegai\Console\Util\Config\ProjectConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Command\Command;
@@ -644,17 +646,269 @@ if (!function_exists('greatest_common_divisor')) {
     }
 }
 
-if (!function_exists('get_datasource_type')) {
-    function get_datasource_type(InputInterface $input, OutputInterface $output, string $optionName = 'database_type'): string|false
+if (!function_exists('get_input_datasource_name')) {
+    function get_input_datasource_name(InputInterface $input, string $optionName = 'database_name'): string
     {
-        return match (true) {
-            $input->hasOption(DatabaseType::MYSQL->value) && $input->getOption(DatabaseType::MYSQL->value) => DatabaseType::MYSQL->value,
-            $input->hasOption(DatabaseType::MARIADB->value) && $input->getOption(DatabaseType::MARIADB->value) => DatabaseType::MARIADB->value,
-            $input->hasOption(DatabaseType::POSTGRESQL->value) && $input->getOption(DatabaseType::POSTGRESQL->value) => DatabaseType::POSTGRESQL->value,
-            $input->hasOption(DatabaseType::SQLITE->value) && $input->getOption(DatabaseType::SQLITE->value) => DatabaseType::SQLITE->value,
-            $input->hasOption(DatabaseType::MSSQL->value) && $input->getOption(DatabaseType::MSSQL->value) => DatabaseType::MSSQL->value,
-            default => $input->getOption($optionName) ?? select("Which type of data source do you want to use?", DatabaseType::toArray())
+        $dataSourceName = null;
+
+        if ($input->hasArgument($optionName)) {
+            $dataSourceName = $input->getArgument($optionName);
+        }
+
+        if ($input->hasOption($optionName)) {
+            $dataSourceName = $input->getOption($optionName);
+        }
+
+        return is_string($dataSourceName) ? trim($dataSourceName) : '';
+    }
+}
+
+if (!function_exists('get_project_database_configurations')) {
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    function get_project_database_configurations(): array
+    {
+        $workingDirectory = Path::getProjectRootPath() ?: Path::getWorkingDirectory() ?: '';
+        $configFilenames = ['secure.php', 'local.php', 'dev.php', 'default.php'];
+        $configPath = null;
+
+        foreach ($configFilenames as $configFilename) {
+            $filename = Path::join($workingDirectory, 'config', $configFilename);
+
+            if (file_exists($filename)) {
+                $configPath = $filename;
+                break;
+            }
+        }
+
+        if (! is_string($configPath)) {
+            return [];
+        }
+
+        $config = require $configPath;
+
+        if (! is_array($config)) {
+            return [];
+        }
+
+        $databases = $config['databases'] ?? [];
+
+        return is_array($databases) ? $databases : [];
+    }
+}
+
+if (!function_exists('get_configured_datasource_type')) {
+    function get_configured_datasource_type(string $dataSourceName): string|false
+    {
+        if ($dataSourceName === '') {
+            return false;
+        }
+
+        $matches = [];
+        $databases = get_project_database_configurations();
+
+        foreach (DatabaseType::toArray() as $databaseType) {
+            $configuredDatabases = $databases[$databaseType] ?? null;
+
+            if (is_array($configuredDatabases) && array_key_exists($dataSourceName, $configuredDatabases)) {
+                $matches[] = $databaseType;
+            }
+        }
+
+        return count($matches) === 1 ? $matches[0] : false;
+    }
+}
+
+if (!function_exists('has_configured_datasource')) {
+    function has_configured_datasource(string $datasourceType, string $dataSourceName): bool
+    {
+        if ($datasourceType === '' || $dataSourceName === '') {
+            return false;
+        }
+
+        $databases = get_project_database_configurations();
+        $configuredDatabases = $databases[$datasourceType] ?? null;
+
+        return is_array($configuredDatabases) && array_key_exists($dataSourceName, $configuredDatabases);
+    }
+}
+
+if (!function_exists('get_datasource_option')) {
+    function get_datasource_option(InputInterface $input, string $optionName): mixed
+    {
+        return $input->hasOption($optionName) ? $input->getOption($optionName) : null;
+    }
+}
+
+if (!function_exists('build_datasource_config')) {
+    /**
+     * @return array<string, mixed>|false
+     */
+    function build_datasource_config(
+        InputInterface $input,
+        OutputInterface $output,
+        string $datasourceType,
+        string $dataSourceName,
+        bool $promptForSqliteStorage = true
+    ): array|false
+    {
+        $prompts = new CliPrompt($input, $output);
+
+        if ($datasourceType === DatabaseType::SQLITE->value) {
+            $path = Path::join('.data', "$dataSourceName.sq3");
+
+            if ($promptForSqliteStorage) {
+                $storageType = $prompts->select('How do you want to store your data?', [
+                    'on-disk' => 'on-disk',
+                    'in-memory' => 'in-memory',
+                    'in-memory (persistent)' => 'in-memory (persistent)',
+                ], 'on-disk');
+
+                $path = match ((string) $storageType) {
+                    'in-memory' => ':memory:',
+                    'in-memory (persistent)' => 'file::memory:?cache=shared',
+                    default => $path,
+                };
+            }
+
+            return ['path' => $path];
+        }
+
+        $defaultHost = match ($datasourceType) {
+            DatabaseType::MYSQL->value => DEFAULT_MYSQL_HOST,
+            DatabaseType::MARIADB->value => DEFAULT_MARIADB_HOST,
+            DatabaseType::POSTGRESQL->value => DEFAULT_POSTGRES_HOST,
+            DatabaseType::MSSQL->value => DEFAULT_MSSQL_HOST,
+            default => '',
         };
+        $defaultPort = match ($datasourceType) {
+            DatabaseType::MYSQL->value => DEFAULT_MYSQL_PORT,
+            DatabaseType::MARIADB->value => DEFAULT_MARIADB_PORT,
+            DatabaseType::POSTGRESQL->value => DEFAULT_POSTGRES_PORT,
+            DatabaseType::MSSQL->value => DEFAULT_MSSQL_PORT,
+            default => 0,
+        };
+        $defaultUser = match ($datasourceType) {
+            DatabaseType::MYSQL->value => DEFAULT_MYSQL_USER,
+            DatabaseType::MARIADB->value => DEFAULT_MARIADB_USER,
+            DatabaseType::POSTGRESQL->value => DEFAULT_POSTGRES_USER,
+            DatabaseType::MSSQL->value => DEFAULT_MSSQL_USER,
+            default => '',
+        };
+
+        if ($defaultHost === '' || $defaultPort === 0 || $defaultUser === '') {
+            return false;
+        }
+
+        $host = get_datasource_option($input, 'host');
+        $port = get_datasource_option($input, 'port');
+        $user = get_datasource_option($input, 'user');
+        $password = get_datasource_option($input, 'password');
+
+        if (! is_scalar($host) || (string) $host === '') {
+            $host = $prompts->text('Host', $defaultHost);
+        }
+
+        if (! is_scalar($port) || (string) $port === '') {
+            $port = $prompts->text('Port', (string) $defaultPort);
+        }
+
+        if (! is_scalar($user) || (string) $user === '') {
+            $user = $prompts->text('User', $defaultUser);
+        }
+
+        if (! is_scalar($password) && $password !== null) {
+            $password = null;
+        }
+
+        if ($password === null || $password === false) {
+            $password = $prompts->password('Password');
+        }
+
+        return [
+            'host' => (string) $host,
+            'port' => (int) $port,
+            'user' => (string) $user,
+            'password' => (string) $password,
+        ];
+    }
+}
+
+if (!function_exists('configure_datasource')) {
+    function configure_datasource(
+        InputInterface $input,
+        OutputInterface $output,
+        string $datasourceType,
+        string $dataSourceName,
+        ?string $projectPath = null,
+        bool $promptForSqliteStorage = true
+    ): int
+    {
+        if (! DatabaseType::isValid($datasourceType) || $dataSourceName === '') {
+            $output->writeln('<error>Invalid database configuration.</error>');
+            return Command::FAILURE;
+        }
+
+        $databaseConfig = build_datasource_config($input, $output, $datasourceType, $dataSourceName, $promptForSqliteStorage);
+
+        if ($databaseConfig === false) {
+            $output->writeln('<error>Failed to build database configuration.</error>');
+            return Command::FAILURE;
+        }
+
+        $projectPath ??= Path::getProjectRootPath() ?: Path::getWorkingDirectory() ?: '';
+        $projectConfig = new ProjectConfig($input, $output);
+
+        $bytes = $projectConfig->updateDatabaseConfig([
+            'databases' => [
+                $datasourceType => [
+                    $dataSourceName => $databaseConfig,
+                ],
+            ],
+        ], $projectPath);
+
+        if ($bytes === false) {
+            $output->writeln('<error>Failed to save database configuration.</error>');
+            return Command::FAILURE;
+        }
+
+        return Command::SUCCESS;
+    }
+}
+
+if (!function_exists('get_datasource_type')) {
+    function get_datasource_type(
+        InputInterface $input,
+        OutputInterface $output,
+        string $optionName = 'database_type',
+        string $databaseNameOption = 'database_name'
+    ): string|false
+    {
+        foreach (DatabaseType::toArray() as $databaseType) {
+            if ($input->hasOption($databaseType) && $input->getOption($databaseType)) {
+                return $databaseType;
+            }
+        }
+
+        if ($input->hasOption($optionName)) {
+            $optionValue = $input->getOption($optionName);
+
+            if (is_string($optionValue) && $optionValue !== '') {
+                return $optionValue;
+            }
+        }
+
+        $configuredType = get_configured_datasource_type(get_input_datasource_name($input, $databaseNameOption));
+
+        if ($configuredType) {
+            return $configuredType;
+        }
+
+        $prompts = new CliPrompt($input, $output);
+        $selectedType = $prompts->select("Which type of data source do you want to use?", DatabaseType::toArray());
+
+        return is_string($selectedType) ? $selectedType : false;
     }
 }
 

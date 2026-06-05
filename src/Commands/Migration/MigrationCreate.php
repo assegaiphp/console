@@ -73,7 +73,7 @@ class MigrationCreate extends Command
       return Command::FAILURE;
     }
 
-    $type = get_datasource_type($input, $output);
+    $type = get_datasource_type($input, $output, ParameterKey::DB_TYPE->value, self::OPTION_DB_NAME);
 
     if (false === $type) {
       $output->writeln("<error>Failed to get database type.</error>\n");

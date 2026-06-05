@@ -2,6 +2,7 @@
 
 namespace Assegai\Console\Util\Config;
 
+use Assegai\Console\Util\ComposerManifest;
 use Assegai\Console\Util\Config\Interfaces\ConfigInterface;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Command\Command;
@@ -146,7 +147,13 @@ class ProjectConfig implements ConfigInterface
 
   private function resolveDatabaseConfigPath(string $projectPath): ?string
   {
-    foreach (['secure.php', 'local.php', 'dev.php', 'default.php'] as $filename) {
+    $securePath = Path::join($projectPath, 'config', 'secure.php');
+
+    if (file_exists($securePath)) {
+      return $securePath;
+    }
+
+    foreach (['local.php', 'dev.php'] as $filename) {
       $path = Path::join($projectPath, 'config', $filename);
 
       if (file_exists($path)) {
@@ -154,7 +161,63 @@ class ProjectConfig implements ConfigInterface
       }
     }
 
-    return null;
+    return $this->createSecureConfig($projectPath, $securePath) ? $securePath : null;
+  }
+
+  private function createSecureConfig(string $projectPath, string $securePath): bool
+  {
+    $configDirectory = Path::join($projectPath, 'config');
+
+    if (! is_dir($configDirectory) && ! mkdir($configDirectory, 0755, true) && ! is_dir($configDirectory)) {
+      return false;
+    }
+
+    $secureTemplatePath = Path::join(Path::getTemplatesDirectory(), 'config', 'secure.php');
+    $contents = file_get_contents($secureTemplatePath);
+
+    if ($contents === false) {
+      return false;
+    }
+
+    $contents = str_replace(
+      'Assegai\\App',
+      ComposerManifest::resolvePsr4Namespace($projectPath),
+      $contents
+    );
+
+    $defaultDatabases = $this->loadDefaultDatabases($projectPath);
+
+    if ($defaultDatabases !== []) {
+      $contents = upsert_php_array_config_section($contents, 'databases', $defaultDatabases);
+
+      if ($contents === false) {
+        return false;
+      }
+    }
+
+    return false !== file_put_contents($securePath, $contents);
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function loadDefaultDatabases(string $projectPath): array
+  {
+    $defaultPath = Path::join($projectPath, 'config', 'default.php');
+
+    if (! file_exists($defaultPath)) {
+      return [];
+    }
+
+    $defaultConfig = require $defaultPath;
+
+    if (! is_array($defaultConfig)) {
+      return [];
+    }
+
+    $databases = $defaultConfig['databases'] ?? [];
+
+    return is_array($databases) ? $databases : [];
   }
 
   /**

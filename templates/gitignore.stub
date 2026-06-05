@@ -9,7 +9,6 @@
 /config/local*.php
 /config/dev*.php
 /config/secure*.php
-!/config/secure.php
 /.data/
 /logs/
 

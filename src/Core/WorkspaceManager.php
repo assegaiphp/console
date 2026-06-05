@@ -89,6 +89,10 @@ class WorkspaceManager
       return Command::FAILURE;
     }
 
+    if (Command::SUCCESS !== $this->materializeTemplateFiles($projectDirectory)) {
+      return Command::FAILURE;
+    }
+
     $description = $this->prompts->text(
       'Description',
       '',
@@ -253,6 +257,24 @@ class WorkspaceManager
   protected function buildDefaultPackageName(Text $projectName): string
   {
     return 'assegaiphp/' . $projectName->kebabCase();
+  }
+
+  protected function materializeTemplateFiles(string $projectDirectory): int
+  {
+    $gitignoreTemplatePath = Path::join($projectDirectory, 'gitignore.stub');
+    $gitignorePath = Path::join($projectDirectory, '.gitignore');
+
+    if (! file_exists($gitignoreTemplatePath)) {
+      $this->output->writeln("<error>\ngitignore.stub template file not found</error>");
+      return Command::FAILURE;
+    }
+
+    if (! rename($gitignoreTemplatePath, $gitignorePath)) {
+      $this->output->writeln("<error>\nFailed to create .gitignore file</error>");
+      return Command::FAILURE;
+    }
+
+    return Command::SUCCESS;
   }
 
   protected function buildDefaultNamespace(string $packageName): string

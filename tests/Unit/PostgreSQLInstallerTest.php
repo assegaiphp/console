@@ -64,12 +64,14 @@ describe('PostgreSQL installer', function () {
 
       expect($installer->install())->toBe(Command::SUCCESS);
 
-      $config = require $workspace . '/config/default.php';
+      $secureConfig = require $workspace . '/config/secure.php';
+      $defaultConfig = require $workspace . '/config/default.php';
 
-      expect($config['databases']['pgsql']['cinema_hub']['host'])->toBe('127.0.0.1');
-      expect($config['databases']['pgsql']['cinema_hub']['user'])->toBe('postgres');
-      expect($config['databases']['pgsql']['cinema_hub']['password'])->toBe('secret');
-      expect($config['databases'])->not->toHaveKey('postgresql');
+      expect($secureConfig['databases']['pgsql']['cinema_hub']['host'])->toBe('127.0.0.1');
+      expect($secureConfig['databases']['pgsql']['cinema_hub']['user'])->toBe('postgres');
+      expect($secureConfig['databases']['pgsql']['cinema_hub']['password'])->toBe('secret');
+      expect($secureConfig['databases'])->not->toHaveKey('postgresql');
+      expect($defaultConfig['databases'] ?? null)->toBeNull();
     } finally {
       CliPrompt::flushFake();
       deleteInstallerWorkspace($workspace);

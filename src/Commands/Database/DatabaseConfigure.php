@@ -5,11 +5,8 @@ namespace Assegai\Console\Commands\Database;
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Modules\ModuleDataSourceConfigurator;
 use Assegai\Console\Exceptions\AssegaiConsoleException;
-use Assegai\Console\Prompts\CliPrompt;
-use Assegai\Console\Util\Config\DBConfig;
 use Assegai\Console\Util\Enumerations\ParameterKey;
 use Assegai\Console\Util\Inspector;
-use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -58,7 +55,6 @@ class DatabaseConfigure extends Command
   {
     $inspector = new Inspector($input, $output);
     $workingDirectory = getcwd() ?: '';
-    $configFilename = Path::join($workingDirectory, 'config', 'local.php');
     $type = get_datasource_type($input, $output) ?: throw new AssegaiConsoleException('Database type is not specified. Use the --db-type option to specify the database type.');
 
     if (! $inspector->isValidWorkspace($workingDirectory)) {
@@ -70,133 +66,14 @@ class DatabaseConfigure extends Command
       return Command::FAILURE;
     }
 
-    if (! file_exists($configFilename)) {
-      $configFilename = Path::join($workingDirectory, 'config', 'default.php');
+    $name = (string) $input->getArgument(ParameterKey::DB_NAME->value);
 
-      if (! file_exists($configFilename)) {
-        $output->writeln([
-          '',
-          '<error>The configuration file does not exist.</error>',
-          '',
-        ]);
-        return Command::FAILURE;
-      }
-    }
-
-    $prompts = new CliPrompt($input, $output);
-    $name = $input->getArgument(ParameterKey::DB_NAME->value);
-
-    if ($type === DatabaseType::SQLITE->value) {
-      $output->writeln([
-        '',
-        'Configuring the SQLite database...',
-        '',
-      ]);
-
-      $dsn = 'sqlite:';
-      $choices = ['on-disk', 'in-memory', 'in-memory (persistent)'];
-
-      $sqlType = (string) $prompts->select('How do you want to store your data?', $choices, 0);
-
-      $dsn .= match ($sqlType) {
-        'on-disk' => ".data/$name.sq3",
-        'in-memory (persistent)' => 'file::memory:?cache=shared',
-        default => ':memory:',
-      };
-
-      $dbConfig = new DBConfig($input, $output, $name, $type);
-      if (Command::SUCCESS !== $dbConfig->load()) {
-        $output->writeln([
-          '',
-          '<error>Failed to load database configuration.</error>',
-          '',
-        ]);
-        return Command::FAILURE;
-      }
-
-      $dbConfig->set("$type.$name", ['path' => str_replace('sqlite:', '', $dsn)]);
-
-      if (Command::SUCCESS !== $dbConfig->commit()) {
-        $output->writeln('<error>Failed to save database configuration.</error>');
-        return Command::FAILURE;
-      }
-
-      return $this->configureModuleDataSource(
-        qualify_datasource_name($type, (string) $name),
-        $input,
-        $output,
-      );
-    }
-
-    $host = $input->getOption('host');
-    $port = $input->getOption('port');
-    $user = $input->getOption('user');
-    $password = $input->getOption('password');
-
-    $output->writeln("Configuring the database <info>$name</info>...");
-
-    if (! $host) {
-      $defaultHost = match ($type) {
-        DatabaseType::MYSQL->value => DEFAULT_MYSQL_HOST,
-        DatabaseType::MARIADB->value => DEFAULT_MARIADB_HOST,
-        DatabaseType::POSTGRESQL->value => DEFAULT_POSTGRES_HOST,
-        DatabaseType::MSSQL->value => DEFAULT_MSSQL_HOST,
-        default => '',
-      };
-      $host = $prompts->text('Host', $defaultHost);
-    }
-
-    if (! $port) {
-      $defaultPort = match ($type) {
-        DatabaseType::MYSQL->value => DEFAULT_MYSQL_PORT,
-        DatabaseType::MARIADB->value => DEFAULT_MARIADB_PORT,
-        DatabaseType::POSTGRESQL->value => DEFAULT_POSTGRES_PORT,
-        DatabaseType::MSSQL->value => DEFAULT_MSSQL_PORT,
-        default => '',
-      };
-      $port = $prompts->text('Port', (string) $defaultPort);
-    }
-
-    if (! $user) {
-      $defaultUser = match ($type) {
-        DatabaseType::MYSQL->value => DEFAULT_MYSQL_USER,
-        DatabaseType::MARIADB->value => DEFAULT_MARIADB_USER,
-        DatabaseType::POSTGRESQL->value => DEFAULT_POSTGRES_USER,
-        DatabaseType::MSSQL->value => DEFAULT_MSSQL_USER,
-        default => '',
-      };
-      $user = $prompts->text('User', $defaultUser);
-    }
-
-    if ($password === null || $password === false) {
-      $password = $prompts->password('Password');
-    }
-
-    $dbConfig = new DBConfig($input, $output, $name, $type);
-    if (Command::SUCCESS !== $dbConfig->load()) {
-      $output->writeln([
-        '',
-        '<error>Failed to load database configuration.</error>',
-        '',
-      ]);
-      return Command::FAILURE;
-    }
-
-    $dbConfig->set("$type.$name", [
-      'host' => $host,
-      'port' => (int) $port,
-      'user' => $user,
-      'password' => $password,
-    ]);
-
-    $output->writeln('');
-    if ($dbConfig->commit() !== Command::SUCCESS) {
-      $output->writeln('<error>Failed to save database configuration.</error>');
+    if (Command::SUCCESS !== configure_datasource($input, $output, $type, $name, $workingDirectory)) {
       return Command::FAILURE;
     }
 
     return $this->configureModuleDataSource(
-      qualify_datasource_name($type, (string) $name),
+      qualify_datasource_name($type, $name),
       $input,
       $output,
     );
