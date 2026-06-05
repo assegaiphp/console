@@ -146,7 +146,13 @@ class ProjectConfig implements ConfigInterface
 
   private function resolveDatabaseConfigPath(string $projectPath): ?string
   {
-    foreach (['secure.php', 'local.php', 'dev.php', 'default.php'] as $filename) {
+    $securePath = Path::join($projectPath, 'config', 'secure.php');
+
+    if (file_exists($securePath)) {
+      return $securePath;
+    }
+
+    foreach (['local.php', 'dev.php'] as $filename) {
       $path = Path::join($projectPath, 'config', $filename);
 
       if (file_exists($path)) {
@@ -154,7 +160,24 @@ class ProjectConfig implements ConfigInterface
       }
     }
 
-    return null;
+    return $this->createSecureConfig($projectPath, $securePath) ? $securePath : null;
+  }
+
+  private function createSecureConfig(string $projectPath, string $securePath): bool
+  {
+    $configDirectory = Path::join($projectPath, 'config');
+
+    if (! is_dir($configDirectory) && ! mkdir($configDirectory, 0755, true) && ! is_dir($configDirectory)) {
+      return false;
+    }
+
+    $secureTemplatePath = Path::join(Path::getTemplatesDirectory(), 'config', 'secure.php');
+
+    if (! file_exists($secureTemplatePath)) {
+      return false;
+    }
+
+    return copy($secureTemplatePath, $securePath);
   }
 
   /**

@@ -81,6 +81,43 @@ describe('ProjectConfig database updates', function () {
     }
   });
 
+  it('creates secure config for database updates instead of writing to shared defaults', function () {
+    $workspace = createProjectConfigWorkspace();
+
+    try {
+      $secureConfigPath = $workspace . '/config/secure.php';
+      $defaultConfigPath = $workspace . '/config/default.php';
+      unlink($secureConfigPath);
+      $defaultConfigBefore = file_get_contents($defaultConfigPath) ?: '';
+      $projectConfig = new ProjectConfig(new MockInput(), new MockOutput());
+
+      $bytes = $projectConfig->updateDatabaseConfig([
+        'databases' => [
+          'mysql' => [
+            'cloned_app' => [
+              'host' => '127.0.0.1',
+              'user' => 'root',
+              'password' => 'secret',
+              'port' => 3306,
+            ],
+          ],
+        ],
+      ], $workspace);
+
+      expect($bytes)->not->toBeFalse();
+      expect(file_exists($secureConfigPath))->toBeTrue();
+      expect(file_get_contents($defaultConfigPath))->toBe($defaultConfigBefore);
+
+      $secureConfig = require $secureConfigPath;
+      $defaultConfig = require $defaultConfigPath;
+
+      expect($secureConfig['databases']['mysql']['cloned_app']['password'])->toBe('secret');
+      expect($defaultConfig['databases'] ?? null)->toBeNull();
+    } finally {
+      deleteProjectConfigWorkspace($workspace);
+    }
+  });
+
   it('writes sqlite paths without escaping forward slashes', function () {
     $workspace = createProjectConfigWorkspace();
 
