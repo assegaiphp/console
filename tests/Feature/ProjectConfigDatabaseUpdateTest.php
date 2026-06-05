@@ -25,16 +25,20 @@ function createProjectConfigWorkspace(): string
   return $workspace;
 }
 
-function writeProjectConfigComposer(string $workspace, string $namespace = 'Acme\\ClonedApp\\'): void
+/**
+ * @param string|string[] $directories
+ */
+function writeProjectConfigComposer(string $workspace, string $namespace = 'Acme\\ClonedApp\\', string|array $directories = 'src/'): void
 {
   file_put_contents($workspace . '/composer.json', json_encode([
     'autoload' => [
       'psr-4' => [
-        $namespace => 'src/',
+        $namespace => $directories,
       ],
     ],
   ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 }
+
 
 function deleteProjectConfigWorkspace(string $directory): void
 {
@@ -127,6 +131,36 @@ describe('ProjectConfig database updates', function () {
       expect($secureConfig['authentication']['jwt']['entityClassName'])
         ->toBe('Acme\\ClonedApp\\Users\\Entities\\UserEntity');
       expect($defaultConfig['databases'] ?? null)->toBeNull();
+    } finally {
+      deleteProjectConfigWorkspace($workspace);
+    }
+  });
+
+  it('rewrites recreated secure config namespaces from composer PSR-4 directory arrays', function () {
+    $workspace = createProjectConfigWorkspace();
+
+    try {
+      $secureConfigPath = $workspace . '/config/secure.php';
+      unlink($secureConfigPath);
+      writeProjectConfigComposer($workspace, 'Acme\\ArrayApp\\', ['generated/', 'src/']);
+      $projectConfig = new ProjectConfig(new MockInput(), new MockOutput());
+
+      $bytes = $projectConfig->updateDatabaseConfig([
+        'databases' => [
+          'sqlite' => [
+            'array_app' => [
+              'path' => '.data/array_app.sq3',
+            ],
+          ],
+        ],
+      ], $workspace);
+
+      expect($bytes)->not->toBeFalse();
+
+      $secureConfig = require $secureConfigPath;
+
+      expect($secureConfig['authentication']['jwt']['entityClassName'])
+        ->toBe('Acme\\ArrayApp\\Users\\Entities\\UserEntity');
     } finally {
       deleteProjectConfigWorkspace($workspace);
     }

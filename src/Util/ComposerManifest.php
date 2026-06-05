@@ -57,16 +57,35 @@ class ComposerManifest
     }
 
     foreach ($psr4 as $namespace => $directory) {
-      if (! is_string($directory)) {
-        continue;
-      }
-
-      if ($directory === 'src/' || $directory === 'src') {
-        return rtrim((string) $namespace, '\\');
+      foreach (self::normalizePsr4Directories($directory) as $candidateDirectory) {
+        if (self::isSourceDirectory($candidateDirectory)) {
+          return rtrim((string) $namespace, '\\');
+        }
       }
     }
 
     return $fallback;
+  }
+
+  /**
+   * @return string[]
+   */
+  private static function normalizePsr4Directories(mixed $directories): array
+  {
+    if (is_string($directories)) {
+      return [$directories];
+    }
+
+    if (! is_array($directories)) {
+      return [];
+    }
+
+    return array_values(array_filter($directories, is_string(...)));
+  }
+
+  private static function isSourceDirectory(string $directory): bool
+  {
+    return rtrim(Path::normalize($directory), '/') === 'src';
   }
 
   /**

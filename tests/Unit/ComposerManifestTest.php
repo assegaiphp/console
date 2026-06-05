@@ -62,6 +62,23 @@ describe('ComposerManifest', function () {
     }
   });
 
+  it('resolves the workspace source namespace from composer PSR-4 directory arrays', function () {
+    $workspace = createComposerManifestWorkspace([
+      'autoload' => [
+        'psr-4' => [
+          'Acme\\Shared\\' => ['lib/', 'packages/shared/'],
+          'Acme\\ArrayApp\\' => ['generated/', './src/'],
+        ],
+      ],
+    ]);
+
+    try {
+      expect(ComposerManifest::resolvePsr4Namespace($workspace))->toBe('Acme\\ArrayApp');
+    } finally {
+      deleteComposerManifestWorkspace($workspace);
+    }
+  });
+
   it('falls back when composer metadata cannot resolve a source namespace', function () {
     $workspace = createComposerManifestWorkspace([
       'autoload' => [
