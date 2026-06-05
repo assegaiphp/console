@@ -185,7 +185,39 @@ class ProjectConfig implements ConfigInterface
       $contents
     );
 
+    $defaultDatabases = $this->loadDefaultDatabases($projectPath);
+
+    if ($defaultDatabases !== []) {
+      $contents = upsert_php_array_config_section($contents, 'databases', $defaultDatabases);
+
+      if ($contents === false) {
+        return false;
+      }
+    }
+
     return false !== file_put_contents($securePath, $contents);
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function loadDefaultDatabases(string $projectPath): array
+  {
+    $defaultPath = Path::join($projectPath, 'config', 'default.php');
+
+    if (! file_exists($defaultPath)) {
+      return [];
+    }
+
+    $defaultConfig = require $defaultPath;
+
+    if (! is_array($defaultConfig)) {
+      return [];
+    }
+
+    $databases = $defaultConfig['databases'] ?? [];
+
+    return is_array($databases) ? $databases : [];
   }
 
   /**

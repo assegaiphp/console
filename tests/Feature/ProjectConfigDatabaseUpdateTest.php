@@ -136,6 +136,63 @@ describe('ProjectConfig database updates', function () {
     }
   });
 
+  it('preserves databases from default config when recreating secure config', function () {
+    $workspace = createProjectConfigWorkspace();
+
+    try {
+      $secureConfigPath = $workspace . '/config/secure.php';
+      $defaultConfigPath = $workspace . '/config/default.php';
+      unlink($secureConfigPath);
+      writeProjectConfigComposer($workspace);
+
+      $defaultConfigContents = file_get_contents($defaultConfigPath) ?: '';
+      $defaultConfigContents = upsert_php_array_config_section($defaultConfigContents, 'databases', [
+        'sqlite' => [
+          'existing_blog' => [
+            'path' => '.data/existing_blog.sq3',
+          ],
+        ],
+        'mysql' => [
+          'legacy_app' => [
+            'host' => '127.0.0.1',
+            'user' => 'root',
+            'password' => 'legacy-secret',
+            'port' => 3306,
+          ],
+        ],
+      ]);
+
+      if ($defaultConfigContents === false) {
+        throw new RuntimeException('Failed to update default config fixture.');
+      }
+
+      file_put_contents($defaultConfigPath, $defaultConfigContents);
+
+      $projectConfig = new ProjectConfig(new MockInput(), new MockOutput());
+      $bytes = $projectConfig->updateDatabaseConfig([
+        'databases' => [
+          'sqlite' => [
+            'new_blog' => [
+              'path' => '.data/new_blog.sq3',
+            ],
+          ],
+        ],
+      ], $workspace);
+
+      expect($bytes)->not->toBeFalse();
+
+      $secureConfig = require $secureConfigPath;
+
+      expect($secureConfig['databases']['sqlite']['existing_blog']['path'])->toBe('.data/existing_blog.sq3');
+      expect($secureConfig['databases']['mysql']['legacy_app']['password'])->toBe('legacy-secret');
+      expect($secureConfig['databases']['sqlite']['new_blog']['path'])->toBe('.data/new_blog.sq3');
+      expect($secureConfig['authentication']['jwt']['entityClassName'])
+        ->toBe('Acme\\ClonedApp\\Users\\Entities\\UserEntity');
+    } finally {
+      deleteProjectConfigWorkspace($workspace);
+    }
+  });
+
   it('rewrites recreated secure config namespaces from composer PSR-4 directory arrays', function () {
     $workspace = createProjectConfigWorkspace();
 
