@@ -126,6 +126,8 @@ describe('Workspace manager', function () {
       $composer = json_decode(file_get_contents($composerFilename) ?: '', true);
       $readmeFilename = $workspace . '/my-blog-api/README.md';
       $readme = file_get_contents($readmeFilename) ?: '';
+      $agentsFilename = $workspace . '/my-blog-api/AGENTS.md';
+      $agents = file_get_contents($agentsFilename) ?: '';
       $secureConfigFilename = $workspace . '/my-blog-api/config/secure.php';
       $secureConfig = file_get_contents($secureConfigFilename) ?: '';
 
@@ -137,6 +139,9 @@ describe('Workspace manager', function () {
       expect($readme)->toContain('assegai serve');
       expect($readme)->toContain('assegai add orm');
       expect($readme)->toContain('assegai database:configure cinema_db');
+      expect($agents)->toContain('Guidance for coding agents working in this AssegaiPHP application.');
+      expect($agents)->toContain('Prefer the Assegai CLI generators');
+      expect($agents)->toContain('composer test');
       expect($secureConfig)->toContain('Acme\\BlogApi\\Users\\Entities\\UserEntity::class');
     } finally {
       CliPrompt::flushFake();
