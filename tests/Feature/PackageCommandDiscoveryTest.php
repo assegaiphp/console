@@ -88,6 +88,22 @@ function removePackageDiscoveryWorkspace(string $directory): void
 }
 
 describe('ApplicationFactory package command discovery', function () {
+  it('does not expose internal release tooling as public commands', function () {
+    $workspace = sys_get_temp_dir() . '/' . uniqid('command-surface-', true);
+
+    if (!mkdir($workspace, 0755, true) && !is_dir($workspace)) {
+      throw new RuntimeException("Failed to create test workspace: $workspace");
+    }
+
+    try {
+      $application = ApplicationFactory::create($workspace);
+
+      expect($application->has('updates:scaffold'))->toBeFalse();
+    } finally {
+      removePackageDiscoveryWorkspace($workspace);
+    }
+  });
+
   it('loads command classes declared by installed package manifests', function () {
     $workspace = createPackageDiscoveryWorkspace();
 

@@ -17,7 +17,6 @@ use Assegai\Console\Commands\Schematic\SchematicList;
 use Assegai\Console\Commands\Serve;
 use Assegai\Console\Commands\Test;
 use Assegai\Console\Commands\Update;
-use Assegai\Console\Commands\Updates\ScaffoldUpdateGuide;
 use Assegai\Console\Commands\Version;
 use Assegai\Console\Commands\WebComponents\BuildWebComponents;
 use Assegai\Console\Commands\WebComponents\ListWebComponents;
@@ -70,7 +69,6 @@ class ApplicationFactory
       new Serve(),
       new Test(),
       new Update(),
-      new ScaffoldUpdateGuide(),
       new Version(),
       new BuildWebComponents(),
       new ListWebComponents(),
