@@ -88,6 +88,12 @@ function removePackageDiscoveryWorkspace(string $directory): void
 }
 
 describe('ApplicationFactory package command discovery', function () {
+  it('does not expose internal release tooling as public commands', function () {
+    $application = ApplicationFactory::create(sys_get_temp_dir());
+
+    expect($application->has('updates:scaffold'))->toBeFalse();
+  });
+
   it('loads command classes declared by installed package manifests', function () {
     $workspace = createPackageDiscoveryWorkspace();
 
