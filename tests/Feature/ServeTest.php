@@ -108,6 +108,39 @@ describe('Serve', function () {
     }
   });
 
+  it('resolves parent-relative serve roots from the current directory', function () {
+    $workspace = createServeWorkspace();
+    $currentDirectory = dirname($workspace) . '/' . uniqid('serve-current-', true);
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    if (!mkdir($currentDirectory, 0755, true) && !is_dir($currentDirectory)) {
+      throw new RuntimeException('Failed to create test current directory: ' . $currentDirectory);
+    }
+
+    chdir($currentDirectory);
+
+    try {
+      $command = new class extends Serve {
+        public function exposeProjectRoot(string $root): string
+        {
+          return $this->resolveProjectRoot($root);
+        }
+      };
+
+      $relativeRoot = '../' . basename($workspace);
+
+      expect($command->exposeProjectRoot($relativeRoot))->toBe($workspace);
+    } finally {
+      chdir($previousWorkingDirectory);
+      rmdir($currentDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
   it('does not prepend the current directory to Windows absolute serve roots', function () {
     $command = new class extends Serve {
       public function exposeProjectRoot(string $root): string

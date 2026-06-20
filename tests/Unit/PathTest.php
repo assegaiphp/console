@@ -7,6 +7,8 @@ describe('Path', function () {
     expect(Path::normalize('.'))->toBe('.');
     expect(Path::normalize('./'))->toBe('.');
     expect(Path::normalize('foo/..'))->toBe('.');
+    expect(Path::normalize('../sibling'))->toBe('../sibling');
+    expect(Path::normalize('foo/../../bar'))->toBe('../bar');
   });
 
   it('preserves absolute roots while normalizing supported path styles', function () {
