@@ -26,7 +26,7 @@ class PendingMigrationsLister extends AbstractMigrationLister
       return false;
     }
 
-    return array_filter($allMigrations, function($migration) use ($ranMigrations) {
+    return array_values(array_filter($allMigrations, function($migration) use ($ranMigrations) {
       foreach ($ranMigrations as $ranMigration)
       {
         if ($ranMigration['migration'] === $migration)
@@ -36,6 +36,6 @@ class PendingMigrationsLister extends AbstractMigrationLister
       }
 
       return true;
-    });
+    }));
   }
 }

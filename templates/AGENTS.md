@@ -20,6 +20,18 @@ This is an AssegaiPHP application scaffolded with `assegai new`.
 - Prefer the Assegai CLI generators when adding framework artifacts so modules stay wired consistently.
 - Keep generated artifacts near the closest owning module instead of defaulting everything to the root module.
 - Preserve existing naming and namespace conventions when extending a feature.
+- Prioritize correctness, completeness, and accuracy over speed.
+- Treat changes as global within the application until the surrounding code proves they are isolated.
+- Inspect all affected controllers, services, modules, DTOs, entities, traits, migrations, config files, README steps, and runtime commands before handing off.
+- Do not stop at the first visible symptom. Update every related file and verify the behavior through the same command or endpoint a user will run.
+
+## Migrations and Schema Changes
+
+- Derive SQL from the full entity model, including inherited traits such as `ChangeRecorderTrait`, ORM attributes, defaults, nullability, relations, indexes, and seed data.
+- Update both `up.sql` and `down.sql` for each affected migration.
+- Check every related table when a trait, relation, or shared convention changes.
+- For SQLite, apply the migration to an actual database and inspect the schema with `PRAGMA table_info(...)`.
+- If a migration seeds data used by an endpoint, verify the endpoint after running the migration.
 
 ## Common Commands
 

@@ -44,7 +44,7 @@ class Serve extends Command
   public function execute(InputInterface $input, OutputInterface $output): int
   {
     $formatter = $this->getFormatterHelper();
-    $root = $input->getOption('root') ?? (getcwd() ?: '');
+    $root = $this->resolveProjectRoot((string) ($input->getOption('root') ?? (getcwd() ?: '')));
 
     $this->projectConfig = new ProjectConfig($input, $output, $root);
 
@@ -146,7 +146,7 @@ class Serve extends Command
         }
       }
 
-      $resultCode = $this->runServeCommand($command);
+      $resultCode = $this->runServeCommand($command, $root);
     } finally {
       if ($dev) {
         $this->stopWebComponentWatchProcess($watchProcess, $root);
@@ -160,6 +160,23 @@ class Serve extends Command
     }
 
     return Command::SUCCESS;
+  }
+
+  protected function resolveProjectRoot(string $root): string
+  {
+    $root = trim($root);
+
+    if ($root === '') {
+      $root = getcwd() ?: '.';
+    }
+
+    $normalizedRoot = Path::normalize($root);
+    $absoluteRoot = str_starts_with($normalizedRoot, '/')
+      ? $normalizedRoot
+      : Path::join(getcwd() ?: '.', $normalizedRoot);
+    $realRoot = realpath($absoluteRoot);
+
+    return Path::normalize($realRoot !== false ? $realRoot : $absoluteRoot);
   }
 
   /**
@@ -241,15 +258,27 @@ class Serve extends Command
     (new WebComponentHotReloadState($root))->deactivate();
   }
 
-  protected function runServeCommand(string $command): int
+  protected function runServeCommand(string $command, string $workingDirectory): int
   {
-    $statusCode = 0;
+    $previousWorkingDirectory = getcwd();
 
-    if (false === passthru($command, $statusCode)) {
+    if (!@chdir($workingDirectory)) {
       return Command::FAILURE;
     }
 
-    return $statusCode;
+    try {
+      $statusCode = 0;
+
+      if (false === passthru($command, $statusCode)) {
+        return Command::FAILURE;
+      }
+
+      return $statusCode;
+    } finally {
+      if ($previousWorkingDirectory !== false) {
+        chdir($previousWorkingDirectory);
+      }
+    }
   }
 
   protected function resolveServeRuntime(InputInterface $input): ?string
