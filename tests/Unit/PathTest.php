@@ -19,6 +19,15 @@ describe('Path', function () {
     expect(Path::normalize(chr(92) . chr(92) . 'server\share\app'))->toBe('//server/share/app');
   });
 
+  it('preserves UNC share roots when normalizing parent segments', function () {
+    $uncRoot = chr(92) . chr(92) . 'server\share';
+
+    expect(Path::normalize($uncRoot . '\..\other'))->toBe('//server/share/other');
+    expect(Path::normalize('//server/share/../other'))->toBe('//server/share/other');
+    expect(Path::normalize($uncRoot . '\app\..\other'))->toBe('//server/share/other');
+    expect(Path::normalize($uncRoot . '\..\..\other'))->toBe('//server/share/other');
+  });
+
   it('detects absolute Unix, Windows drive, and UNC paths', function () {
     expect(Path::isAbsolute('/var/app'))->toBeTrue();
     expect(Path::isAbsolute('C:/app'))->toBeTrue();

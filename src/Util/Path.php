@@ -161,6 +161,10 @@ class Path
           continue;
         }
 
+        if ($isUncAbsolute && count($normalizedSegments) <= 2) {
+          continue;
+        }
+
         if ('..' === $normalizedSegments[array_key_last($normalizedSegments)]) {
           $normalizedSegments[] = $segment;
           continue;
