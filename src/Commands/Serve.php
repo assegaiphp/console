@@ -171,7 +171,7 @@ class Serve extends Command
     }
 
     $normalizedRoot = Path::normalize($root);
-    $absoluteRoot = str_starts_with($normalizedRoot, '/')
+    $absoluteRoot = Path::isAbsolute($normalizedRoot)
       ? $normalizedRoot
       : Path::join(getcwd() ?: '.', $normalizedRoot);
     $realRoot = realpath($absoluteRoot);

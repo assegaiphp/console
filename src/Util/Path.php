@@ -131,6 +131,7 @@ class Path
   {
     // Replace backslashes with forward slashes
     $path = str_replace('\\', '/', $path);
+    $isWindowsDriveAbsolute = preg_match('#^[A-Za-z]:/#', $path) === 1;
 
     // Explode the path into segments
     $segments = explode('/', $path);
@@ -143,6 +144,14 @@ class Path
       if ($segment === '..')
       {
         // If the segment is '..', pop the last segment from the array
+        if (
+          $isWindowsDriveAbsolute &&
+          count($normalizedSegments) === 1 &&
+          preg_match('#^[A-Za-z]:$#', $normalizedSegments[0]) === 1
+        ) {
+          continue;
+        }
+
         array_pop($normalizedSegments);
       }
       elseif ($segment !== '' && $segment !== '.')
@@ -156,16 +165,41 @@ class Path
     $normalizedPath = implode('/', $normalizedSegments);
 
     // Determine if the path was originally absolute or relative and prepend accordingly
-    $isAbsolute = $path[0] === '/';
-    if ($isAbsolute) {
+    $isUnixAbsolute = str_starts_with($path, '/');
+    $isUncAbsolute = str_starts_with($path, '//');
+
+    if ($isUncAbsolute) {
+      $normalizedPath = '//' . $normalizedPath;
+    } elseif ($isUnixAbsolute) {
       $normalizedPath = '/' . $normalizedPath;
     }
 
+    if ($isWindowsDriveAbsolute && preg_match('#^[A-Za-z]:$#', $normalizedPath) === 1) {
+      $normalizedPath .= '/';
+    }
+
     if ($normalizedPath === '') {
-      return $isAbsolute ? '/' : '.';
+      return $isUnixAbsolute ? '/' : '.';
     }
 
     return $normalizedPath;
+  }
+
+  /**
+   * Returns true if the given path is absolute.
+   *
+   * @param string $path The path to check.
+   * @return bool
+   */
+  public static function isAbsolute(string $path): bool
+  {
+    $path = str_replace('\\', '/', trim($path));
+
+    if ($path === '') {
+      return false;
+    }
+
+    return str_starts_with($path, '/') || preg_match('#^[A-Za-z]:/#', $path) === 1;
   }
 
   /**

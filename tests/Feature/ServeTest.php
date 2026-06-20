@@ -108,6 +108,18 @@ describe('Serve', function () {
     }
   });
 
+  it('does not prepend the current directory to Windows absolute serve roots', function () {
+    $command = new class extends Serve {
+      public function exposeProjectRoot(string $root): string
+      {
+        return $this->resolveProjectRoot($root);
+      }
+    };
+
+    expect($command->exposeProjectRoot('C:\app'))->toBe('C:/app');
+    expect($command->exposeProjectRoot('C:/app'))->toBe('C:/app');
+  });
+
   it('runs serve shell commands from the project root', function () {
     $workspace = createServeWorkspace();
     $previousWorkingDirectory = getcwd();
