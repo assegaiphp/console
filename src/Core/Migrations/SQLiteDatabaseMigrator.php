@@ -303,7 +303,7 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
    */
   private function executeMigrationAndRecord(string $script, string $migrationTableSql, string $migration): int|false
   {
-    if ($this->migrationScriptRequiresAutocommit($script)) {
+    if ($this->migrationScriptMustRunWithoutOuterTransaction($script)) {
       return $this->executeMigrationWithoutTransaction($script, $migrationTableSql, $migration);
     }
 
@@ -353,10 +353,22 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
    */
   private function executeMigrationWithoutTransaction(string $script, string $migrationTableSql, string $migration): int|false
   {
-    $rowsAffected = $this->executeMigrationScript($script);
+    try {
+      $rowsAffected = $this->executeMigrationScript($script);
+    } catch (Throwable $exception) {
+      $this->rollBackMigrationTransaction($migration);
+      throw $exception;
+    }
 
     if (false === $rowsAffected) {
+      $this->rollBackMigrationTransaction($migration);
       $this->output->writeln("<error>Failed to execute the SQL file for migration $migration</error>\n");
+      return false;
+    }
+
+    if ($this->inTransaction()) {
+      $this->rollBackMigrationTransaction($migration);
+      $this->output->writeln("<error>Migration $migration left an open SQLite transaction. Add COMMIT or ROLLBACK to the SQL file.</error>\n");
       return false;
     }
 
@@ -381,6 +393,23 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
     } catch (Throwable) {
       $this->output->writeln("<error>Failed to roll back the transaction for migration $migration</error>\n");
     }
+  }
+
+  private function migrationScriptMustRunWithoutOuterTransaction(string $script): bool
+  {
+    return $this->migrationScriptRequiresAutocommit($script)
+      || $this->migrationScriptControlsTransaction($script);
+  }
+
+  private function migrationScriptControlsTransaction(string $script): bool
+  {
+    foreach ($this->splitSqlStatements($script) as $statement) {
+      if ($this->sqliteStatementControlsTransaction($statement)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private function migrationScriptRequiresAutocommit(string $script): bool
@@ -520,6 +549,14 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
     }
 
     return $statements;
+  }
+
+  private function sqliteStatementControlsTransaction(string $statement): bool
+  {
+    $offset = 0;
+    $firstIdentifier = $this->readSQLiteIdentifier($statement, $offset);
+
+    return in_array($firstIdentifier, ['BEGIN', 'COMMIT', 'ROLLBACK'], true);
   }
 
   private function sqliteStatementRequiresAutocommit(string $statement): bool

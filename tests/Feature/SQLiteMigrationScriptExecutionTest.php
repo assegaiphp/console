@@ -149,14 +149,21 @@ describe('SQLite migration script execution', function () {
 
       $migrationPath = $workspace . '/migrations/sqlite/blog_api/20260608100000_create_users';
       file_put_contents($migrationPath . '/up.sql', <<<'SQL'
--- Mentions of SQLite autocommit-only statements in comments and strings must not
--- disable transaction handling for otherwise transaction-safe scripts.
+-- Mentions of SQLite autocommit-only statements and transaction controls in comments
+-- and strings must not disable transaction handling for otherwise transaction-safe scripts.
+-- BEGIN TRANSACTION; COMMIT; PRAGMA journal_mode = WAL; VACUUM;
 CREATE TABLE users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT NOT NULL
 );
 
-INSERT INTO users (email) VALUES ('PRAGMA journal_mode = WAL; VACUUM;');
+CREATE TRIGGER users_email_noop
+AFTER INSERT ON users
+BEGIN
+  SELECT NEW.email;
+END;
+
+INSERT INTO users (email) VALUES ('BEGIN TRANSACTION; PRAGMA journal_mode = WAL; VACUUM; COMMIT;');
 
 INSERT INTO missing_users_table (email) VALUES ('user@example.com');
 SQL);
@@ -199,6 +206,82 @@ INSERT INTO users (email) VALUES ('user@example.com');
 SQL);
 
       expect($migrator->up())->toBe(1);
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteSQLiteScriptMigrationWorkspace($workspace);
+    }
+  });
+
+
+  it('runs SQLite migration scripts that manage their own transaction', function () {
+    $workspace = createSQLiteScriptMigrationWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to determine the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      expect(SQLiteDatabase::setup('blog_api'))->toBe(Command::SUCCESS);
+
+      $migrationPath = $workspace . '/migrations/sqlite/blog_api/20260608100000_create_users';
+      file_put_contents($migrationPath . '/up.sql', <<<'SQL'
+-- SQLite dumps commonly wrap their own transaction.
+BEGIN TRANSACTION;
+
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL
+);
+
+INSERT INTO users (email) VALUES ('user@example.com');
+
+COMMIT;
+SQL);
+      file_put_contents($migrationPath . '/down.sql', <<<'SQL'
+BEGIN IMMEDIATE TRANSACTION;
+
+DROP TABLE users;
+
+COMMIT;
+SQL);
+
+      $migrator = new SQLiteDatabaseMigrator('blog_api', new MockInput(), new MockOutput());
+
+      expect($migrator->up())->toBe(1);
+
+      $connection = new PDO('sqlite:' . $workspace . '/.data/blog_api.sq3');
+      $migrationStatement = $connection
+        ->query("SELECT migration FROM __migrations WHERE migration='20260608100000_create_users'");
+      $userCountStatement = $connection->query('SELECT COUNT(*) FROM users');
+
+      if (false === $migrationStatement || false === $userCountStatement) {
+        throw new RuntimeException('Failed to inspect the SQLite transaction-managed migration state.');
+      }
+
+      expect($migrationStatement->fetchColumn())->toBe('20260608100000_create_users');
+      expect((int) $userCountStatement->fetchColumn())->toBe(1);
+
+      $migrationStatement->closeCursor();
+      $userCountStatement->closeCursor();
+      $connection = null;
+
+      expect($migrator->down())->toBe(1);
+
+      $connection = new PDO('sqlite:' . $workspace . '/.data/blog_api.sq3');
+      $migrationStatement = $connection
+        ->query("SELECT migration FROM __migrations WHERE migration='20260608100000_create_users'");
+      $tableStatement = $connection
+        ->query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
+
+      if (false === $migrationStatement || false === $tableStatement) {
+        throw new RuntimeException('Failed to inspect the rolled back SQLite transaction-managed migration state.');
+      }
+
+      expect($migrationStatement->fetchColumn())->toBeFalse();
+      expect($tableStatement->fetchColumn())->toBeFalse();
     } finally {
       chdir($previousWorkingDirectory);
       deleteSQLiteScriptMigrationWorkspace($workspace);
