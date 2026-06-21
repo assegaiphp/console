@@ -26,6 +26,18 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
   use ExecutesMigrationScripts;
 
   /**
+   * SQLite statements that must be run without an explicit transaction.
+   *
+   * VACUUM is a top-level statement. These PRAGMAs either fail inside a
+   * transaction or silently do not take effect there.
+   */
+  private const SQLITE_AUTOCOMMIT_PRAGMAS = [
+    'FOREIGN_KEYS' => true,
+    'JOURNAL_MODE' => true,
+    'WAL_CHECKPOINT' => true,
+  ];
+
+  /**
    * @inheritDoc
    * @noinspection DuplicatedCode
    */
@@ -62,7 +74,7 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
       $migrationsTableName = self::getMigrationsTableName();
       $timestamp = date(DATE_ATOM);
       $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ({$this->quote($migration)}, {$this->quote($timestamp)})";
-      $rowsAffected = $this->executeMigrationInTransaction($upFileContent, $sql, $migration);
+      $rowsAffected = $this->executeMigrationAndRecord($upFileContent, $sql, $migration);
 
       if (false === $rowsAffected)
       {
@@ -122,7 +134,7 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
       }
       $migrationsTableName = self::getMigrationsTableName();
       $sql = "DELETE FROM $migrationsTableName WHERE migration={$this->quote($migration)}";
-      $rowsAffected = $this->executeMigrationInTransaction($downFileContent, $sql, $migration);
+      $rowsAffected = $this->executeMigrationAndRecord($downFileContent, $sql, $migration);
 
       if (false === $rowsAffected)
       {
@@ -287,7 +299,19 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
   }
 
   /**
-   * Runs a migration script and records its migration-table change as one SQLite transaction.
+   * Runs a migration script and records its migration-table change.
+   */
+  private function executeMigrationAndRecord(string $script, string $migrationTableSql, string $migration): int|false
+  {
+    if ($this->migrationScriptRequiresAutocommit($script)) {
+      return $this->executeMigrationWithoutTransaction($script, $migrationTableSql, $migration);
+    }
+
+    return $this->executeMigrationInTransaction($script, $migrationTableSql, $migration);
+  }
+
+  /**
+   * Runs a transaction-safe migration script and records its migration-table change atomically.
    */
   private function executeMigrationInTransaction(string $script, string $migrationTableSql, string $migration): int|false
   {
@@ -324,6 +348,26 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
     }
   }
 
+  /**
+   * Runs SQLite statements that are not valid inside an explicit transaction.
+   */
+  private function executeMigrationWithoutTransaction(string $script, string $migrationTableSql, string $migration): int|false
+  {
+    $rowsAffected = $this->executeMigrationScript($script);
+
+    if (false === $rowsAffected) {
+      $this->output->writeln("<error>Failed to execute the SQL file for migration $migration</error>\n");
+      return false;
+    }
+
+    if (false === $this->exec($migrationTableSql)) {
+      $this->output->writeln("<error>Failed to update the migrations table for migration $migration</error>\n");
+      return false;
+    }
+
+    return $rowsAffected;
+  }
+
   private function rollBackMigrationTransaction(string $migration): void
   {
     if (! $this->inTransaction()) {
@@ -336,6 +380,285 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
       }
     } catch (Throwable) {
       $this->output->writeln("<error>Failed to roll back the transaction for migration $migration</error>\n");
+    }
+  }
+
+  private function migrationScriptRequiresAutocommit(string $script): bool
+  {
+    foreach ($this->splitSqlStatements($script) as $statement) {
+      if ($this->sqliteStatementRequiresAutocommit($statement)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * @return list<string>
+   */
+  private function splitSqlStatements(string $script): array
+  {
+    $statements = [];
+    $start = 0;
+    $length = strlen($script);
+    $singleQuoted = false;
+    $doubleQuoted = false;
+    $backtickQuoted = false;
+    $bracketQuoted = false;
+    $lineComment = false;
+    $blockComment = false;
+
+    for ($index = 0; $index < $length; $index++) {
+      $character = $script[$index];
+      $nextCharacter = $script[$index + 1] ?? '';
+
+      if ($lineComment) {
+        if ($character === "\n") {
+          $lineComment = false;
+        }
+        continue;
+      }
+
+      if ($blockComment) {
+        if ($character === '*' && $nextCharacter === '/') {
+          $blockComment = false;
+          $index++;
+        }
+        continue;
+      }
+
+      if ($singleQuoted) {
+        if ($character === "'" && $nextCharacter === "'") {
+          $index++;
+          continue;
+        }
+        if ($character === "'") {
+          $singleQuoted = false;
+        }
+        continue;
+      }
+
+      if ($doubleQuoted) {
+        if ($character === '"' && $nextCharacter === '"') {
+          $index++;
+          continue;
+        }
+        if ($character === '"') {
+          $doubleQuoted = false;
+        }
+        continue;
+      }
+
+      if ($backtickQuoted) {
+        if ($character === '`' && $nextCharacter === '`') {
+          $index++;
+          continue;
+        }
+        if ($character === '`') {
+          $backtickQuoted = false;
+        }
+        continue;
+      }
+
+      if ($bracketQuoted) {
+        if ($character === ']') {
+          $bracketQuoted = false;
+        }
+        continue;
+      }
+
+      if ($character === '-' && $nextCharacter === '-') {
+        $lineComment = true;
+        $index++;
+        continue;
+      }
+
+      if ($character === '/' && $nextCharacter === '*') {
+        $blockComment = true;
+        $index++;
+        continue;
+      }
+
+      if ($character === "'") {
+        $singleQuoted = true;
+        continue;
+      }
+
+      if ($character === '"') {
+        $doubleQuoted = true;
+        continue;
+      }
+
+      if ($character === '`') {
+        $backtickQuoted = true;
+        continue;
+      }
+
+      if ($character === '[') {
+        $bracketQuoted = true;
+        continue;
+      }
+
+      if ($character !== ';') {
+        continue;
+      }
+
+      $statement = trim(substr($script, $start, $index - $start));
+
+      if ($statement !== '') {
+        $statements[] = $statement;
+      }
+
+      $start = $index + 1;
+    }
+
+    $statement = trim(substr($script, $start));
+
+    if ($statement !== '') {
+      $statements[] = $statement;
+    }
+
+    return $statements;
+  }
+
+  private function sqliteStatementRequiresAutocommit(string $statement): bool
+  {
+    $offset = 0;
+    $firstIdentifier = $this->readSQLiteIdentifier($statement, $offset);
+
+    if ($firstIdentifier === 'VACUUM') {
+      return true;
+    }
+
+    if ($firstIdentifier !== 'PRAGMA') {
+      return false;
+    }
+
+    $pragmaName = $this->readSQLiteIdentifier($statement, $offset);
+
+    if ($pragmaName === null) {
+      return false;
+    }
+
+    $this->skipSQLiteTrivia($statement, $offset);
+
+    if (($statement[$offset] ?? '') === '.') {
+      $offset++;
+      $schemaQualifiedPragmaName = $this->readSQLiteIdentifier($statement, $offset);
+
+      if ($schemaQualifiedPragmaName !== null) {
+        $pragmaName = $schemaQualifiedPragmaName;
+      }
+    }
+
+    return isset(self::SQLITE_AUTOCOMMIT_PRAGMAS[$pragmaName]);
+  }
+
+  private function readSQLiteIdentifier(string $statement, int &$offset): ?string
+  {
+    $this->skipSQLiteTrivia($statement, $offset);
+
+    $length = strlen($statement);
+
+    if ($offset >= $length) {
+      return null;
+    }
+
+    $character = $statement[$offset];
+
+    if ($character === '"') {
+      return $this->readSQLiteQuotedIdentifier($statement, $offset, '"', '"');
+    }
+
+    if ($character === '`') {
+      return $this->readSQLiteQuotedIdentifier($statement, $offset, '`', '`');
+    }
+
+    if ($character === '[') {
+      return $this->readSQLiteQuotedIdentifier($statement, $offset, '[', ']');
+    }
+
+    if (! preg_match('/[A-Za-z_]/', $character)) {
+      return null;
+    }
+
+    $start = $offset;
+    $offset++;
+
+    while ($offset < $length && preg_match('/[A-Za-z0-9_]/', $statement[$offset])) {
+      $offset++;
+    }
+
+    return strtoupper(substr($statement, $start, $offset - $start));
+  }
+
+  private function readSQLiteQuotedIdentifier(string $statement, int &$offset, string $openingQuote, string $closingQuote): string
+  {
+    $offset++;
+    $start = $offset;
+    $length = strlen($statement);
+    $identifier = '';
+
+    while ($offset < $length) {
+      $character = $statement[$offset];
+      $nextCharacter = $statement[$offset + 1] ?? '';
+
+      if ($character === $closingQuote) {
+        if ($openingQuote === $closingQuote && $nextCharacter === $closingQuote) {
+          $identifier .= substr($statement, $start, $offset - $start + 1);
+          $offset += 2;
+          $start = $offset;
+          continue;
+        }
+
+        $identifier .= substr($statement, $start, $offset - $start);
+        $offset++;
+        return strtoupper($identifier);
+      }
+
+      $offset++;
+    }
+
+    return strtoupper($identifier . substr($statement, $start));
+  }
+
+  private function skipSQLiteTrivia(string $statement, int &$offset): void
+  {
+    $length = strlen($statement);
+
+    while ($offset < $length) {
+      if (ctype_space($statement[$offset])) {
+        $offset++;
+        continue;
+      }
+
+      if ($statement[$offset] === '-' && ($statement[$offset + 1] ?? '') === '-') {
+        $offset += 2;
+
+        while ($offset < $length && $statement[$offset] !== "\n") {
+          $offset++;
+        }
+
+        continue;
+      }
+
+      if ($statement[$offset] === '/' && ($statement[$offset + 1] ?? '') === '*') {
+        $offset += 2;
+
+        while ($offset < $length - 1) {
+          if ($statement[$offset] === '*' && $statement[$offset + 1] === '/') {
+            $offset += 2;
+            break;
+          }
+
+          $offset++;
+        }
+
+        continue;
+      }
+
+      return;
     }
   }
 
