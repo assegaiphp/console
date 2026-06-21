@@ -4,6 +4,7 @@ namespace Assegai\Console\Core\Migrations;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\SQLiteDatabase;
+use Assegai\Console\Core\Migrations\Concerns\ExecutesMigrationScripts;
 use Assegai\Console\Core\Migrations\Enumerations\MigrationListerType;
 use Assegai\Console\Core\Migrations\Interfaces\MigrationListerInterface;
 use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
@@ -13,6 +14,7 @@ use Assegai\Console\Core\Migrations\Listers\RanMigrationsLister;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Output\OutputInterface;
+use Throwable;
 
 /**
  * Class SQLiteDatabaseMigrator. This class is a migrator for SQLite databases.
@@ -21,6 +23,20 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
 {
+  use ExecutesMigrationScripts;
+
+  /**
+   * SQLite statements that must be run without an explicit transaction.
+   *
+   * VACUUM is a top-level statement. These PRAGMAs either fail inside a
+   * transaction or silently do not take effect there.
+   */
+  private const SQLITE_AUTOCOMMIT_PRAGMAS = [
+    'FOREIGN_KEYS' => true,
+    'JOURNAL_MODE' => true,
+    'WAL_CHECKPOINT' => true,
+  ];
+
   /**
    * @inheritDoc
    * @noinspection DuplicatedCode
@@ -55,33 +71,17 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
         $this->output->writeln("\n" . $formatter->formatBlock("WARNING:", 'comment') . " The up.sql file for migration <comment>$migration</comment> is empty\n", OutputInterface::VERBOSITY_VERBOSE);
         continue;
       }
-      $statement = $this->query($upFileContent);
-
-      if (false === $statement)
-      {
-        $this->output->writeln("<error>Failed to execute the up.sql file for migration $migration</error>\n");
-        return false;
-      }
-
-      $totalRowsAffected += $statement->rowCount();
-
-      # Update the migrations table
       $migrationsTableName = self::getMigrationsTableName();
       $timestamp = date(DATE_ATOM);
-      $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ('$migration', '$timestamp')";
+      $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ({$this->quote($migration)}, {$this->quote($timestamp)})";
+      $rowsAffected = $this->executeMigrationAndRecord($upFileContent, $sql, $migration);
 
-      if (false === $statement->closeCursor())
+      if (false === $rowsAffected)
       {
-        $this->output->writeln("<error>Failed to close the cursor</error>\n");
         return false;
       }
-      $statement = $this->query($sql);
 
-      if (false === $statement)
-      {
-        $this->output->writeln("<error>Failed to update the migrations table for migration $migration</error>\n");
-        return false;
-      }
+      $totalRowsAffected += $rowsAffected;
 
       $successfulRuns++;
 
@@ -132,32 +132,16 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
         $this->output->writeln("\n" . $formatter->formatBlock("WARNING:", 'comment') . " The down.sql file for migration <comment>$migration</comment> is empty\n", OutputInterface::VERBOSITY_VERBOSE);
         continue;
       }
-      $statement = $this->query($downFileContent);
-
-      if (false === $statement)
-      {
-        $this->output->writeln("<error>Failed to execute the down.sql file for migration $migration</error>\n");
-        return false;
-      }
-
-      $totalRowsAffected += $statement->rowCount();
-
-      # Update the migrations table
       $migrationsTableName = self::getMigrationsTableName();
-      $sql = "DELETE FROM $migrationsTableName WHERE migration='$migration'";
+      $sql = "DELETE FROM $migrationsTableName WHERE migration={$this->quote($migration)}";
+      $rowsAffected = $this->executeMigrationAndRecord($downFileContent, $sql, $migration);
 
-      if (false === $statement->closeCursor())
+      if (false === $rowsAffected)
       {
-        $this->output->writeln("<error>Failed to close the cursor</error>\n");
         return false;
       }
-      $statement = $this->query($sql);
 
-      if (false === $statement)
-      {
-        $this->output->writeln("<error>Failed to update the migrations table for migration $migration</error>\n");
-        return false;
-      }
+      $totalRowsAffected += $rowsAffected;
 
       $successfulRollbacks++;
 
@@ -312,6 +296,407 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
     $nextMigrationIndex = $lastMigrationIndex + 1;
 
     return $allMigrations[$nextMigrationIndex] ?? '';
+  }
+
+  /**
+   * Runs a migration script and records its migration-table change.
+   */
+  private function executeMigrationAndRecord(string $script, string $migrationTableSql, string $migration): int|false
+  {
+    if ($this->migrationScriptMustRunWithoutOuterTransaction($script)) {
+      return $this->executeMigrationWithoutTransaction($script, $migrationTableSql, $migration);
+    }
+
+    return $this->executeMigrationInTransaction($script, $migrationTableSql, $migration);
+  }
+
+  /**
+   * Runs a transaction-safe migration script and records its migration-table change atomically.
+   */
+  private function executeMigrationInTransaction(string $script, string $migrationTableSql, string $migration): int|false
+  {
+    if (false === $this->beginTransaction()) {
+      $this->output->writeln("<error>Failed to begin the transaction for migration $migration</error>\n");
+      return false;
+    }
+
+    try {
+      $rowsAffected = $this->executeMigrationScript($script);
+
+      if (false === $rowsAffected) {
+        $this->rollBackMigrationTransaction($migration);
+        $this->output->writeln("<error>Failed to execute the SQL file for migration $migration</error>\n");
+        return false;
+      }
+
+      if (false === $this->exec($migrationTableSql)) {
+        $this->rollBackMigrationTransaction($migration);
+        $this->output->writeln("<error>Failed to update the migrations table for migration $migration</error>\n");
+        return false;
+      }
+
+      if (false === $this->commit()) {
+        $this->rollBackMigrationTransaction($migration);
+        $this->output->writeln("<error>Failed to commit the transaction for migration $migration</error>\n");
+        return false;
+      }
+
+      return $rowsAffected;
+    } catch (Throwable $exception) {
+      $this->rollBackMigrationTransaction($migration);
+      throw $exception;
+    }
+  }
+
+  /**
+   * Runs SQLite statements that are not valid inside an explicit transaction.
+   */
+  private function executeMigrationWithoutTransaction(string $script, string $migrationTableSql, string $migration): int|false
+  {
+    try {
+      $rowsAffected = $this->executeMigrationScript($script);
+    } catch (Throwable $exception) {
+      $this->rollBackMigrationTransaction($migration);
+      throw $exception;
+    }
+
+    if (false === $rowsAffected) {
+      $this->rollBackMigrationTransaction($migration);
+      $this->output->writeln("<error>Failed to execute the SQL file for migration $migration</error>\n");
+      return false;
+    }
+
+    if ($this->inTransaction()) {
+      $this->rollBackMigrationTransaction($migration);
+      $this->output->writeln("<error>Migration $migration left an open SQLite transaction. Add COMMIT or ROLLBACK to the SQL file.</error>\n");
+      return false;
+    }
+
+    if (false === $this->exec($migrationTableSql)) {
+      $this->output->writeln("<error>Failed to update the migrations table for migration $migration</error>\n");
+      return false;
+    }
+
+    return $rowsAffected;
+  }
+
+  private function rollBackMigrationTransaction(string $migration): void
+  {
+    if (! $this->inTransaction()) {
+      return;
+    }
+
+    try {
+      if (false === $this->rollBack()) {
+        $this->output->writeln("<error>Failed to roll back the transaction for migration $migration</error>\n");
+      }
+    } catch (Throwable) {
+      $this->output->writeln("<error>Failed to roll back the transaction for migration $migration</error>\n");
+    }
+  }
+
+  private function migrationScriptMustRunWithoutOuterTransaction(string $script): bool
+  {
+    return $this->migrationScriptRequiresAutocommit($script)
+      || $this->migrationScriptControlsTransaction($script);
+  }
+
+  private function migrationScriptControlsTransaction(string $script): bool
+  {
+    foreach ($this->splitSqlStatements($script) as $statement) {
+      if ($this->sqliteStatementControlsTransaction($statement)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private function migrationScriptRequiresAutocommit(string $script): bool
+  {
+    foreach ($this->splitSqlStatements($script) as $statement) {
+      if ($this->sqliteStatementRequiresAutocommit($statement)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * @return list<string>
+   */
+  private function splitSqlStatements(string $script): array
+  {
+    $statements = [];
+    $start = 0;
+    $length = strlen($script);
+    $singleQuoted = false;
+    $doubleQuoted = false;
+    $backtickQuoted = false;
+    $bracketQuoted = false;
+    $lineComment = false;
+    $blockComment = false;
+
+    for ($index = 0; $index < $length; $index++) {
+      $character = $script[$index];
+      $nextCharacter = $script[$index + 1] ?? '';
+
+      if ($lineComment) {
+        if ($character === "\n") {
+          $lineComment = false;
+        }
+        continue;
+      }
+
+      if ($blockComment) {
+        if ($character === '*' && $nextCharacter === '/') {
+          $blockComment = false;
+          $index++;
+        }
+        continue;
+      }
+
+      if ($singleQuoted) {
+        if ($character === "'" && $nextCharacter === "'") {
+          $index++;
+          continue;
+        }
+        if ($character === "'") {
+          $singleQuoted = false;
+        }
+        continue;
+      }
+
+      if ($doubleQuoted) {
+        if ($character === '"' && $nextCharacter === '"') {
+          $index++;
+          continue;
+        }
+        if ($character === '"') {
+          $doubleQuoted = false;
+        }
+        continue;
+      }
+
+      if ($backtickQuoted) {
+        if ($character === '`' && $nextCharacter === '`') {
+          $index++;
+          continue;
+        }
+        if ($character === '`') {
+          $backtickQuoted = false;
+        }
+        continue;
+      }
+
+      if ($bracketQuoted) {
+        if ($character === ']') {
+          $bracketQuoted = false;
+        }
+        continue;
+      }
+
+      if ($character === '-' && $nextCharacter === '-') {
+        $lineComment = true;
+        $index++;
+        continue;
+      }
+
+      if ($character === '/' && $nextCharacter === '*') {
+        $blockComment = true;
+        $index++;
+        continue;
+      }
+
+      if ($character === "'") {
+        $singleQuoted = true;
+        continue;
+      }
+
+      if ($character === '"') {
+        $doubleQuoted = true;
+        continue;
+      }
+
+      if ($character === '`') {
+        $backtickQuoted = true;
+        continue;
+      }
+
+      if ($character === '[') {
+        $bracketQuoted = true;
+        continue;
+      }
+
+      if ($character !== ';') {
+        continue;
+      }
+
+      $statement = trim(substr($script, $start, $index - $start));
+
+      if ($statement !== '') {
+        $statements[] = $statement;
+      }
+
+      $start = $index + 1;
+    }
+
+    $statement = trim(substr($script, $start));
+
+    if ($statement !== '') {
+      $statements[] = $statement;
+    }
+
+    return $statements;
+  }
+
+  private function sqliteStatementControlsTransaction(string $statement): bool
+  {
+    $offset = 0;
+    $firstIdentifier = $this->readSQLiteIdentifier($statement, $offset);
+
+    return in_array($firstIdentifier, ['BEGIN', 'COMMIT', 'ROLLBACK'], true);
+  }
+
+  private function sqliteStatementRequiresAutocommit(string $statement): bool
+  {
+    $offset = 0;
+    $firstIdentifier = $this->readSQLiteIdentifier($statement, $offset);
+
+    if ($firstIdentifier === 'VACUUM') {
+      return true;
+    }
+
+    if ($firstIdentifier !== 'PRAGMA') {
+      return false;
+    }
+
+    $pragmaName = $this->readSQLiteIdentifier($statement, $offset);
+
+    if ($pragmaName === null) {
+      return false;
+    }
+
+    $this->skipSQLiteTrivia($statement, $offset);
+
+    if (($statement[$offset] ?? '') === '.') {
+      $offset++;
+      $schemaQualifiedPragmaName = $this->readSQLiteIdentifier($statement, $offset);
+
+      if ($schemaQualifiedPragmaName !== null) {
+        $pragmaName = $schemaQualifiedPragmaName;
+      }
+    }
+
+    return isset(self::SQLITE_AUTOCOMMIT_PRAGMAS[$pragmaName]);
+  }
+
+  private function readSQLiteIdentifier(string $statement, int &$offset): ?string
+  {
+    $this->skipSQLiteTrivia($statement, $offset);
+
+    $length = strlen($statement);
+
+    if ($offset >= $length) {
+      return null;
+    }
+
+    $character = $statement[$offset];
+
+    if ($character === '"') {
+      return $this->readSQLiteQuotedIdentifier($statement, $offset, '"', '"');
+    }
+
+    if ($character === '`') {
+      return $this->readSQLiteQuotedIdentifier($statement, $offset, '`', '`');
+    }
+
+    if ($character === '[') {
+      return $this->readSQLiteQuotedIdentifier($statement, $offset, '[', ']');
+    }
+
+    if (! preg_match('/[A-Za-z_]/', $character)) {
+      return null;
+    }
+
+    $start = $offset;
+    $offset++;
+
+    while ($offset < $length && preg_match('/[A-Za-z0-9_]/', $statement[$offset])) {
+      $offset++;
+    }
+
+    return strtoupper(substr($statement, $start, $offset - $start));
+  }
+
+  private function readSQLiteQuotedIdentifier(string $statement, int &$offset, string $openingQuote, string $closingQuote): string
+  {
+    $offset++;
+    $start = $offset;
+    $length = strlen($statement);
+    $identifier = '';
+
+    while ($offset < $length) {
+      $character = $statement[$offset];
+      $nextCharacter = $statement[$offset + 1] ?? '';
+
+      if ($character === $closingQuote) {
+        if ($openingQuote === $closingQuote && $nextCharacter === $closingQuote) {
+          $identifier .= substr($statement, $start, $offset - $start + 1);
+          $offset += 2;
+          $start = $offset;
+          continue;
+        }
+
+        $identifier .= substr($statement, $start, $offset - $start);
+        $offset++;
+        return strtoupper($identifier);
+      }
+
+      $offset++;
+    }
+
+    return strtoupper($identifier . substr($statement, $start));
+  }
+
+  private function skipSQLiteTrivia(string $statement, int &$offset): void
+  {
+    $length = strlen($statement);
+
+    while ($offset < $length) {
+      if (ctype_space($statement[$offset])) {
+        $offset++;
+        continue;
+      }
+
+      if ($statement[$offset] === '-' && ($statement[$offset + 1] ?? '') === '-') {
+        $offset += 2;
+
+        while ($offset < $length && $statement[$offset] !== "\n") {
+          $offset++;
+        }
+
+        continue;
+      }
+
+      if ($statement[$offset] === '/' && ($statement[$offset + 1] ?? '') === '*') {
+        $offset += 2;
+
+        while ($offset < $length - 1) {
+          if ($statement[$offset] === '*' && $statement[$offset + 1] === '/') {
+            $offset += 2;
+            break;
+          }
+
+          $offset++;
+        }
+
+        continue;
+      }
+
+      return;
+    }
   }
 
   /**

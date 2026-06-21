@@ -211,7 +211,7 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
       return $path;
     }
 
-    if (self::isAbsolutePath($path)) {
+    if (Path::isAbsolute($path)) {
       return Path::normalize($path);
     }
 
@@ -241,10 +241,5 @@ class SQLiteDatabase extends PDO implements SQLDatabaseConnectionInterface
   private static function isSpecialPath(string $path): bool
   {
     return $path === ':memory:' || str_starts_with($path, 'file:');
-  }
-
-  private static function isAbsolutePath(string $path): bool
-  {
-    return str_starts_with($path, '/') || preg_match('#^[A-Za-z]:[\\/]#', $path) === 1;
   }
 }

@@ -4,6 +4,7 @@ namespace Assegai\Console\Core\Migrations;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\MsSqlDatabase;
+use Assegai\Console\Core\Migrations\Concerns\ExecutesMigrationScripts;
 use Assegai\Console\Core\Migrations\Enumerations\MigrationListerType;
 use Assegai\Console\Core\Migrations\Interfaces\MigrationListerInterface;
 use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
@@ -16,6 +17,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class MsSqlDatabaseMigrator extends MsSqlDatabase implements MigratorInterface
 {
+  use ExecutesMigrationScripts;
+
 
   /**
    * @inheritDoc
@@ -51,26 +54,20 @@ class MsSqlDatabaseMigrator extends MsSqlDatabase implements MigratorInterface
         $this->output->writeln("\n" . $formatter->formatBlock("WARNING:", 'comment') . " The up.sql file for migration <comment>$migration</comment> is empty\n", OutputInterface::VERBOSITY_VERBOSE);
         continue;
       }
-      $statement = $this->query($upFileContent);
+      $rowsAffected = $this->executeMigrationScript($upFileContent);
 
-      if (false === $statement)
+      if (false === $rowsAffected)
       {
         $this->output->writeln("<error>Failed to execute the up.sql file for migration $migration</error>\n");
         return false;
       }
 
-      $totalRowsAffected += $statement->rowCount();
+      $totalRowsAffected += $rowsAffected;
 
       # Update the migrations table
       $migrationsTableName = self::getMigrationsTableName();
       $timestamp = date(DATE_ATOM);
       $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ('$migration', '$timestamp')";
-
-      if (false === $statement->closeCursor())
-      {
-        $this->output->writeln("<error>Failed to close the cursor</error>\n");
-        return false;
-      }
       $statement = $this->query($sql);
 
       if (false === $statement)
@@ -129,25 +126,19 @@ class MsSqlDatabaseMigrator extends MsSqlDatabase implements MigratorInterface
         $this->output->writeln("\n" . $formatter->formatBlock("WARNING:", 'comment') . " The down.sql file for migration <comment>$migration</comment> is empty\n", OutputInterface::VERBOSITY_VERBOSE);
         continue;
       }
-      $statement = $this->query($downFileContent);
+      $rowsAffected = $this->executeMigrationScript($downFileContent);
 
-      if (false === $statement)
+      if (false === $rowsAffected)
       {
         $this->output->writeln("<error>Failed to execute the down.sql file for migration $migration</error>\n");
         return false;
       }
 
-      $totalRowsAffected += $statement->rowCount();
+      $totalRowsAffected += $rowsAffected;
 
       # Update the migrations table
       $migrationsTableName = self::getMigrationsTableName();
       $sql = "DELETE FROM $migrationsTableName WHERE migration='$migration'";
-
-      if (false === $statement->closeCursor())
-      {
-        $this->output->writeln("<error>Failed to close the cursor</error>\n");
-        return false;
-      }
       $statement = $this->query($sql);
 
       if (false === $statement)

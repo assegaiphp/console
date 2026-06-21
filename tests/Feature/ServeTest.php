@@ -65,6 +65,171 @@ function deleteServeWorkspace(string $directory): void
 }
 
 describe('Serve', function () {
+  it('resolves a relative serve root before building the server command', function () {
+    $workspace = createServeWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    chdir(dirname($workspace));
+
+    try {
+      $command = new class extends Serve {
+        /** @var array<int, mixed> */
+        public array $calls = [];
+
+        protected function runServeCommand(string $command, string $workingDirectory): int
+        {
+          $this->calls[] = [
+            'type' => 'serve',
+            'command' => $command,
+            'workingDirectory' => $workingDirectory,
+          ];
+
+          return Command::SUCCESS;
+        }
+      };
+
+      $tester = new CommandTester($command);
+      $status = $tester->execute([
+        '--root' => basename($workspace),
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($command->calls)->toHaveCount(1);
+      expect($command->calls[0]['workingDirectory'])->toBe($workspace);
+      expect($command->calls[0]['command'])->toContain('-t ' . escapeshellarg($workspace . '/public'));
+      expect($command->calls[0]['command'])->toContain(escapeshellarg($workspace . '/index.php'));
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
+  it('resolves parent-relative serve roots from the current directory', function () {
+    $workspace = createServeWorkspace();
+    $currentDirectory = dirname($workspace) . '/' . uniqid('serve-current-', true);
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    if (!mkdir($currentDirectory, 0755, true) && !is_dir($currentDirectory)) {
+      throw new RuntimeException('Failed to create test current directory: ' . $currentDirectory);
+    }
+
+    chdir($currentDirectory);
+
+    try {
+      $command = new class extends Serve {
+        public function exposeProjectRoot(string $root): string
+        {
+          return $this->resolveProjectRoot($root);
+        }
+      };
+
+      $relativeRoot = '../' . basename($workspace);
+
+      expect($command->exposeProjectRoot($relativeRoot))->toBe($workspace);
+    } finally {
+      chdir($previousWorkingDirectory);
+      rmdir($currentDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
+  it('resolves symlinked serve roots before collapsing parent segments', function () {
+    $workspace = createServeWorkspace();
+    $baseDirectory = dirname($workspace) . '/' . uniqid('serve-symlink-base-', true);
+    $currentTarget = dirname($workspace) . '/' . uniqid('serve-symlink-current-', true);
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    if (!mkdir($baseDirectory, 0755, true) && !is_dir($baseDirectory)) {
+      throw new RuntimeException('Failed to create test base directory: ' . $baseDirectory);
+    }
+
+    if (!mkdir($currentTarget, 0755, true) && !is_dir($currentTarget)) {
+      throw new RuntimeException('Failed to create test symlink target: ' . $currentTarget);
+    }
+
+    $linkPath = $baseDirectory . '/link';
+
+    if (!symlink($currentTarget, $linkPath)) {
+      throw new RuntimeException('Failed to create test symlink: ' . $linkPath);
+    }
+
+    chdir($baseDirectory);
+
+    try {
+      $command = new class extends Serve {
+        public function exposeProjectRoot(string $root): string
+        {
+          return $this->resolveProjectRoot($root);
+        }
+      };
+
+      $relativeRoot = 'link/../' . basename($workspace);
+
+      expect($command->exposeProjectRoot($relativeRoot))->toBe($workspace);
+    } finally {
+      chdir($previousWorkingDirectory);
+      if (is_link($linkPath)) {
+        unlink($linkPath);
+      }
+      rmdir($currentTarget);
+      rmdir($baseDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
+  it('does not prepend the current directory to Windows absolute serve roots', function () {
+    $command = new class extends Serve {
+      public function exposeProjectRoot(string $root): string
+      {
+        return $this->resolveProjectRoot($root);
+      }
+    };
+
+    expect($command->exposeProjectRoot('C:\app'))->toBe('C:/app');
+    expect($command->exposeProjectRoot('C:/app'))->toBe('C:/app');
+  });
+
+  it('runs serve shell commands from the project root', function () {
+    $workspace = createServeWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    try {
+      $command = new class extends Serve {
+        public function runProbe(string $command, string $workingDirectory): int
+        {
+          return $this->runServeCommand($command, $workingDirectory);
+        }
+      };
+
+      $status = $command->runProbe(
+        escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg('file_put_contents("cwd.txt", getcwd());'),
+        $workspace,
+      );
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect(file_get_contents($workspace . '/cwd.txt') ?: '')->toBe($workspace);
+      expect(getcwd())->toBe($previousWorkingDirectory);
+    } finally {
+      deleteServeWorkspace($workspace);
+    }
+  });
+
   it('starts the Web Components watcher in dev mode and keeps normal serve untouched', function () {
     $workspace = createServeWorkspace();
     $previousWorkingDirectory = getcwd();
@@ -96,7 +261,7 @@ describe('Serve', function () {
           $this->calls[] = ['type' => 'stop-watch', 'root' => $root];
         }
 
-        protected function runServeCommand(string $command): int
+        protected function runServeCommand(string $command, string $workingDirectory): int
         {
           $this->calls[] = ['type' => 'serve', 'command' => $command];
           return Command::SUCCESS;
@@ -136,7 +301,7 @@ describe('Serve', function () {
           return null;
         }
 
-        protected function runServeCommand(string $command): int
+        protected function runServeCommand(string $command, string $workingDirectory): int
         {
           $this->calls[] = ['type' => 'serve', 'command' => $command];
           return Command::SUCCESS;
@@ -189,7 +354,7 @@ describe('Serve', function () {
           $this->calls[] = ['type' => 'stop-watch', 'root' => $root];
         }
 
-        protected function runServeCommand(string $command): int
+        protected function runServeCommand(string $command, string $workingDirectory): int
         {
           $this->calls[] = ['type' => 'serve', 'command' => $command];
           return 130;
@@ -239,7 +404,7 @@ describe('Serve', function () {
           return Command::SUCCESS;
         }
 
-        protected function runServeCommand(string $command): int
+        protected function runServeCommand(string $command, string $workingDirectory): int
         {
           $this->calls[] = ['type' => 'serve', 'command' => $command];
           return Command::SUCCESS;
@@ -290,7 +455,7 @@ describe('Serve', function () {
           return null;
         }
 
-        protected function runServeCommand(string $command): int
+        protected function runServeCommand(string $command, string $workingDirectory): int
         {
           $this->calls[] = ['type' => 'serve', 'command' => $command];
           return Command::SUCCESS;
@@ -450,7 +615,7 @@ describe('Serve', function () {
           return null;
         }
 
-        protected function runServeCommand(string $command): int
+        protected function runServeCommand(string $command, string $workingDirectory): int
         {
           $this->calls[] = ['type' => 'serve', 'command' => $command];
           return Command::SUCCESS;

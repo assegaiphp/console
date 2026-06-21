@@ -4,6 +4,7 @@ namespace Assegai\Console\Core\Migrations;
 
 use Assegai\Console\Core\Database\Enumerations\DatabaseType;
 use Assegai\Console\Core\Database\MySQLDatabase;
+use Assegai\Console\Core\Migrations\Concerns\ExecutesMigrationScripts;
 use Assegai\Console\Core\Migrations\Enumerations\MigrationListerType;
 use Assegai\Console\Core\Migrations\Interfaces\MigrationListerInterface;
 use Assegai\Console\Core\Migrations\Interfaces\MigratorInterface;
@@ -27,6 +28,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
 {
+  use ExecutesMigrationScripts;
+
   /**
    * @inheritDoc
    * @noinspection DuplicatedCode
@@ -76,7 +79,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
       }
 
       try {
-        $statement = $this->query($upFileContent);
+        $rowsAffected = $this->executeMigrationScript($upFileContent);
       } catch (PDOException $exception) {
         if (false === $this->rollBack() ) {
           $this->output->writeln("<error>Failed to roll back the transaction</error>\n");
@@ -89,13 +92,13 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
         return false;
       }
 
-      if (false === $statement) {
+      if (false === $rowsAffected) {
         $progressBar->finish();
         $this->output->writeln("<error>Failed to execute the up.sql file for migration $migration</error>\n");
         return false;
       }
 
-      $totalRowsAffected += $statement->rowCount();
+      $totalRowsAffected += $rowsAffected;
 
       # Update the migrations table
       $migrationsTableName = self::getMigrationsTableName();
@@ -103,11 +106,6 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
         (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s');
       $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ('$migration', '$timestamp')";
 
-      if (false === $statement->closeCursor()) {
-        $progressBar->finish();
-        $this->output->writeln("<error>Failed to close the cursor</error>\n");
-        return false;
-      }
 
       $this->beginTransaction();
 
@@ -195,7 +193,7 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
       }
 
       try {
-        $statement = $this->query($downFileContent);
+        $rowsAffected = $this->executeMigrationScript($downFileContent);
       } catch (PDOException $exception) {
         if (false === $this->rollBack()) {
           $this->output->writeln(" <error>Failed to roll back the transaction</error>\n", OutputInterface::VERBOSITY_VERBOSE);
@@ -208,22 +206,18 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
         return false;
       }
 
-      if (false === $statement) {
+      if (false === $rowsAffected) {
         $this->output->writeln(" <error>Failed to execute the down.sql file for migration $migration</error>\n", OutputInterface::VERBOSITY_VERBOSE);
         $progressBar->finish();
         return false;
       }
 
-      $totalRowsAffected += $statement->rowCount();
+      $totalRowsAffected += $rowsAffected;
 
       # Update the migrations table
       $migrationsTableName = self::getMigrationsTableName();
       $sql = "DELETE FROM $migrationsTableName WHERE migration='$migration'";
 
-      if (false === $statement->closeCursor()) {
-        $this->output->writeln(" <error>Failed to close the cursor</error>\n", OutputInterface::VERBOSITY_VERBOSE);
-        return false;
-      }
 
       $this->beginTransaction();
 
@@ -267,6 +261,11 @@ class MySQLDatabaseMigrator extends MySQLDatabase implements MigratorInterface
   public function reset(): int|false
   {
     return $this->down(count($this->listRan() ?: []));
+  }
+
+  protected function shouldDrainMigrationScriptRowsets(): bool
+  {
+    return true;
   }
 
   /**
