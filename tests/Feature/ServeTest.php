@@ -141,6 +141,54 @@ describe('Serve', function () {
     }
   });
 
+  it('resolves symlinked serve roots before collapsing parent segments', function () {
+    $workspace = createServeWorkspace();
+    $baseDirectory = dirname($workspace) . '/' . uniqid('serve-symlink-base-', true);
+    $currentTarget = dirname($workspace) . '/' . uniqid('serve-symlink-current-', true);
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to resolve the current working directory.');
+    }
+
+    if (!mkdir($baseDirectory, 0755, true) && !is_dir($baseDirectory)) {
+      throw new RuntimeException('Failed to create test base directory: ' . $baseDirectory);
+    }
+
+    if (!mkdir($currentTarget, 0755, true) && !is_dir($currentTarget)) {
+      throw new RuntimeException('Failed to create test symlink target: ' . $currentTarget);
+    }
+
+    $linkPath = $baseDirectory . '/link';
+
+    if (!symlink($currentTarget, $linkPath)) {
+      throw new RuntimeException('Failed to create test symlink: ' . $linkPath);
+    }
+
+    chdir($baseDirectory);
+
+    try {
+      $command = new class extends Serve {
+        public function exposeProjectRoot(string $root): string
+        {
+          return $this->resolveProjectRoot($root);
+        }
+      };
+
+      $relativeRoot = 'link/../' . basename($workspace);
+
+      expect($command->exposeProjectRoot($relativeRoot))->toBe($workspace);
+    } finally {
+      chdir($previousWorkingDirectory);
+      if (is_link($linkPath)) {
+        unlink($linkPath);
+      }
+      rmdir($currentTarget);
+      rmdir($baseDirectory);
+      deleteServeWorkspace($workspace);
+    }
+  });
+
   it('does not prepend the current directory to Windows absolute serve roots', function () {
     $command = new class extends Serve {
       public function exposeProjectRoot(string $root): string

@@ -170,10 +170,9 @@ class Serve extends Command
       $root = getcwd() ?: '.';
     }
 
-    $normalizedRoot = Path::normalize($root);
-    $absoluteRoot = Path::isAbsolute($normalizedRoot)
-      ? $normalizedRoot
-      : Path::join(getcwd() ?: '.', $normalizedRoot);
+    $absoluteRoot = Path::isAbsolute($root)
+      ? $root
+      : rtrim(getcwd() ?: '.', DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $root;
     $realRoot = realpath($absoluteRoot);
 
     return Path::normalize($realRoot !== false ? $realRoot : $absoluteRoot);
