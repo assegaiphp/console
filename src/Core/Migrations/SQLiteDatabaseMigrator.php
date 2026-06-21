@@ -14,6 +14,7 @@ use Assegai\Console\Core\Migrations\Listers\RanMigrationsLister;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Output\OutputInterface;
+use Throwable;
 
 /**
  * Class SQLiteDatabaseMigrator. This class is a migrator for SQLite databases.
@@ -58,27 +59,17 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
         $this->output->writeln("\n" . $formatter->formatBlock("WARNING:", 'comment') . " The up.sql file for migration <comment>$migration</comment> is empty\n", OutputInterface::VERBOSITY_VERBOSE);
         continue;
       }
-      $rowsAffected = $this->executeMigrationScript($upFileContent);
+      $migrationsTableName = self::getMigrationsTableName();
+      $timestamp = date(DATE_ATOM);
+      $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ({$this->quote($migration)}, {$this->quote($timestamp)})";
+      $rowsAffected = $this->executeMigrationInTransaction($upFileContent, $sql, $migration);
 
       if (false === $rowsAffected)
       {
-        $this->output->writeln("<error>Failed to execute the up.sql file for migration $migration</error>\n");
         return false;
       }
 
       $totalRowsAffected += $rowsAffected;
-
-      # Update the migrations table
-      $migrationsTableName = self::getMigrationsTableName();
-      $timestamp = date(DATE_ATOM);
-      $sql = "INSERT INTO $migrationsTableName (migration, ran_at) VALUES ('$migration', '$timestamp')";
-      $statement = $this->query($sql);
-
-      if (false === $statement)
-      {
-        $this->output->writeln("<error>Failed to update the migrations table for migration $migration</error>\n");
-        return false;
-      }
 
       $successfulRuns++;
 
@@ -129,26 +120,16 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
         $this->output->writeln("\n" . $formatter->formatBlock("WARNING:", 'comment') . " The down.sql file for migration <comment>$migration</comment> is empty\n", OutputInterface::VERBOSITY_VERBOSE);
         continue;
       }
-      $rowsAffected = $this->executeMigrationScript($downFileContent);
+      $migrationsTableName = self::getMigrationsTableName();
+      $sql = "DELETE FROM $migrationsTableName WHERE migration={$this->quote($migration)}";
+      $rowsAffected = $this->executeMigrationInTransaction($downFileContent, $sql, $migration);
 
       if (false === $rowsAffected)
       {
-        $this->output->writeln("<error>Failed to execute the down.sql file for migration $migration</error>\n");
         return false;
       }
 
       $totalRowsAffected += $rowsAffected;
-
-      # Update the migrations table
-      $migrationsTableName = self::getMigrationsTableName();
-      $sql = "DELETE FROM $migrationsTableName WHERE migration='$migration'";
-      $statement = $this->query($sql);
-
-      if (false === $statement)
-      {
-        $this->output->writeln("<error>Failed to update the migrations table for migration $migration</error>\n");
-        return false;
-      }
 
       $successfulRollbacks++;
 
@@ -303,6 +284,59 @@ class SQLiteDatabaseMigrator extends SQLiteDatabase implements MigratorInterface
     $nextMigrationIndex = $lastMigrationIndex + 1;
 
     return $allMigrations[$nextMigrationIndex] ?? '';
+  }
+
+  /**
+   * Runs a migration script and records its migration-table change as one SQLite transaction.
+   */
+  private function executeMigrationInTransaction(string $script, string $migrationTableSql, string $migration): int|false
+  {
+    if (false === $this->beginTransaction()) {
+      $this->output->writeln("<error>Failed to begin the transaction for migration $migration</error>\n");
+      return false;
+    }
+
+    try {
+      $rowsAffected = $this->executeMigrationScript($script);
+
+      if (false === $rowsAffected) {
+        $this->rollBackMigrationTransaction($migration);
+        $this->output->writeln("<error>Failed to execute the SQL file for migration $migration</error>\n");
+        return false;
+      }
+
+      if (false === $this->exec($migrationTableSql)) {
+        $this->rollBackMigrationTransaction($migration);
+        $this->output->writeln("<error>Failed to update the migrations table for migration $migration</error>\n");
+        return false;
+      }
+
+      if (false === $this->commit()) {
+        $this->rollBackMigrationTransaction($migration);
+        $this->output->writeln("<error>Failed to commit the transaction for migration $migration</error>\n");
+        return false;
+      }
+
+      return $rowsAffected;
+    } catch (Throwable $exception) {
+      $this->rollBackMigrationTransaction($migration);
+      throw $exception;
+    }
+  }
+
+  private function rollBackMigrationTransaction(string $migration): void
+  {
+    if (! $this->inTransaction()) {
+      return;
+    }
+
+    try {
+      if (false === $this->rollBack()) {
+        $this->output->writeln("<error>Failed to roll back the transaction for migration $migration</error>\n");
+      }
+    } catch (Throwable) {
+      $this->output->writeln("<error>Failed to roll back the transaction for migration $migration</error>\n");
+    }
   }
 
   /**

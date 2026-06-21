@@ -133,4 +133,72 @@ describe('SQLite migration script execution', function () {
       deleteSQLiteScriptMigrationWorkspace($workspace);
     }
   });
+
+  it('rolls back the script and migration record when a later SQLite statement fails', function () {
+    $workspace = createSQLiteScriptMigrationWorkspace();
+    $previousWorkingDirectory = getcwd();
+
+    if ($previousWorkingDirectory === false) {
+      throw new RuntimeException('Failed to determine the current working directory.');
+    }
+
+    chdir($workspace);
+
+    try {
+      expect(SQLiteDatabase::setup('blog_api'))->toBe(Command::SUCCESS);
+
+      $migrationPath = $workspace . '/migrations/sqlite/blog_api/20260608100000_create_users';
+      file_put_contents($migrationPath . '/up.sql', <<<'SQL'
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL
+);
+
+INSERT INTO missing_users_table (email) VALUES ('user@example.com');
+SQL);
+
+      $migrator = new SQLiteDatabaseMigrator('blog_api', new MockInput(), new MockOutput());
+      $exception = null;
+
+      try {
+        $migrator->up();
+      } catch (PDOException $caughtException) {
+        $exception = $caughtException;
+      }
+
+      expect($exception)->toBeInstanceOf(PDOException::class);
+
+      $connection = new PDO('sqlite:' . $workspace . '/.data/blog_api.sq3');
+      $tableStatement = $connection
+        ->query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
+      $migrationStatement = $connection
+        ->query("SELECT migration FROM __migrations WHERE migration='20260608100000_create_users'");
+
+      if (false === $tableStatement || false === $migrationStatement) {
+        throw new RuntimeException('Failed to inspect the failed SQLite migration state.');
+      }
+
+      expect($tableStatement->fetchColumn())->toBeFalse();
+      expect($migrationStatement->fetchColumn())->toBeFalse();
+
+      $tableStatement->closeCursor();
+      $migrationStatement->closeCursor();
+      $connection = null;
+
+      file_put_contents($migrationPath . '/up.sql', <<<'SQL'
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL
+);
+
+INSERT INTO users (email) VALUES ('user@example.com');
+SQL);
+
+      expect($migrator->up())->toBe(1);
+    } finally {
+      chdir($previousWorkingDirectory);
+      deleteSQLiteScriptMigrationWorkspace($workspace);
+    }
+  });
+
 });
