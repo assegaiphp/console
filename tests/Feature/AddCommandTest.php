@@ -298,13 +298,56 @@ PHP,
     }
   });
 
+  it('adds any first-party package using its shortcut', function () {
+    $workspace = createAddCommandWorkspace();
+
+    try {
+      $tester = new CommandTester(new Add());
+      $status = $tester->execute([
+        'package' => 'rabbitmq',
+        '--directory' => $workspace,
+        '--no-install' => true,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+
+      $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
+
+      expect($composer['require']['assegaiphp/rabbitmq'] ?? null)->toBe('*');
+      expect($tester->getDisplay())->toContain('UPDATE composer.json');
+    } finally {
+      removeAddCommandWorkspace($workspace);
+    }
+  });
+
+  it('adds any first-party package using its full Composer package name', function () {
+    $workspace = createAddCommandWorkspace();
+
+    try {
+      $tester = new CommandTester(new Add());
+      $status = $tester->execute([
+        'package' => 'assegaiphp/beanstalkd',
+        '--directory' => $workspace,
+        '--no-install' => true,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+
+      $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
+
+      expect($composer['require']['assegaiphp/beanstalkd'] ?? null)->toBe('*');
+    } finally {
+      removeAddCommandWorkspace($workspace);
+    }
+  });
+
   it('fails cleanly for unsupported packages', function () {
     $workspace = createAddCommandWorkspace();
 
     try {
       $tester = new CommandTester(new Add());
       $status = $tester->execute([
-        'package' => 'mystery',
+        'package' => 'another-vendor/mystery',
         '--directory' => $workspace,
         '--no-install' => true,
       ]);

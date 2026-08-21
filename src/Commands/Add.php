@@ -46,10 +46,9 @@ class Add extends Command
     $packageMetadata = $this->resolvePackageMetadata($requestedPackage, $workspace);
 
     if ($packageMetadata === null) {
-      $output->writeln(sprintf(
-        '<error>Unsupported package. Supported values: %s.</error>',
-        implode(', ', FirstPartyPackageCatalog::supportedAliases()),
-      ));
+      $output->writeln(
+        '<error>Unsupported package. Use a first-party shortcut such as rabbitmq or a full assegaiphp/* package name.</error>'
+      );
       return Command::FAILURE;
     }
 
