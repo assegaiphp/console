@@ -108,22 +108,18 @@ class Add extends Command
    */
   protected function resolvePackageMetadata(string $package, string $workspace): ?array
   {
-    $firstPartyPackage = FirstPartyPackageCatalog::resolve($package);
-
-    if ($firstPartyPackage !== null) {
-      return $firstPartyPackage;
-    }
-
     $installedExtension = InstalledPackageExtensionLoader::resolve($workspace, $package, requireAutoload: false);
 
-    if ($installedExtension === null) {
-      return null;
+    if ($installedExtension !== null) {
+      $firstPartyPackage = FirstPartyPackageCatalog::resolve($installedExtension->packageName);
+
+      return [
+        'packageName' => $installedExtension->packageName,
+        'constraint' => $firstPartyPackage['constraint'] ?? '*',
+      ];
     }
 
-    return [
-      'packageName' => $installedExtension->packageName,
-      'constraint' => '*',
-    ];
+    return FirstPartyPackageCatalog::resolve($package);
   }
 
   protected function loadInstalledPackageExtension(string $workspace, string $packageName): ?InstalledPackageExtension

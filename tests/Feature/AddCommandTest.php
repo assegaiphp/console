@@ -341,6 +341,53 @@ PHP,
     }
   });
 
+  it('prefers an installed package alias over a generic shortcut', function () {
+    $workspace = createAddCommandWorkspace();
+    installFakeWorkspacePackage(
+      $workspace,
+      'assegaiphp/payments',
+      'Assegai\\Payments\\Assegai\\Console\\AddCommandPaymentsPackageInstaller',
+      <<<'PHP'
+<?php
+
+namespace Assegai\Payments\Assegai\Console;
+
+use Assegai\Console\Core\Packages\PackageInstallContext;
+use Assegai\Console\Core\Packages\PackageInstallerInterface;
+use Symfony\Component\Console\Command\Command;
+
+class AddCommandPaymentsPackageInstaller implements PackageInstallerInterface
+{
+  public function install(PackageInstallContext $context): int
+  {
+    file_put_contents($context->workspace . '/payments-installed', 'yes');
+    return Command::SUCCESS;
+  }
+}
+PHP,
+      ['billing'],
+    );
+
+    try {
+      $tester = new CommandTester(new Add());
+      $status = $tester->execute([
+        'package' => 'billing',
+        '--directory' => $workspace,
+        '--no-install' => true,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+
+      $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
+
+      expect($composer['require']['assegaiphp/payments'] ?? null)->toBe('*')
+        ->and($composer['require'])->not->toHaveKey('assegaiphp/billing')
+        ->and(file_get_contents($workspace . '/payments-installed'))->toBe('yes');
+    } finally {
+      removeAddCommandWorkspace($workspace);
+    }
+  });
+
   it('adds any first-party package using its full Composer package name', function () {
     $workspace = createAddCommandWorkspace();
 

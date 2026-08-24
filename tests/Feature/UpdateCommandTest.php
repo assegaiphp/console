@@ -240,6 +240,7 @@ PHP,
           'assegaiphp/rabbitmq' => '^1.0.0',
         ],
         'require-dev' => [
+          'assegaiphp/beanstalkd' => '^2.0.0',
           'assegaiphp/forms' => '^0.8.0',
         ],
       ],
@@ -272,11 +273,14 @@ PHP,
         ->and($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT)
         ->and($composer['require']['assegaiphp/auth'])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
         ->and($composer['require']['assegaiphp/rabbitmq'])->toBe('^1.0.0')
+        ->and($composer['require-dev']['assegaiphp/beanstalkd'])->toBe('^2.0.0')
         ->and($composer['require-dev']['assegaiphp/forms'])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
         ->and($command->composerCalls[0])->toBe([
           PACKAGE_NAME_CORE,
           'assegaiphp/auth',
           'assegaiphp/forms',
+          'assegaiphp/rabbitmq',
+          'assegaiphp/beanstalkd',
         ]);
     } finally {
       deleteUpdateWorkspace($workspace);
