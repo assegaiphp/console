@@ -320,6 +320,27 @@ PHP,
     }
   });
 
+  it('keeps the recommended release line when adding core', function () {
+    $workspace = createAddCommandWorkspace();
+
+    try {
+      $tester = new CommandTester(new Add());
+      $status = $tester->execute([
+        'package' => 'core',
+        '--directory' => $workspace,
+        '--no-install' => true,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+
+      $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
+
+      expect($composer['require'][PACKAGE_NAME_CORE] ?? null)->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT);
+    } finally {
+      removeAddCommandWorkspace($workspace);
+    }
+  });
+
   it('adds any first-party package using its full Composer package name', function () {
     $workspace = createAddCommandWorkspace();
 

@@ -23,6 +23,7 @@ describe('FirstPartyPackageCatalog', function () {
       'constraint' => $constraint,
     ]);
   })->with([
+    'core shortcut' => ['core', PACKAGE_NAME_CORE, RECOMMENDED_CORE_VERSION_CONSTRAINT],
     'orm shortcut' => ['orm', PACKAGE_NAME_ORM, RECOMMENDED_ORM_VERSION_CONSTRAINT],
     'events package name' => [PACKAGE_NAME_EVENTS, PACKAGE_NAME_EVENTS, RECOMMENDED_EVENTS_VERSION_CONSTRAINT],
   ]);

@@ -18,6 +18,10 @@ class FirstPartyPackageCatalog
     }
 
     return match ($packageName) {
+      PACKAGE_NAME_CORE => [
+        'packageName' => PACKAGE_NAME_CORE,
+        'constraint' => RECOMMENDED_CORE_VERSION_CONSTRAINT,
+      ],
       PACKAGE_NAME_ORM => [
         'packageName' => PACKAGE_NAME_ORM,
         'constraint' => RECOMMENDED_ORM_VERSION_CONSTRAINT,
