@@ -10,6 +10,7 @@ This is an AssegaiPHP application scaffolded with `assegai new`.
 - The root module is `src/AppModule.php`.
 - Controllers, services, resources, DTOs, entities, modules, and components should stay inside the feature area they belong to.
 - Shared app configuration belongs in `config/default.php`.
+- Authentication policy and framework session settings belong in `config/auth.php`.
 - Sensitive local overrides belong in `config/secure.php`.
 - Environment-specific values should come from `.env` through `env(...)` calls.
 

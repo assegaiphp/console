@@ -24,6 +24,7 @@ function createNewProjectDefaultsWorkspace(): string
   }
 
   copy(__DIR__ . '/../../templates/config/secure.php', $workspace . '/config/secure.php');
+  copy(__DIR__ . '/../../templates/config/auth.php', $workspace . '/config/auth.php');
   file_put_contents($workspace . '/composer.json', json_encode([
     'autoload' => [
       'psr-4' => [
@@ -59,6 +60,14 @@ function deleteNewProjectDefaultsWorkspace(string $directory): void
 }
 
 describe('New project defaults', function () {
+  it('ships a dedicated auth and session policy file', function () {
+    $authConfig = require __DIR__ . '/../../templates/config/auth.php';
+
+    expect($authConfig['authentication']['loginRedirect']['url'])->toBe('/auth/login');
+    expect($authConfig['authentication']['loginRedirect']['targetSessionKey'])->toBe('auth.intended_url');
+    expect($authConfig['session']['name'])->toBe('assegai_session');
+  });
+
   it('forces ansi when generating the default users resource', function () {
     $installer = new class(
       new MockInput(),
