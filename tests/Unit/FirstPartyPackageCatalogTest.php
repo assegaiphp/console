@@ -3,6 +3,10 @@
 use Assegai\Console\Core\Packages\FirstPartyPackageCatalog;
 
 describe('FirstPartyPackageCatalog', function () {
+  it('keeps Events on the active framework release line', function () {
+    expect(RECOMMENDED_EVENTS_VERSION_CONSTRAINT)->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE);
+  });
+
   it('resolves first-party shortcuts without requiring an allowlist entry', function () {
     expect(FirstPartyPackageCatalog::resolve('rabbitmq'))->toBe([
       'packageName' => 'assegaiphp/rabbitmq',

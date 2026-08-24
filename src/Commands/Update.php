@@ -33,6 +33,7 @@ class Update extends Command
     PACKAGE_NAME_CLI,
     PACKAGE_NAME_CORE,
     PACKAGE_NAME_ORM,
+    PACKAGE_NAME_EVENTS,
     'assegaiphp/auth',
     'assegaiphp/collections',
     'assegaiphp/common',
@@ -505,7 +506,7 @@ class Update extends Command
       $composerConfig = ComposerManifest::ensureRecommendedRequirement(
         $composerConfig,
         PACKAGE_NAME_EVENTS,
-        RECOMMENDED_EVENTS_VERSION_CONSTRAINT
+        $targetConstraint
       );
       $packages[] = PACKAGE_NAME_EVENTS;
     }
