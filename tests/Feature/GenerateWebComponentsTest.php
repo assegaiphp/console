@@ -207,7 +207,7 @@ class HeroesModule
 }
 INNER);
 
-    chdir($workspace);
+    chdir(dirname($workspace));
 
     try {
       $commandTester = new CommandTester(new Generate());

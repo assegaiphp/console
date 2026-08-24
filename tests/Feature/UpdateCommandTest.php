@@ -164,6 +164,7 @@ PHP,
       $tester = new CommandTester($command);
       $status = $tester->execute([
         '--directory' => $workspace,
+        '--yes' => true,
       ]);
 
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
@@ -210,6 +211,7 @@ PHP,
       $tester = new CommandTester($command);
       $status = $tester->execute([
         '--directory' => $workspace,
+        '--yes' => true,
       ]);
 
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
@@ -240,6 +242,7 @@ PHP,
           'assegaiphp/rabbitmq' => '^1.0.0',
         ],
         'require-dev' => [
+          PACKAGE_NAME_CLI => '^0.9.0',
           'assegaiphp/beanstalkd' => '^2.0.0',
           'assegaiphp/forms' => '^0.8.0',
         ],
@@ -264,6 +267,7 @@ PHP,
       $tester = new CommandTester($command);
       $status = $tester->execute([
         '--directory' => $workspace,
+        '--yes' => true,
       ]);
 
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
@@ -273,11 +277,13 @@ PHP,
         ->and($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT)
         ->and($composer['require']['assegaiphp/auth'])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
         ->and($composer['require']['assegaiphp/rabbitmq'])->toBe('^1.0.0')
+        ->and($composer['require-dev'][PACKAGE_NAME_CLI])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
         ->and($composer['require-dev']['assegaiphp/beanstalkd'])->toBe('^2.0.0')
         ->and($composer['require-dev']['assegaiphp/forms'])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
         ->and($command->composerCalls[0])->toBe([
           PACKAGE_NAME_CORE,
           'assegaiphp/auth',
+          PACKAGE_NAME_CLI,
           'assegaiphp/forms',
           'assegaiphp/rabbitmq',
           'assegaiphp/beanstalkd',
@@ -297,8 +303,8 @@ PHP,
         ],
         'require' => [
           'php' => '^8.3',
-          PACKAGE_NAME_CORE => '^0.9.0',
-          PACKAGE_NAME_ORM => '^0.9.0',
+          PACKAGE_NAME_CORE => '^1.0.0',
+          PACKAGE_NAME_ORM => '^1.0.0',
           PACKAGE_NAME_EVENTS => '^1.0.0',
         ],
       ],
@@ -322,14 +328,15 @@ PHP,
       $tester = new CommandTester($command);
       $status = $tester->execute([
         '--directory' => $workspace,
+        '--yes' => true,
       ]);
 
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
 
       expect($status)->toBe(Command::SUCCESS)
         ->and($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION)
-        ->and($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT)
-        ->and($composer['require'][PACKAGE_NAME_ORM])->toBe(RECOMMENDED_ORM_VERSION_CONSTRAINT)
+        ->and($composer['require'][PACKAGE_NAME_CORE])->toBe('^1.0.0')
+        ->and($composer['require'][PACKAGE_NAME_ORM])->toBe('^1.0.0')
         ->and($composer['require'][PACKAGE_NAME_EVENTS])->toBe('^1.0.0')
         ->and($command->composerCalls[0])->toBe([PACKAGE_NAME_CORE, PACKAGE_NAME_ORM, PACKAGE_NAME_EVENTS]);
     } finally {
@@ -430,6 +437,7 @@ PHP,
       $tester = new CommandTester($command);
       $status = $tester->execute([
         '--directory' => $workspace,
+        '--yes' => true,
       ]);
 
       $appModule = file_get_contents($workspace . '/src/AppModule.php') ?: '';
@@ -535,6 +543,7 @@ PHP,
       $tester = new CommandTester($command);
       $status = $tester->execute([
         '--directory' => $workspace,
+        '--yes' => true,
       ]);
 
       $appModule = file_get_contents($workspace . '/src/AppModule.php') ?: '';
@@ -542,6 +551,215 @@ PHP,
       expect($status)->toBe(Command::SUCCESS)
         ->and($appModule)->toContain('use Assegai\\Events\\Assegai\\EventsModule;')
         ->and($appModule)->toContain('EventsModule::class');
+    } finally {
+      deleteUpdateWorkspace($workspace);
+    }
+  });
+
+  it('previews a 0.9 to 0.10 update without changing the workspace', function () {
+    $workspace = createUpdateWorkspace([
+      'composer' => [
+        'name' => 'acme/legacy-app',
+        'autoload' => [
+          'psr-4' => [
+            'Acme\\Legacy\\' => 'src/',
+          ],
+        ],
+        'require' => [
+          'php' => '^8.3',
+          PACKAGE_NAME_CORE => '^0.9.0',
+          'assegaiphp/auth' => '^0.9.0',
+        ],
+        'require-dev' => [
+          PACKAGE_NAME_CLI => '^0.9.0',
+        ],
+      ],
+    ]);
+
+    try {
+      $originalComposer = file_get_contents($workspace . '/composer.json');
+      $originalAssegaiConfig = file_get_contents($workspace . '/assegai.json');
+      $command = new class extends Update {
+        public bool $composerWasRun = false;
+
+        /**
+         * @param string[] $packages
+         */
+        protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
+        {
+          $this->composerWasRun = true;
+          return Command::SUCCESS;
+        }
+      };
+      $tester = new CommandTester($command);
+
+      $status = $tester->execute([
+        '--directory' => $workspace,
+        '--to' => '0.10',
+        '--dry-run' => true,
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS)
+        ->and($command->composerWasRun)->toBeFalse()
+        ->and(file_get_contents($workspace . '/composer.json'))->toBe($originalComposer)
+        ->and(file_get_contents($workspace . '/assegai.json'))->toBe($originalAssegaiConfig)
+        ->and($tester->getDisplay(true))->toContain('Framework update plan: 0.9.x → 0.10.x')
+        ->toContain('assegaiphp/console (require-dev): ^0.9.0 → ^0.10.0')
+        ->toContain('config/auth.php will not be created or rewritten automatically')
+        ->toContain('https://update.assegaiphp.com/?from=0.9.x&to=0.10.0')
+        ->toContain('Dry run complete. No files or dependencies were changed.');
+    } finally {
+      deleteUpdateWorkspace($workspace);
+    }
+  });
+
+  it('requires explicit approval for non-interactive cross-release updates', function () {
+    $workspace = createUpdateWorkspace([
+      'composer' => [
+        'name' => 'acme/legacy-app',
+        'require' => [
+          'php' => '^8.4',
+          PACKAGE_NAME_CORE => '^0.9.0',
+        ],
+      ],
+    ]);
+
+    try {
+      $originalComposer = file_get_contents($workspace . '/composer.json');
+      $tester = new CommandTester(new class extends Update {
+        /**
+         * @param string[] $packages
+         */
+        protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
+        {
+          throw new RuntimeException('Composer must not run without approval.');
+        }
+      });
+
+      $status = $tester->execute([
+        '--directory' => $workspace,
+        '--to' => '0.10',
+      ], [
+        'interactive' => false,
+      ]);
+
+      expect($status)->toBe(Command::FAILURE)
+        ->and(file_get_contents($workspace . '/composer.json'))->toBe($originalComposer)
+        ->and($tester->getDisplay(true))->toContain('Cross-release updates require explicit approval')
+        ->toContain('Review with --dry-run, then re-run with --yes');
+    } finally {
+      deleteUpdateWorkspace($workspace);
+    }
+  });
+
+  it('requires approval when any aligned package crosses release lines', function () {
+    $workspace = createUpdateWorkspace([
+      'composer' => [
+        'name' => 'acme/mixed-line-app',
+        'require' => [
+          'php' => '^8.4',
+          PACKAGE_NAME_CORE => '^0.10.0',
+          'assegaiphp/auth' => '^0.9.0',
+        ],
+      ],
+    ]);
+
+    try {
+      $originalComposer = file_get_contents($workspace . '/composer.json');
+      $command = new class extends Update {
+        public bool $composerWasRun = false;
+
+        /**
+         * @param string[] $packages
+         */
+        protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
+        {
+          $this->composerWasRun = true;
+          return Command::SUCCESS;
+        }
+      };
+      $tester = new CommandTester($command);
+
+      $status = $tester->execute([
+        '--directory' => $workspace,
+        '--to' => '0.10',
+      ], [
+        'interactive' => false,
+      ]);
+
+      expect($status)->toBe(Command::FAILURE)
+        ->and($command->composerWasRun)->toBeFalse()
+        ->and(file_get_contents($workspace . '/composer.json'))->toBe($originalComposer)
+        ->and($tester->getDisplay(true))->toContain('assegaiphp/auth (require): ^0.9.0 → ^0.10.0')
+        ->toContain('Cross-release updates require explicit approval');
+    } finally {
+      deleteUpdateWorkspace($workspace);
+    }
+  });
+
+  it('restores workspace manifests when Composer fails during an update', function () {
+    $workspace = createUpdateWorkspace([
+      'composer' => [
+        'name' => 'acme/legacy-app',
+        'require' => [
+          'php' => '^8.3',
+          PACKAGE_NAME_CORE => '^0.9.0',
+        ],
+      ],
+      'files' => [
+        'composer.lock' => "{\n  \"content-hash\": \"before\"\n}\n",
+      ],
+    ]);
+
+    try {
+      $originalComposer = file_get_contents($workspace . '/composer.json');
+      $originalLock = file_get_contents($workspace . '/composer.lock');
+      $originalAssegaiConfig = file_get_contents($workspace . '/assegai.json');
+      $tester = new CommandTester(new class extends Update {
+        /**
+         * @param string[] $packages
+         */
+        protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
+        {
+          file_put_contents($workspace . '/composer.lock', "{\n  \"content-hash\": \"partial\"\n}\n");
+          return Command::FAILURE;
+        }
+      });
+
+      $status = $tester->execute([
+        '--directory' => $workspace,
+        '--to' => '0.10',
+        '--yes' => true,
+      ]);
+
+      expect($status)->toBe(Command::FAILURE)
+        ->and(file_get_contents($workspace . '/composer.json'))->toBe($originalComposer)
+        ->and(file_get_contents($workspace . '/composer.lock'))->toBe($originalLock)
+        ->and(file_get_contents($workspace . '/assegai.json'))->toBe($originalAssegaiConfig)
+        ->and($tester->getDisplay(true))->toContain('RESTORE workspace manifests')
+        ->toContain('Run composer install if Composer changed vendor/ before failing');
+    } finally {
+      deleteUpdateWorkspace($workspace);
+    }
+  });
+
+  it('requires the matching Console release before targeting another framework line', function () {
+    $workspace = createUpdateWorkspace();
+
+    try {
+      $originalComposer = file_get_contents($workspace . '/composer.json');
+      $tester = new CommandTester(new Update());
+      $status = $tester->execute([
+        '--directory' => $workspace,
+        '--to' => '0.11',
+        '--dry-run' => true,
+      ]);
+
+      expect($status)->toBe(Command::FAILURE)
+        ->and(file_get_contents($workspace . '/composer.json'))->toBe($originalComposer)
+        ->and($tester->getDisplay(true))->toContain('This Console release manages the 0.10.x framework line, not 0.11.x')
+        ->toContain('assegai global update')
+        ->toContain('assegai -g update');
     } finally {
       deleteUpdateWorkspace($workspace);
     }

@@ -67,7 +67,13 @@ TS,
     file_put_contents($filename, $contents);
   }
 
-  return $workspace;
+  $canonicalWorkspace = realpath($workspace);
+
+  if ($canonicalWorkspace === false) {
+    throw new RuntimeException("Failed to canonicalize test workspace: $workspace");
+  }
+
+  return $canonicalWorkspace;
 }
 
 function deleteWebComponentCommandWorkspace(string $directory): void

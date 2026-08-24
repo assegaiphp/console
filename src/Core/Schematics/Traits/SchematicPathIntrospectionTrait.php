@@ -54,7 +54,7 @@ trait SchematicPathIntrospectionTrait
   {
     $tail = '';
 
-    if ($this->inspector->isValidWorkspace(getcwd() ?: '')) {
+    if ($this->inspector->isValidWorkspace($this->path)) {
       $tail = 'src';
     }
 

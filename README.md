@@ -58,6 +58,20 @@ $ export PATH="$PATH:$(composer global config bin-dir --absolute)"
 
 Refer to the [official Composer documentation](https://getcomposer.org/doc/00-intro.md) if your global Composer home is configured differently.
 
+### Keeping the CLI current
+
+Update an existing global installation through the CLI itself:
+
+```bash
+$ assegai global update
+# shorthand
+$ assegai -g update
+```
+
+Normal commands perform a cached, short-timeout check for stable Console releases. When a newer version exists, the notice is written to stderr so command stdout remains safe for scripts and structured output. A successful check is reused for 24 hours, a failed check is retried after one hour, and an unavailable version service never prevents the requested command from running. Set `ASSEGAI_NO_UPDATE_CHECK=1` when automatic checks must be disabled in a controlled environment.
+
+The self-updater first ships with Console 0.10.1. It cannot be retrofitted into an older binary that is already installed. A release rollout that promises a fully self-service migration from an earlier Console must distribute an updater-enabled bridge or managed installer before asking those users to run this command.
+
 ## Usage
 
 ### Get Started
@@ -125,13 +139,21 @@ The current OpenSwoole path is still experimental. It is intended for careful te
 
 ## Upgrading existing projects
 
-Use the update command to move an existing workspace onto the current supported framework line:
+The Console release determines the framework release line that `assegai update` can select. Composer constraints such as `^0.9.0` deliberately exclude 0.10, so update the globally installed CLI before asking it to migrate a 0.9 project:
 
 ```bash
-$ assegai update
+$ assegai global update
+# or: assegai -g update
+$ assegai --version
+$ assegai update --to=0.10 --dry-run
+$ assegai update --to=0.10
 ```
 
-The CLI now upgrades installed first-party packages more deliberately and is aware of the active framework release line.
+The dry run lists every direct requirement change and the Composer update set without changing files. A cross-release update then requires confirmation; non-interactive environments must pass `--yes` explicitly.
+
+If the project itself requires `assegaiphp/console:^0.9`, do not try to upgrade that local dependency by itself. Run the globally installed 0.10 CLI so Core, the local Console requirement, and the other coordinated first-party packages move to 0.10 in one Composer transaction.
+
+The command hydrates `assegai.json`, updates `composer.json`, and runs Composer with all dependent packages. It does not rewrite application PHP source or create `config/auth.php`. Review the [update advisor](https://update.assegaiphp.com/) for the application-owned configuration and verification steps. If Composer fails, the CLI restores `assegai.json`, `composer.json`, and `composer.lock`; run `composer install` if Composer changed `vendor/` before failing.
 
 ## Generating code
 
