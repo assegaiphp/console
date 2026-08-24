@@ -85,7 +85,10 @@ class Update extends Command
     );
     $sourceConstraint = $this->findRequirementConstraint($originalComposerConfig, PACKAGE_NAME_CORE);
     $plannedCoreConstraint = $this->findRequirementConstraint($composerConfig, PACKAGE_NAME_CORE) ?? $targetConstraint;
-    $isCrossReleaseUpdate = $this->releaseLine($sourceConstraint) !== $this->releaseLine($plannedCoreConstraint);
+    $isCrossReleaseUpdate = $this->hasAlignedCrossReleaseChanges(
+      $originalComposerConfig,
+      $composerConfig,
+    );
 
     if ($isCrossReleaseUpdate || (bool) $input->getOption('dry-run')) {
       $this->renderUpdatePlan(
@@ -218,6 +221,43 @@ class Update extends Command
   protected function formatReleaseLine(?string $releaseLine): string
   {
     return $releaseLine === null ? 'an unknown release line' : $releaseLine . '.x';
+  }
+
+  /**
+   * Cross-release approval applies when any coordinated first-party requirement
+   * changes release lines, even if Core is already on the requested target.
+   *
+   * @param array<string, mixed> $before
+   * @param array<string, mixed> $after
+   */
+  protected function hasAlignedCrossReleaseChanges(array $before, array $after): bool
+  {
+    foreach (['require', 'require-dev'] as $section) {
+      $beforeRequirements = is_array($before[$section] ?? null) ? $before[$section] : [];
+      $afterRequirements = is_array($after[$section] ?? null) ? $after[$section] : [];
+
+      foreach (self::FIRST_PARTY_RELEASE_LINE_PACKAGES as $packageName) {
+        $beforeConstraint = $beforeRequirements[$packageName] ?? null;
+        $afterConstraint = $afterRequirements[$packageName] ?? null;
+
+        if ($beforeConstraint === $afterConstraint) {
+          continue;
+        }
+
+        $beforeReleaseLine = is_string($beforeConstraint)
+          ? $this->releaseLine($beforeConstraint)
+          : null;
+        $afterReleaseLine = is_string($afterConstraint)
+          ? $this->releaseLine($afterConstraint)
+          : null;
+
+        if ($beforeReleaseLine !== $afterReleaseLine) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   /**

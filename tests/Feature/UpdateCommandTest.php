@@ -652,6 +652,51 @@ PHP,
     }
   });
 
+  it('requires approval when any aligned package crosses release lines', function () {
+    $workspace = createUpdateWorkspace([
+      'composer' => [
+        'name' => 'acme/mixed-line-app',
+        'require' => [
+          'php' => '^8.4',
+          PACKAGE_NAME_CORE => '^0.10.0',
+          'assegaiphp/auth' => '^0.9.0',
+        ],
+      ],
+    ]);
+
+    try {
+      $originalComposer = file_get_contents($workspace . '/composer.json');
+      $command = new class extends Update {
+        public bool $composerWasRun = false;
+
+        /**
+         * @param string[] $packages
+         */
+        protected function runComposerUpgrade(string $workspace, array $packages, \Symfony\Component\Console\Output\OutputInterface $output): int
+        {
+          $this->composerWasRun = true;
+          return Command::SUCCESS;
+        }
+      };
+      $tester = new CommandTester($command);
+
+      $status = $tester->execute([
+        '--directory' => $workspace,
+        '--to' => '0.10',
+      ], [
+        'interactive' => false,
+      ]);
+
+      expect($status)->toBe(Command::FAILURE)
+        ->and($command->composerWasRun)->toBeFalse()
+        ->and(file_get_contents($workspace . '/composer.json'))->toBe($originalComposer)
+        ->and($tester->getDisplay(true))->toContain('assegaiphp/auth (require): ^0.9.0 → ^0.10.0')
+        ->toContain('Cross-release updates require explicit approval');
+    } finally {
+      deleteUpdateWorkspace($workspace);
+    }
+  });
+
   it('restores workspace manifests when Composer fails during an update', function () {
     $workspace = createUpdateWorkspace([
       'composer' => [
