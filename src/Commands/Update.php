@@ -30,15 +30,17 @@ class Update extends Command
   private const FIRST_PARTY_RELEASE_LINE_PACKAGES = [
     PACKAGE_NAME_CORE,
     PACKAGE_NAME_ORM,
-    PACKAGE_NAME_EVENTS,
     'assegaiphp/auth',
-    'assegaiphp/beanstalkd',
     'assegaiphp/collections',
     'assegaiphp/common',
     'assegaiphp/forms',
-    'assegaiphp/rabbitmq',
     'assegaiphp/util',
     'assegaiphp/validation',
+  ];
+
+  private const INDEPENDENT_FIRST_PARTY_PACKAGES = [
+    'assegaiphp/beanstalkd',
+    'assegaiphp/rabbitmq',
   ];
 
   public function configure(): void
@@ -165,6 +167,7 @@ class Update extends Command
     }
 
     [$composerConfig, $packages] = $this->ensureDirectFirstPartyReleaseLineRequirements($composerConfig, $packages);
+    $packages = $this->appendDirectIndependentFirstPartyPackages($composerConfig, $packages);
 
     if (! ComposerManifest::save($workspace, $composerConfig)) {
       $output->writeln('<error>Failed to update composer.json.</error>');
@@ -207,6 +210,31 @@ class Update extends Command
 
     return [$composerConfig, array_values(array_unique($packages))];
   }
+
+  /**
+   * @param array<string, mixed> $composerConfig
+   * @param string[] $packages
+   * @return string[]
+   */
+  protected function appendDirectIndependentFirstPartyPackages(array $composerConfig, array $packages): array
+  {
+    foreach (['require', 'require-dev'] as $section) {
+      $requirements = $composerConfig[$section] ?? [];
+
+      if (! is_array($requirements)) {
+        continue;
+      }
+
+      foreach (self::INDEPENDENT_FIRST_PARTY_PACKAGES as $packageName) {
+        if (array_key_exists($packageName, $requirements)) {
+          $packages[] = $packageName;
+        }
+      }
+    }
+
+    return array_values(array_unique($packages));
+  }
+
   /**
    * @param string[] $packages
    */

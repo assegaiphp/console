@@ -41,6 +41,26 @@ describe('Project template defaults', function () {
     expect($composer['autoload']['psr-4'])->toBe([]);
   });
 
+  it('includes framework-owned session defaults for new projects', function () {
+    $config = require __DIR__ . '/../../templates/config/auth.php';
+
+    expect($config['session'])->toBe([
+      'name' => 'assegai_session',
+      'cookieLifetime' => 0,
+      'cookiePath' => '/',
+      'cookieDomain' => '',
+      'cookieSecure' => null,
+      'cookieHttpOnly' => true,
+      'cookieSameSite' => 'Lax',
+    ])->and($config['authentication']['loginRedirect'])->toBe([
+      'url' => '/auth/login',
+      'statusCode' => 302,
+      'preserveTarget' => true,
+      'targetSessionKey' => 'auth.intended_url',
+      'excludedPaths' => [],
+    ]);
+  });
+
   it('keeps the recommended orm dependency on the same release line as core', function () {
     expect(RECOMMENDED_ORM_VERSION_CONSTRAINT)->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT);
   });

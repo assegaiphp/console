@@ -16,6 +16,6 @@
     "ext-pdo": "*",
     "ext-curl": "*",
     "vlucas/phpdotenv": "^5.4",
-    "assegaiphp/core": "^0.9.0"
+    "assegaiphp/core": "^0.10.0"
   }
 }
