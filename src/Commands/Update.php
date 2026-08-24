@@ -30,13 +30,10 @@ class Update extends Command
   private const FIRST_PARTY_RELEASE_LINE_PACKAGES = [
     PACKAGE_NAME_CORE,
     PACKAGE_NAME_ORM,
-    PACKAGE_NAME_EVENTS,
     'assegaiphp/auth',
-    'assegaiphp/beanstalkd',
     'assegaiphp/collections',
     'assegaiphp/common',
     'assegaiphp/forms',
-    'assegaiphp/rabbitmq',
     'assegaiphp/util',
     'assegaiphp/validation',
   ];

@@ -8,8 +8,8 @@
     "label": "tests"
   },
   "status": {
-    "label": "active",
+    "label": "0.10.0 milestone",
     "color": "10b981",
-    "summary": "CLI workflows, package discovery, custom schematics, and upgrade tooling."
+    "summary": "0.10 release-line updates and dedicated authentication configuration scaffolding."
   }
 }

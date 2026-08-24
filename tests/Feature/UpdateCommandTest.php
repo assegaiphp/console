@@ -237,7 +237,7 @@ PHP,
           'php' => '^8.3',
           PACKAGE_NAME_CORE => '^0.8.0',
           'assegaiphp/auth' => '^0.8.0',
-          'assegaiphp/rabbitmq' => '^0.8.0',
+          'assegaiphp/rabbitmq' => '^1.0.0',
         ],
         'require-dev' => [
           'assegaiphp/forms' => '^0.8.0',
@@ -271,12 +271,11 @@ PHP,
         ->and($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION)
         ->and($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT)
         ->and($composer['require']['assegaiphp/auth'])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
-        ->and($composer['require']['assegaiphp/rabbitmq'])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
+        ->and($composer['require']['assegaiphp/rabbitmq'])->toBe('^1.0.0')
         ->and($composer['require-dev']['assegaiphp/forms'])->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE)
         ->and($command->composerCalls[0])->toBe([
           PACKAGE_NAME_CORE,
           'assegaiphp/auth',
-          'assegaiphp/rabbitmq',
           'assegaiphp/forms',
         ]);
     } finally {
@@ -325,8 +324,8 @@ PHP,
 
       expect($status)->toBe(Command::SUCCESS)
         ->and($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION)
-        ->and($composer['require'][PACKAGE_NAME_CORE])->toBe('^0.9.0')
-        ->and($composer['require'][PACKAGE_NAME_ORM])->toBe('^0.9.0')
+        ->and($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT)
+        ->and($composer['require'][PACKAGE_NAME_ORM])->toBe(RECOMMENDED_ORM_VERSION_CONSTRAINT)
         ->and($composer['require'][PACKAGE_NAME_EVENTS])->toBe('^1.0.0')
         ->and($command->composerCalls[0])->toBe([PACKAGE_NAME_CORE, PACKAGE_NAME_ORM, PACKAGE_NAME_EVENTS]);
     } finally {

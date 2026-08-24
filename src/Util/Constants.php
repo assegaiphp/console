@@ -7,7 +7,7 @@ const PACKAGE_NAME_CORE = 'assegaiphp/core';
 const PACKAGE_NAME_CLI = 'assegaiphp/console';
 const PACKAGE_NAME_ORM = 'assegaiphp/orm';
 const PACKAGE_NAME_EVENTS = 'assegaiphp/events';
-const RECOMMENDED_FRAMEWORK_RELEASE_LINE_FALLBACK = '^0.9.0';
+const RECOMMENDED_FRAMEWORK_RELEASE_LINE_FALLBACK = '^0.10.0';
 
 if (!function_exists('recommended_framework_release_line_for_version')) {
     function recommended_framework_release_line_for_version(string $version): string
@@ -36,7 +36,7 @@ if (!function_exists('recommended_framework_release_line')) {
 define('RECOMMENDED_FRAMEWORK_RELEASE_LINE', recommended_framework_release_line());
 define('RECOMMENDED_CORE_VERSION_CONSTRAINT', RECOMMENDED_FRAMEWORK_RELEASE_LINE);
 define('RECOMMENDED_ORM_VERSION_CONSTRAINT', RECOMMENDED_FRAMEWORK_RELEASE_LINE);
-define('RECOMMENDED_EVENTS_VERSION_CONSTRAINT', RECOMMENDED_FRAMEWORK_RELEASE_LINE);
+const RECOMMENDED_EVENTS_VERSION_CONSTRAINT = '^0.9.0';
 const DEFAULT_PROJECT_NAME = 'assegai-app';
 const DEFAULT_PROJECT_VERSION = '0.0.1';
 const DEFAULT_PROJECT_TYPE = 'project';
