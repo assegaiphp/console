@@ -8,6 +8,7 @@ use Assegai\Console\Commands\Add;
 use Assegai\Console\Commands\Config;
 use Assegai\Console\Commands\DumpAutoload;
 use Assegai\Console\Commands\Generate;
+use Assegai\Console\Commands\GlobalUpdate;
 use Assegai\Console\Commands\Info;
 use Assegai\Console\Commands\NewProject;
 use Assegai\Console\Commands\Queue\QueueList;
@@ -22,7 +23,8 @@ use Assegai\Console\Commands\WebComponents\BuildWebComponents;
 use Assegai\Console\Commands\WebComponents\ListWebComponents;
 use Assegai\Console\Commands\WebComponents\WatchWebComponents;
 use Assegai\Console\Core\Packages\InstalledPackageExtensionLoader;
-use Assegai\Console\Util\Inspector;
+use Assegai\Console\Util\CliInputNormalizer;
+use Assegai\Console\Util\CliVersionChecker;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
@@ -32,12 +34,18 @@ class ApplicationFactory
   /**
    * @param string[]|null $argv
    */
-  public static function create(?string $workspace = null, ?array $argv = null): Application
+  public static function create(
+    ?string $workspace = null,
+    ?array $argv = null,
+    ?CliVersionChecker $versionChecker = null,
+  ): Application
   {
-    $application = new Application('Assegai CLI', Inspector::getRunningCLIVersion());
-    $application->addCommands(self::builtinCommands());
+    $versionChecker ??= CliVersionChecker::forRunningCli();
+    $normalizedArgv = CliInputNormalizer::normalize($argv ?? ($_SERVER['argv'] ?? []));
+    $application = new AssegaiApplication($versionChecker, $normalizedArgv);
+    $application->addCommands(self::builtinCommands($versionChecker));
 
-    $resolvedWorkspace = self::resolveWorkspace($workspace, $argv ?? ($_SERVER['argv'] ?? []));
+    $resolvedWorkspace = self::resolveWorkspace($workspace, $normalizedArgv);
 
     foreach (InstalledPackageExtensionLoader::load($resolvedWorkspace) as $extension) {
       $application->addCommands($extension->instantiateCommands());
@@ -51,7 +59,7 @@ class ApplicationFactory
   /**
    * @return Command[]
    */
-  private static function builtinCommands(): array
+  private static function builtinCommands(CliVersionChecker $versionChecker): array
   {
     return [
       new ApiClient(),
@@ -60,6 +68,7 @@ class ApplicationFactory
       new Config(),
       new DumpAutoload(),
       new Generate(),
+      new GlobalUpdate($versionChecker),
       new Info(),
       new NewProject(),
       new QueueList(),

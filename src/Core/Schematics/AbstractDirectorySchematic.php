@@ -320,15 +320,27 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
     public function finalizeBuild(): int
     {
         if (
-            !$this->inspector->isValidWorkspace(getcwd() ?: '') ||
+            !$this->inspector->isValidWorkspace($this->path) ||
             !$this->hasModuleUpdates($this->getModuleUpdates())
         ) {
             return Command::SUCCESS;
         }
 
         $moduleFilename = $this->getParentModuleFilename() ?: 'AppModule';
+        $previousWorkingDirectory = getcwd();
 
-        return update_module_file($this->getModuleUpdates(), $moduleFilename, $this->output);
+        if (!@chdir($this->path)) {
+            $this->output->writeln("<error>Failed to enter the workspace directory: $this->path</error>");
+            return Command::FAILURE;
+        }
+
+        try {
+            return update_module_file($this->getModuleUpdates(), $moduleFilename, $this->output);
+        } finally {
+            if ($previousWorkingDirectory !== false) {
+                chdir($previousWorkingDirectory);
+            }
+        }
     }
 
     /**
@@ -393,6 +405,7 @@ abstract class AbstractDirectorySchematic implements SchematicInterface
             $localFiles,
             static fn(string $file): bool => $file !== $generatedModuleFilename && str_ends_with($file, 'Module.php')
         ));
+        sort($candidateModules);
 
         if (empty($candidateModules)) {
             return false;

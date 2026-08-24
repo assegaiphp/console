@@ -34,7 +34,7 @@ trait SchematicModuleManagementTrait
    */
   private function getLocalModuleFilename(): false|string
   {
-    $srcRoot = Path::join(getcwd() ?: '', 'src');
+    $srcRoot = Path::join($this->path, 'src');
     $workingDirectory = dirname($this->getFilePath());
 
     while (str_starts_with($workingDirectory, $srcRoot)) {
@@ -51,6 +51,7 @@ trait SchematicModuleManagementTrait
         $localFiles,
         static fn(string $file): bool => str_ends_with($file, 'Module.php')
       ));
+      sort($candidateModules);
 
       if (!empty($candidateModules)) {
         $selectedModuleFilename = in_array($preferredModuleFilename, $candidateModules, true)
@@ -58,7 +59,7 @@ trait SchematicModuleManagementTrait
           : $candidateModules[0];
 
         $filename = Path::join($workingDirectory, $selectedModuleFilename);
-        return ltrim(str_replace($srcRoot, '', $filename), DIRECTORY_SEPARATOR);
+        return ltrim(str_replace($srcRoot, '', $filename), '/\\');
       }
 
       if ($workingDirectory === $srcRoot) {
@@ -89,7 +90,9 @@ trait SchematicModuleManagementTrait
     array $props
   ): int
   {
-    return update_module_file($props, $localModuleFilename);
+    return $this->runModuleUpdateInWorkspace(
+      fn(): int => update_module_file($props, $localModuleFilename, $this->output)
+    );
   }
 
   /**
@@ -110,6 +113,29 @@ trait SchematicModuleManagementTrait
     ]
   ): int
   {
-    return update_module_file($props);
+    return $this->runModuleUpdateInWorkspace(
+      fn(): int => update_module_file($props, output: $this->output)
+    );
+  }
+
+  /**
+   * @param callable(): int $update
+   */
+  private function runModuleUpdateInWorkspace(callable $update): int
+  {
+    $previousWorkingDirectory = getcwd();
+
+    if (!@chdir($this->path)) {
+      $this->output->writeln("<error>Failed to enter the workspace directory: $this->path</error>");
+      return Command::FAILURE;
+    }
+
+    try {
+      return $update();
+    } finally {
+      if ($previousWorkingDirectory !== false) {
+        chdir($previousWorkingDirectory);
+      }
+    }
   }
 }

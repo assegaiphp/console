@@ -38,7 +38,13 @@ function createServeWorkspace(): string
     ],
   ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-  return $workspace;
+  $canonicalWorkspace = realpath($workspace);
+
+  if ($canonicalWorkspace === false) {
+    throw new RuntimeException("Failed to canonicalize test workspace: $workspace");
+  }
+
+  return $canonicalWorkspace;
 }
 
 function deleteServeWorkspace(string $directory): void

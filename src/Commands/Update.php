@@ -15,9 +15,11 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Question\ConfirmationQuestion;
 use RuntimeException;
 
 #[AsCommand(
@@ -28,6 +30,7 @@ use RuntimeException;
 class Update extends Command
 {
   private const FIRST_PARTY_RELEASE_LINE_PACKAGES = [
+    PACKAGE_NAME_CLI,
     PACKAGE_NAME_CORE,
     PACKAGE_NAME_ORM,
     'assegaiphp/auth',
@@ -45,7 +48,11 @@ class Update extends Command
 
   public function configure(): void
   {
-    $this->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The workspace directory to update', getcwd());
+    $this
+      ->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The workspace directory to update', getcwd())
+      ->addOption('to', null, InputOption::VALUE_REQUIRED, 'The target framework release line, for example 0.10')
+      ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Preview the update without changing workspace files or dependencies')
+      ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Approve a cross-release update without prompting');
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
@@ -58,6 +65,58 @@ class Update extends Command
       return Command::FAILURE;
     }
 
+    try {
+      $originalComposerConfig = ComposerManifest::load($workspace);
+    } catch (RuntimeException) {
+      $output->writeln('<error>Failed to load composer.json.</error>');
+      return Command::FAILURE;
+    }
+
+    $targetConstraint = $this->resolveTargetConstraint($input, $output);
+
+    if ($targetConstraint === false) {
+      return Command::FAILURE;
+    }
+
+    [$composerConfig, $packages] = $this->buildComposerMigration(
+      $workspace,
+      $originalComposerConfig,
+      $targetConstraint,
+    );
+    $sourceConstraint = $this->findRequirementConstraint($originalComposerConfig, PACKAGE_NAME_CORE);
+    $plannedCoreConstraint = $this->findRequirementConstraint($composerConfig, PACKAGE_NAME_CORE) ?? $targetConstraint;
+    $isCrossReleaseUpdate = $this->releaseLine($sourceConstraint) !== $this->releaseLine($plannedCoreConstraint);
+
+    if ($isCrossReleaseUpdate || (bool) $input->getOption('dry-run')) {
+      $this->renderUpdatePlan(
+        $workspace,
+        $sourceConstraint,
+        $plannedCoreConstraint,
+        $originalComposerConfig,
+        $composerConfig,
+        $packages,
+        $output,
+      );
+    }
+
+    if ((bool) $input->getOption('dry-run')) {
+      $output->writeln("\n<info>Dry run complete. No files or dependencies were changed.</info>");
+      return Command::SUCCESS;
+    }
+
+    if (
+      $isCrossReleaseUpdate &&
+      ! $this->confirmCrossReleaseUpdate($input, $output)
+    ) {
+      return $input->isInteractive() ? Command::SUCCESS : Command::FAILURE;
+    }
+
+    $workspaceSnapshot = $this->captureWorkspaceSnapshot($workspace, $output);
+
+    if ($workspaceSnapshot === false) {
+      return Command::FAILURE;
+    }
+
     $output->writeln(sprintf(
       "%s%s▹▹▹▹▹%s Update in progress... ☕\n",
       Color::FG_LIGHT_BLUE->value,
@@ -66,16 +125,21 @@ class Update extends Command
     ));
 
     if (Command::SUCCESS !== $this->migrateAssegaiConfig($workspace, $output)) {
+      $this->restoreWorkspaceSnapshot($workspace, $workspaceSnapshot, $output);
       return Command::FAILURE;
     }
 
-    $packages = $this->migrateComposerConfig($workspace, $output);
-
-    if ($packages === false) {
+    if (! ComposerManifest::save($workspace, $composerConfig)) {
+      $output->writeln('<error>Failed to update composer.json.</error>');
+      $this->restoreWorkspaceSnapshot($workspace, $workspaceSnapshot, $output);
       return Command::FAILURE;
     }
+
+    $output->writeln('<question>UPDATE</question> composer.json');
 
     if (Command::SUCCESS !== $this->runComposerUpgrade($workspace, $packages, $output)) {
+      $this->restoreWorkspaceSnapshot($workspace, $workspaceSnapshot, $output);
+      $output->writeln('<comment>Workspace manifests were restored. Run composer install if Composer changed vendor/ before failing.</comment>');
       return Command::FAILURE;
     }
 
@@ -92,6 +156,248 @@ class Update extends Command
     $output->writeln("\n✔️ Update complete! \n");
 
     return Command::SUCCESS;
+  }
+
+  protected function resolveTargetConstraint(InputInterface $input, OutputInterface $output): false|string
+  {
+    $requestedTarget = trim((string) ($input->getOption('to') ?? ''));
+
+    if ($requestedTarget === '') {
+      return RECOMMENDED_FRAMEWORK_RELEASE_LINE;
+    }
+
+    if (preg_match('/^\^?v?(\d+)\.(\d+)(?:\.(?:\d+|x))?$/i', $requestedTarget, $matches) !== 1) {
+      $output->writeln('<error>Invalid target release line. Use a value such as 0.10 or 0.10.0.</error>');
+      return false;
+    }
+
+    $targetConstraint = sprintf('^%s.%s.0', $matches[1], $matches[2]);
+    $targetReleaseLine = $this->releaseLine($targetConstraint);
+    $cliReleaseLine = $this->releaseLine(RECOMMENDED_FRAMEWORK_RELEASE_LINE);
+
+    if ($targetReleaseLine !== $cliReleaseLine) {
+      $output->writeln(sprintf(
+        '<error>This Console release manages the %s framework line, not %s.</error>',
+        $this->formatReleaseLine($cliReleaseLine),
+        $this->formatReleaseLine($targetReleaseLine),
+      ));
+      $output->writeln(
+        '<comment>Update the global CLI first with `assegai global update` or `assegai -g update`, then retry.</comment>',
+      );
+      return false;
+    }
+
+    return $targetConstraint;
+  }
+
+  /**
+   * @param array<string, mixed> $composerConfig
+   */
+  protected function findRequirementConstraint(array $composerConfig, string $packageName): ?string
+  {
+    foreach (['require', 'require-dev'] as $section) {
+      $requirements = $composerConfig[$section] ?? [];
+
+      if (is_array($requirements) && is_string($requirements[$packageName] ?? null)) {
+        return $requirements[$packageName];
+      }
+    }
+
+    return null;
+  }
+
+  protected function releaseLine(?string $constraint): ?string
+  {
+    if ($constraint === null || preg_match('/(\d+)\.(\d+)/', $constraint, $matches) !== 1) {
+      return null;
+    }
+
+    return sprintf('%s.%s', $matches[1], $matches[2]);
+  }
+
+  protected function formatReleaseLine(?string $releaseLine): string
+  {
+    return $releaseLine === null ? 'an unknown release line' : $releaseLine . '.x';
+  }
+
+  /**
+   * @param array<string, mixed> $before
+   * @param array<string, mixed> $after
+   * @param string[] $packages
+   */
+  protected function renderUpdatePlan(
+    string $workspace,
+    ?string $sourceConstraint,
+    string $targetConstraint,
+    array $before,
+    array $after,
+    array $packages,
+    OutputInterface $output,
+  ): void
+  {
+    $sourceReleaseLine = $this->releaseLine($sourceConstraint);
+    $targetReleaseLine = $this->releaseLine($targetConstraint);
+    $advisorUrl = sprintf(
+      'https://update.assegaiphp.com/?from=%s&to=%s',
+      $sourceReleaseLine === null ? 'unknown' : $sourceReleaseLine . '.x',
+      $targetReleaseLine === null ? 'unknown' : $targetReleaseLine . '.0',
+    );
+
+    $output->writeln(sprintf(
+      "\n<info>Framework update plan: %s → %s</info>",
+      $this->formatReleaseLine($sourceReleaseLine),
+      $this->formatReleaseLine($targetReleaseLine),
+    ));
+    $output->writeln("Workspace: $workspace");
+
+    $requirementChanges = $this->requirementChanges($before, $after);
+
+    if ($requirementChanges === []) {
+      $output->writeln('Composer requirements: no constraint changes');
+    } else {
+      $output->writeln('Composer requirement changes:');
+
+      foreach ($requirementChanges as $change) {
+        $output->writeln(sprintf(
+          '  - %s (%s): %s → %s',
+          $change['package'],
+          $change['section'],
+          $change['from'],
+          $change['to'],
+        ));
+      }
+    }
+
+    $output->writeln('Composer update set: ' . implode(', ', $packages));
+    $output->writeln('Composer will update composer.lock and vendor/ with all dependent packages.');
+    $output->writeln('assegai.json will receive missing supported defaults.');
+    $output->writeln('Application PHP source and config/auth.php will not be created or rewritten automatically.');
+    $output->writeln("Commit or back up the workspace before continuing and review $advisorUrl.");
+  }
+
+  /**
+   * @param array<string, mixed> $before
+   * @param array<string, mixed> $after
+   * @return array<int, array{section: string, package: string, from: string, to: string}>
+   */
+  protected function requirementChanges(array $before, array $after): array
+  {
+    $changes = [];
+
+    foreach (['require', 'require-dev'] as $section) {
+      $beforeRequirements = is_array($before[$section] ?? null) ? $before[$section] : [];
+      $afterRequirements = is_array($after[$section] ?? null) ? $after[$section] : [];
+      $packageNames = array_values(array_unique(array_merge(
+        array_keys($beforeRequirements),
+        array_keys($afterRequirements),
+      )));
+      sort($packageNames);
+
+      foreach ($packageNames as $packageName) {
+        $beforeConstraint = $beforeRequirements[$packageName] ?? null;
+        $afterConstraint = $afterRequirements[$packageName] ?? null;
+
+        if ($beforeConstraint === $afterConstraint) {
+          continue;
+        }
+
+        $changes[] = [
+          'section' => $section,
+          'package' => (string) $packageName,
+          'from' => is_string($beforeConstraint) ? $beforeConstraint : '(not required)',
+          'to' => is_string($afterConstraint) ? $afterConstraint : '(removed)',
+        ];
+      }
+    }
+
+    return $changes;
+  }
+
+  protected function confirmCrossReleaseUpdate(InputInterface $input, OutputInterface $output): bool
+  {
+    if ((bool) $input->getOption('yes')) {
+      return true;
+    }
+
+    if (! $input->isInteractive()) {
+      $output->writeln('<error>Cross-release updates require explicit approval.</error>');
+      $output->writeln('<comment>Review with --dry-run, then re-run with --yes in non-interactive environments.</comment>');
+      return false;
+    }
+
+    $helper = $this->getHelper('question');
+
+    if (! $helper instanceof QuestionHelper) {
+      $output->writeln('<error>Unable to request update confirmation.</error>');
+      return false;
+    }
+
+    $confirmed = (bool) $helper->ask(
+      $input,
+      $output,
+      new ConfirmationQuestion("\nApply this cross-release update? [y/N] ", false),
+    );
+
+    if (! $confirmed) {
+      $output->writeln('<comment>Update cancelled. No files or dependencies were changed.</comment>');
+    }
+
+    return $confirmed;
+  }
+
+  /**
+   * @return false|array<string, array{exists: bool, contents: string}>
+   */
+  protected function captureWorkspaceSnapshot(string $workspace, OutputInterface $output): false|array
+  {
+    $snapshot = [];
+
+    foreach (['assegai.json', 'composer.json', 'composer.lock'] as $relativeFilename) {
+      $filename = Path::join($workspace, $relativeFilename);
+      $exists = is_file($filename);
+      $contents = $exists ? file_get_contents($filename) : '';
+
+      if ($contents === false) {
+        $output->writeln("<error>Failed to capture $relativeFilename before the update.</error>");
+        return false;
+      }
+
+      $snapshot[$relativeFilename] = [
+        'exists' => $exists,
+        'contents' => $contents,
+      ];
+    }
+
+    return $snapshot;
+  }
+
+  /**
+   * @param array<string, array{exists: bool, contents: string}> $snapshot
+   */
+  protected function restoreWorkspaceSnapshot(string $workspace, array $snapshot, OutputInterface $output): bool
+  {
+    $restored = true;
+
+    foreach ($snapshot as $relativeFilename => $state) {
+      $filename = Path::join($workspace, $relativeFilename);
+
+      if ($state['exists']) {
+        if (file_put_contents($filename, $state['contents']) === false) {
+          $restored = false;
+        }
+        continue;
+      }
+
+      if (is_file($filename) && ! unlink($filename)) {
+        $restored = false;
+      }
+    }
+
+    $output->writeln($restored
+      ? '<comment>RESTORE</comment> workspace manifests'
+      : '<error>Failed to restore one or more workspace manifests.</error>');
+
+    return $restored;
   }
 
   protected function migrateAssegaiConfig(string $workspace, OutputInterface $output): int
@@ -121,17 +427,15 @@ class Update extends Command
   }
 
   /**
-   * @return false|string[]
+   * @param array<string, mixed> $composerConfig
+   * @return array{0: array<string, mixed>, 1: string[]}
    */
-  protected function migrateComposerConfig(string $workspace, OutputInterface $output): false|array
+  protected function buildComposerMigration(
+    string $workspace,
+    array $composerConfig,
+    string $targetConstraint,
+  ): array
   {
-    try {
-      $composerConfig = ComposerManifest::load($workspace);
-    } catch (RuntimeException) {
-      $output->writeln('<error>Failed to load composer.json.</error>');
-      return false;
-    }
-
     $composerConfig = ProjectTemplateDefaults::hydrateComposerConfig($composerConfig);
 
     $composerConfig = ComposerManifest::ensureRecommendedRequirement(
@@ -143,7 +447,7 @@ class Update extends Command
     $composerConfig = ComposerManifest::ensureRecommendedRequirement(
       $composerConfig,
       PACKAGE_NAME_CORE,
-      RECOMMENDED_CORE_VERSION_CONSTRAINT
+      $targetConstraint
     );
 
     $packages = [PACKAGE_NAME_CORE];
@@ -152,7 +456,7 @@ class Update extends Command
       $composerConfig = ComposerManifest::ensureRecommendedRequirement(
         $composerConfig,
         PACKAGE_NAME_ORM,
-        RECOMMENDED_ORM_VERSION_CONSTRAINT
+        $targetConstraint
       );
       $packages[] = PACKAGE_NAME_ORM;
     }
@@ -166,17 +470,14 @@ class Update extends Command
       $packages[] = PACKAGE_NAME_EVENTS;
     }
 
-    [$composerConfig, $packages] = $this->ensureDirectFirstPartyReleaseLineRequirements($composerConfig, $packages);
+    [$composerConfig, $packages] = $this->ensureDirectFirstPartyReleaseLineRequirements(
+      $composerConfig,
+      $packages,
+      $targetConstraint,
+    );
     $packages = $this->appendDirectIndependentFirstPartyPackages($composerConfig, $packages);
 
-    if (! ComposerManifest::save($workspace, $composerConfig)) {
-      $output->writeln('<error>Failed to update composer.json.</error>');
-      return false;
-    }
-
-    $output->writeln('<question>UPDATE</question> composer.json');
-
-    return $packages;
+    return [$composerConfig, $packages];
   }
 
   /**
@@ -184,7 +485,11 @@ class Update extends Command
    * @param string[] $packages
    * @return array{0: array<string, mixed>, 1: string[]}
    */
-  protected function ensureDirectFirstPartyReleaseLineRequirements(array $composerConfig, array $packages): array
+  protected function ensureDirectFirstPartyReleaseLineRequirements(
+    array $composerConfig,
+    array $packages,
+    string $targetConstraint = RECOMMENDED_FRAMEWORK_RELEASE_LINE,
+  ): array
   {
     foreach (['require', 'require-dev'] as $section) {
       $requirements = $composerConfig[$section] ?? [];
@@ -201,7 +506,7 @@ class Update extends Command
         $composerConfig = ComposerManifest::ensureRecommendedRequirement(
           $composerConfig,
           $packageName,
-          RECOMMENDED_FRAMEWORK_RELEASE_LINE,
+          $targetConstraint,
           $section,
         );
         $packages[] = $packageName;

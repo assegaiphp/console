@@ -195,7 +195,7 @@ PHP;
    */
   public function finalizeBuild(): int
   {
-    if ($this->inspector->isValidWorkspace(getcwd() ?: '')) {
+    if ($this->inspector->isValidWorkspace($this->path)) {
       if ($localModuleFilename = $this->getLocalModuleFilename()) {
         if (($status = $this->updateLocalModule($localModuleFilename, $this->getModuleUpdates()) ) !== Command::SUCCESS) {
           return $status;

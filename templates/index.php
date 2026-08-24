@@ -21,16 +21,6 @@ if ($publicDirectory !== false && $requestPath !== '/' && $requestPath !== '') {
   }
 }
 
-header("Access-Control-Allow-Credentials: true");
-header("Access-Control-Allow-Headers: Origin,X-Requested-With,Content-Type,Accept,X-Access-Token,Authorization,x-api-key");
-header("Access-Control-Allow-Methods: GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE");
-header("Access-Control-Allow-Origin: *");
-
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
-  http_response_code(200);
-  exit();
-}
-
 if (!isset($_GET['path']) || $_GET['path'] === '') {
   $_GET['path'] = trim($requestPath, '/');
 }
