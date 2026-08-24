@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "021a7fd1b432ba16c2926308f3698ea2",
+    "content-hash": "59fd26c36458338b9faa0db1de1a94c7",
     "packages": [
         {
             "name": "assegaiphp/attributes",
@@ -52,16 +52,16 @@
         },
         {
             "name": "assegaiphp/common",
-            "version": "0.9.0",
+            "version": "0.10.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/assegaiphp/common.git",
-                "reference": "daa8f71da83f6ea5a3b0c9d7d7cac6c01391650b"
+                "reference": "6dc41086940414db87c83ed93f147fe76d05ef55"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/assegaiphp/common/zipball/daa8f71da83f6ea5a3b0c9d7d7cac6c01391650b",
-                "reference": "daa8f71da83f6ea5a3b0c9d7d7cac6c01391650b",
+                "url": "https://api.github.com/repos/assegaiphp/common/zipball/6dc41086940414db87c83ed93f147fe76d05ef55",
+                "reference": "6dc41086940414db87c83ed93f147fe76d05ef55",
                 "shasum": ""
             },
             "require": {
@@ -93,9 +93,9 @@
             "description": "The assegai/common package is a collection of commonly used utility classes and functions for AssegaiPHP projects. This package provides a set of tools that are designed to make it easier for developers to perform common tasks such as working with arrays, strings, and paths. The package also includes classes for handling errors and logging, as well as a simple yet powerful configuration management system. The package is designed to be lightweight, with minimal dependencies, and is fully compatible with any AssegaiPHP based project. Whether you're building a small web application or a large enterprise system, assegai/common provides the essential building blocks you need to get started quickly and easily.",
             "support": {
                 "issues": "https://github.com/assegaiphp/common/issues",
-                "source": "https://github.com/assegaiphp/common/tree/0.9.0"
+                "source": "https://github.com/assegaiphp/common/tree/0.10.0"
             },
-            "time": "2026-04-25T19:37:48+00:00"
+            "time": "2026-08-24T12:55:11+00:00"
         },
         {
             "name": "atatusoft-ltd/plural",
