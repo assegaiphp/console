@@ -5,7 +5,6 @@ namespace Assegai\Console\Commands\Queue;
 use Assegai\Console\Queue\WorkspaceQueueBridge;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
-use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -70,7 +69,7 @@ class QueueWork extends Command
           ), OutputInterface::VERBOSITY_VERBOSE);
           $output->writeln(sprintf('Processed job: <comment>%s</comment>', $job::class));
         },
-        onError: function (Throwable $error, object $job, array $definition, array $processor) use ($output): void {
+        onError: function (Throwable $error, ?object $job, array $definition, array $processor) use ($output): void {
           $output->writeln(sprintf(
             '<error>Failed processing %s with %s::%s: %s</error>',
             $definition['path'],
@@ -78,7 +77,10 @@ class QueueWork extends Command
             $processor['method'],
             $error->getMessage()
           ));
-          $output->writeln('Job class: ' . $job::class, OutputInterface::VERBOSITY_VERBOSE);
+
+          if ($job !== null) {
+            $output->writeln('Job class: ' . $job::class, OutputInterface::VERBOSITY_VERBOSE);
+          }
         },
       );
 
@@ -94,8 +96,8 @@ class QueueWork extends Command
       ));
 
       return Command::SUCCESS;
-    } catch (RuntimeException $exception) {
-      $output->writeln('<error>' . $exception->getMessage() . '</error>');
+    } catch (Throwable $throwable) {
+      $output->writeln('<error>' . $throwable->getMessage() . '</error>');
       return Command::FAILURE;
     }
   }

@@ -23,7 +23,7 @@
         "php": ">=8.4",
         "ext-pdo": "*",
         "atatusoft-ltd/plural": "^1.2",
-        "assegaiphp/common": "^0.10.0",
+        "assegaiphp/common": "^0.10.1",
         "symfony/console": "^8.0",
         "laravel/prompts": "^0.3"
     },
