@@ -74,25 +74,13 @@ class WorkspaceQueueBridge
       $queue = $this->instantiateQueue($definition);
       $processedJobs = 0;
       $sleepMicroseconds = max(0, $sleepMilliseconds) * 1000;
+      /** @var callable(object): mixed $processorCallback */
+      $processorCallback = [$processorInstance, $processorMethod];
 
       while (true) {
-        $result = $queue->process(function (object $job) use ($processorInstance, $processorMethod): void {
-          $processorInstance->{$processorMethod}($job);
-        });
+        $result = $queue->process($processorCallback);
 
         $job = $result->getJob();
-
-        if ($job === null) {
-          if ($stopWhenEmpty || $once) {
-            break;
-          }
-
-          if ($sleepMicroseconds > 0) {
-            usleep($sleepMicroseconds);
-          }
-
-          continue;
-        }
 
         if ($result->isError()) {
           foreach ($result->getErrors() as $error) {
@@ -103,6 +91,22 @@ class WorkspaceQueueBridge
 
           if ($once) {
             break;
+          }
+
+          if ($sleepMicroseconds > 0) {
+            usleep($sleepMicroseconds);
+          }
+
+          continue;
+        }
+
+        if ($job === null) {
+          if ($stopWhenEmpty || $once) {
+            break;
+          }
+
+          if ($sleepMicroseconds > 0) {
+            usleep($sleepMicroseconds);
           }
 
           continue;
@@ -213,7 +217,7 @@ class WorkspaceQueueBridge
 
   /**
    * @param array{path: string, driver: string, driverClass: string, name: string, config: array<string, mixed>} $definition
-   * @return QueueInterface<mixed>
+   * @return QueueInterface<object>
    */
   private function instantiateQueue(array $definition): QueueInterface
   {
@@ -345,13 +349,23 @@ class WorkspaceQueueBridge
       : ['process', 'handle', '__invoke'];
 
     foreach ($candidates as $candidate) {
-      if ($reflectionClass->hasMethod($candidate)) {
+      if (!$reflectionClass->hasMethod($candidate)) {
+        continue;
+      }
+
+      $method = $reflectionClass->getMethod($candidate);
+
+      if (
+        $method->isPublic()
+        && $method->getNumberOfParameters() >= 1
+        && $method->getNumberOfRequiredParameters() <= 1
+      ) {
         return $candidate;
       }
     }
 
     throw new RuntimeException(
-      "Queue processor class '{$processorClass}' must define a '{$preferredMethod}', 'process', 'handle', or '__invoke' method."
+      "Queue processor class '{$processorClass}' must define a public '{$preferredMethod}', 'process', 'handle', or '__invoke' method that accepts one job."
     );
   }
 

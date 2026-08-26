@@ -6,7 +6,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
- * @return array{workspace: string, processedLog: string, processorClass: string}
+ * @return array{workspace: string, processedLog: string, callbackTypeLog: string, processorClass: string}
  */
 function createQueueWorkspace(): array
 {
@@ -391,6 +391,11 @@ final class FakeQueue implements QueueInterface
     }
 
     try {
+      \$reflection = is_array(\$callback)
+        ? new \ReflectionMethod(\$callback[0], \$callback[1])
+        : new \ReflectionFunction(\Closure::fromCallable(\$callback));
+      \$callbackType = (string) (\$reflection->getParameters()[0]->getType() ?? '');
+      file_put_contents(dirname(__DIR__, 2) . '/storage/callback-type.log', \$callbackType);
       \$callback(\$job);
 
       return new FakeQueueProcessResult(null, \$job);
@@ -414,6 +419,7 @@ PHP);
   return [
     'workspace' => $workspace,
     'processedLog' => $workspace . '/storage/processed.log',
+    'callbackTypeLog' => $workspace . '/storage/callback-type.log',
     'processorClass' => $namespace . '\\Processors\\NotificationsProcessor',
   ];
 }
@@ -489,6 +495,8 @@ describe('Queue commands', function () {
       expect($status)->toBe(Command::SUCCESS);
       expect($tester->getDisplay())->toContain('Processed 1 job');
       expect(file_get_contents($fixture['processedLog']))->toContain('hello from queue');
+      expect(file_get_contents($fixture['callbackTypeLog']))
+        ->toBe(str_replace('Processors\\NotificationsProcessor', 'Jobs\\NotificationJob', $fixture['processorClass']));
     } finally {
       deleteQueueWorkspace($fixture['workspace']);
     }
