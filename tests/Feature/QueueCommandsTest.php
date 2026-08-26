@@ -8,11 +8,12 @@ use Symfony\Component\Console\Tester\CommandTester;
 /**
  * @return array{workspace: string, processedLog: string, callbackTypeLog: string, processorClass: string}
  */
-function createQueueWorkspace(): array
+function createQueueWorkspace(bool $failWithoutJob = false): array
 {
   $workspace = sys_get_temp_dir() . '/' . uniqid('queue-command-', true);
   $suffix = preg_replace('/[^A-Za-z0-9]/', '', uniqid('', true));
   $namespace = "Assegaiphp\\QueueTest{$suffix}";
+  $failWithoutJobLiteral = $failWithoutJob ? 'true' : 'false';
   $vendorAutoload = resolveConsoleVendorAutoload();
   $stubsFile = $workspace . '/vendor/stubs.php';
 
@@ -236,6 +237,7 @@ return [
   'connections' => [
     'sync' => [
       'notifications' => [
+        'fail_without_job' => {$failWithoutJobLiteral},
         'jobs' => [
           new NotificationJob('hello from queue'),
         ],
@@ -366,6 +368,7 @@ final class FakeQueue implements QueueInterface
   public function __construct(
     private array \$jobs,
     private readonly string \$name,
+    private readonly bool \$failWithoutJob,
   ) {
   }
 
@@ -373,7 +376,8 @@ final class FakeQueue implements QueueInterface
   {
     return new self(
       jobs: \$config['jobs'] ?? [],
-      name: (string) (\$config['name'] ?? 'default')
+      name: (string) (\$config['name'] ?? 'default'),
+      failWithoutJob: (bool) (\$config['fail_without_job'] ?? false),
     );
   }
 
@@ -384,6 +388,10 @@ final class FakeQueue implements QueueInterface
 
   public function process(callable \$callback): QueueProcessResultInterface
   {
+    if (\$this->failWithoutJob) {
+      return new FakeQueueProcessResult(null, null, [new \RuntimeException('queue transport failed')]);
+    }
+
     \$job = array_shift(\$this->jobs);
 
     if (!\$job) {
@@ -497,6 +505,25 @@ describe('Queue commands', function () {
       expect(file_get_contents($fixture['processedLog']))->toContain('hello from queue');
       expect(file_get_contents($fixture['callbackTypeLog']))
         ->toBe(str_replace('Processors\\NotificationsProcessor', 'Jobs\\NotificationJob', $fixture['processorClass']));
+    } finally {
+      deleteQueueWorkspace($fixture['workspace']);
+    }
+  });
+
+  it('stops after reporting a null-job error when stop-when-empty is set', function () {
+    $fixture = createQueueWorkspace(failWithoutJob: true);
+
+    try {
+      $tester = new CommandTester(new QueueWork());
+      $status = $tester->execute([
+        '--directory' => $fixture['workspace'],
+        '--stop-when-empty' => true,
+        '--sleep' => '0',
+      ]);
+
+      expect($status)->toBe(Command::SUCCESS);
+      expect($tester->getDisplay())->toContain('queue transport failed');
+      expect($tester->getDisplay())->toContain('Processed 0 jobs');
     } finally {
       deleteQueueWorkspace($fixture['workspace']);
     }

@@ -89,7 +89,7 @@ class WorkspaceQueueBridge
             }
           }
 
-          if ($once) {
+          if ($once || ($stopWhenEmpty && $job === null)) {
             break;
           }
 
