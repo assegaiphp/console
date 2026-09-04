@@ -16,7 +16,7 @@ It gives you a working Assegai app with:
 
 ## Requirements
 
-- PHP 8.3+
+- PHP 8.4+
 - Composer 2.x
 
 ## Getting Started
