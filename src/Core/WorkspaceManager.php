@@ -172,21 +172,14 @@ class WorkspaceManager
       return $statusCode;
     }
 
-    # Copy .env.example to .env
-    $envExamplePath = Path::join($projectDirectory, '.env.example');
-    $envPath = Path::join($projectDirectory, '.env');
-    if ( file_exists($envExamplePath) ) {
-      if (! copy($envExamplePath, $envPath) ) {
-        $this->output->writeln("<error>\nFailed to create .env file</error>");
-        return Command::FAILURE;
-      }
-    }
-
-    if (Command::SUCCESS !== $this->generateApplicationSecretKey($envPath)) {
+    try {
+      ApplicationSecretKey::forWorkspace($projectDirectory)->generate();
+    } catch (Throwable) {
       $this->output->writeln([
-        "<error>\nFailed to generate application secret key</error>",
-        "<comment>Please generate one manually and set it in the .env file</comment>"
+        '<error>Failed to generate the application secret key.</error>',
+        '<comment>Check .env permissions and run assegai key:generate in the project directory.</comment>',
       ]);
+      return Command::FAILURE;
     }
 
     # Initialize the git repository
@@ -425,40 +418,4 @@ class WorkspaceManager
     return Command::SUCCESS;
   }
 
-  /**
-   * Generate the application secret key and update the .env file
-   *
-   * @param string $envPath The path to the .env file
-   * @return int The command status
-   */
-  private function generateApplicationSecretKey(string $envPath): int
-  {
-    try {
-      $keyLength = 32;
-      $binaryKey = random_bytes($keyLength);
-      $secretKey = bin2hex($binaryKey);
-
-      # Update .env file with the secret key
-      if ( file_exists($envPath) ) {
-        $envContent = file_get_contents($envPath);
-
-        # Check if APP_SECRET_KEY already exists
-        if (str_contains($envContent ?: '', 'APP_SECRET_KEY') === false) {
-          $envContent .= "\nAPP_SECRET_KEY=[YOUR_SECRET_KEY]\n";
-        }
-
-        $envContent = preg_replace('/APP_SECRET_KEY=.*/', "APP_SECRET_KEY=$secretKey", $envContent ?: '');
-
-        if (false === file_put_contents($envPath, $envContent) ) {
-          $this->output->writeln("<error>\nFailed to update .env file with secret key</error>");
-          return Command::FAILURE;
-        }
-      }
-
-      return Command::SUCCESS;
-    } catch (Throwable $exception) {
-      $this->output->writeln("<error>$exception</error>", OutputInterface::VERBOSITY_VERBOSE);
-      return Command::FAILURE;
-    }
-  }
 }
