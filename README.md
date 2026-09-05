@@ -90,6 +90,21 @@ The scaffold flow can also:
 - write sensitive config to `config/secure.php`
 - set up a starter users resource when ORM is enabled
 
+### Cloned projects and application keys
+
+Keep `.env.example` in Git with placeholder values; each environment owns its ignored `.env` file. After cloning a project, run:
+
+```bash
+composer install
+assegai key:generate
+```
+
+`key:generate` creates a missing `.env` from `.env.example` and initializes `APP_SECRET_KEY` with 32 cryptographically random bytes encoded as 64 hexadecimal characters. It also works before installing project dependencies. If neither file exists, create `.env` first. Other settings and the example file are preserved, and the key is never printed.
+
+To rotate an existing key, run `assegai key:generate` and confirm, or explicitly use `assegai key:generate --force` in automation. `--directory` (`-d`) selects another workspace. Existing non-placeholder keys are never replaced without approval. Rotation may invalidate tokens or encrypted data that use the old key; retain the old key where needed and restart long-running application processes. All instances of the same environment must share the same key. Do not regenerate it on every install, update, or deployment.
+
+`assegai new` generates the initial key automatically. The key command updates the local `.env` file; deployments that inject `APP_SECRET_KEY` through the process environment or a secret manager must update that value there.
+
 ### Development
 
 After creating a new project, you can start the development server to preview your application in the browser.

@@ -10,6 +10,7 @@ use Assegai\Console\Commands\DumpAutoload;
 use Assegai\Console\Commands\Generate;
 use Assegai\Console\Commands\GlobalUpdate;
 use Assegai\Console\Commands\Info;
+use Assegai\Console\Commands\KeyGenerate;
 use Assegai\Console\Commands\NewProject;
 use Assegai\Console\Commands\Queue\QueueList;
 use Assegai\Console\Commands\Queue\QueueWork;
@@ -70,6 +71,7 @@ class ApplicationFactory
       new Generate(),
       new GlobalUpdate($versionChecker),
       new Info(),
+      new KeyGenerate(),
       new NewProject(),
       new QueueList(),
       new QueueWork(),

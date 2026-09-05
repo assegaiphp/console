@@ -149,6 +149,10 @@ describe('Workspace manager', function () {
       expect($gitignore)->toContain('/config/secure*.php');
       expect($gitignore)->not->toContain('!/config/secure.php');
       expect($secureConfig)->toContain('Acme\\BlogApi\\Users\\Entities\\UserEntity::class');
+      $environment = file_get_contents($workspace . '/my-blog-api/.env') ?: '';
+      expect($environment)->toMatch('/^APP_SECRET_KEY=[a-f0-9]{64}$/m');
+      expect(file_get_contents($workspace . '/my-blog-api/.env.example'))
+        ->toContain('APP_SECRET_KEY=your_secret_key_here');
     } finally {
       CliPrompt::flushFake();
 
