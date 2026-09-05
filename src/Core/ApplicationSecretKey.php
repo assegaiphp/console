@@ -4,6 +4,7 @@ namespace Assegai\Console\Core;
 
 use Assegai\Console\Util\Path;
 use RuntimeException;
+use Throwable;
 
 /** Generates application keys without evaluating or rewriting other dotenv settings. */
 final class ApplicationSecretKey
@@ -107,9 +108,13 @@ REGEX;
       throw new RuntimeException('Cannot write .env. Check the file and directory permissions.');
     }
 
-    // Stage the complete file with private permissions, then replace it only once
-    // every write has succeeded. A failed write must not truncate an existing key.
-    $temporary = tempnam($directory, '.assegai-env-');
+    if ($this->originalContents !== null) {
+      $this->updateExisting($contents);
+      return;
+    }
+
+    // A new environment has no ownership or ACL metadata to preserve.
+    $temporary = tempnam($directory, '.env.assegai-');
     if ($temporary === false) {
       throw new RuntimeException('Could not prepare the environment file.');
     }
@@ -118,13 +123,10 @@ REGEX;
       if (file_put_contents($temporary, $contents, LOCK_EX) !== strlen($contents)) {
         throw new RuntimeException('Failed to write the application key.');
       }
-      $permissions = $this->originalContents === null ? 0600 : fileperms($this->filename);
-      if ($permissions === false || ! chmod($temporary, $permissions & 0777)) {
+      if (! chmod($temporary, 0600)) {
         throw new RuntimeException('Failed to set environment file permissions.');
       }
-      if (is_link($this->filename) || ($this->originalContents === null
-        ? file_exists($this->filename)
-        : ! is_file($this->filename) || file_get_contents($this->filename) !== $this->originalContents)) {
+      if (is_link($this->filename) || file_exists($this->filename)) {
         throw new RuntimeException('.env changed while generating the key. Run the command again.');
       }
       if (! rename($temporary, $this->filename)) {
@@ -134,6 +136,72 @@ REGEX;
       if (is_file($temporary)) {
         unlink($temporary);
       }
+    }
+  }
+
+  private function updateExisting(string $contents): void
+  {
+    // Keep the original inode: replacing it would discard its owner, group,
+    // extended ACLs and security labels, potentially locking out the application.
+    $stream = fopen($this->filename, 'r+b');
+    if ($stream === false) {
+      throw new RuntimeException('Could not open .env for writing.');
+    }
+
+    $backup = false;
+    $keepBackup = false;
+    try {
+      if (! flock($stream, LOCK_EX)) {
+        throw new RuntimeException('Could not lock .env for writing.');
+      }
+      if (is_link($this->filename) || stream_get_contents($stream) !== $this->originalContents) {
+        throw new RuntimeException('.env changed while generating the key. Run the command again.');
+      }
+
+      $original = $this->originalContents ?? '';
+      $backup = tempnam(dirname($this->filename), '.env.assegai-backup-');
+      if ($backup === false || file_put_contents($backup, $original, LOCK_EX) !== strlen($original)) {
+        throw new RuntimeException('Could not save a recovery copy of .env. No key was changed.');
+      }
+
+      // Keep the private recovery copy if writing or automatic restoration fails.
+      $keepBackup = true;
+      try {
+        $this->writeToStream($stream, $contents);
+      } catch (Throwable $exception) {
+        try {
+          $this->writeToStream($stream, $original);
+          $keepBackup = false;
+        } catch (Throwable) {
+          throw new RuntimeException('Could not restore .env. Recover the original from ' . basename($backup) . '.', previous: $exception);
+        }
+        throw new RuntimeException('Failed to write the key. The original .env was restored.', previous: $exception);
+      }
+      $keepBackup = false;
+    } finally {
+      flock($stream, LOCK_UN);
+      fclose($stream);
+      if ($backup !== false && ! $keepBackup) {
+        unlink($backup);
+      }
+    }
+  }
+
+  /** @param resource $stream */
+  private function writeToStream($stream, string $contents): void
+  {
+    if (! rewind($stream)) {
+      throw new RuntimeException('Could not seek in the environment file.');
+    }
+    $length = strlen($contents);
+    for ($offset = 0; $offset < $length; $offset += $written) {
+      $written = fwrite($stream, substr($contents, $offset));
+      if ($written === false || $written === 0) {
+        throw new RuntimeException('Could not write the environment file.');
+      }
+    }
+    if (! ftruncate($stream, $length) || ! fflush($stream)) {
+      throw new RuntimeException('Could not finish writing the environment file.');
     }
   }
 }

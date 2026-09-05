@@ -78,13 +78,21 @@ describe('key:generate', function () {
     });
   });
 
-  it('preserves export syntax, spacing, inline comments, newline style and permissions', function () {
+  it('preserves dotenv formatting and the original file inode and access metadata', function () {
     $contents = "APP_NAME=Test\r\n  export APP_SECRET_KEY = \"old-key\"  # deployment key\r\nOTHER=value\r\n";
     withKeyWorkspace($contents, null, function (string $workspace, CommandTester $tester) use ($contents) {
       chmod($workspace . '/.env', 0640);
+      $inode = fileinode($workspace . '/.env');
+      $owner = fileowner($workspace . '/.env');
+      $group = filegroup($workspace . '/.env');
       expect($tester->execute(['--directory' => $workspace, '--force' => true]))->toBe(Command::SUCCESS);
       $updated = file_get_contents($workspace . '/.env') ?: '';
       expect(preg_replace('/[a-f0-9]{64}/', '"old-key"', $updated))->toBe($contents);
+      clearstatcache(true, $workspace . '/.env');
+      expect(fileinode($workspace . '/.env'))->toBe($inode)
+        ->and(fileowner($workspace . '/.env'))->toBe($owner)
+        ->and(filegroup($workspace . '/.env'))->toBe($group)
+        ->and(glob($workspace . '/.env.assegai-*'))->toBe([]);
       if (DIRECTORY_SEPARATOR === '/') {
         expect(fileperms($workspace . '/.env') & 0777)->toBe(0640);
       }
@@ -151,7 +159,7 @@ describe('key:generate', function () {
       file_put_contents($workspace . '/.env', $changed);
       expect(fn () => $key->generate())->toThrow(RuntimeException::class, '.env changed')
         ->and(file_get_contents($workspace . '/.env'))->toBe($changed)
-        ->and(glob($workspace . '/.assegai-env-*'))->toBe([]);
+        ->and(glob($workspace . '/.env.assegai-*'))->toBe([]);
     });
   });
 
