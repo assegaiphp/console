@@ -16,7 +16,7 @@ It gives you a working Assegai app with:
 
 ## Requirements
 
-- PHP 8.3+
+- PHP 8.4+
 - Composer 2.x
 
 ## Getting Started
@@ -27,7 +27,12 @@ If you cloned the repository later, install them with:
 
 ```bash
 composer install
+assegai key:generate
 ```
+
+`assegai key:generate` creates `.env` from `.env.example` if needed and generates a fresh `APP_SECRET_KEY` when it is missing, empty, or still a scaffold placeholder. Keep `.env.example` in Git and keep `.env` private. Projects created with `assegai new` already have a generated key.
+
+To replace an existing key, run `assegai key:generate` and confirm, or use `assegai key:generate --force`. Rotation may invalidate tokens and encrypted data using the old key. Restart long-running processes afterward, and share the same key across instances of one environment. Do not run forced key generation on every deployment.
 
 Then start the app:
 
