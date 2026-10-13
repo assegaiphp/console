@@ -116,7 +116,32 @@ class Inspector
    */
   public static function getRunningCLIVersion(): string
   {
-    return self::getRuntimePackageVersion(PACKAGE_NAME_CLI) ?? 'Unknown';
+    $installation = realpath(dirname(__DIR__, 2));
+
+    foreach (InstalledVersions::getAllRawData() as $installed) {
+      $packages = [$installed['versions'][PACKAGE_NAME_CLI] ?? []];
+
+      if ($installed['root']['name'] === PACKAGE_NAME_CLI) {
+        $packages[] = $installed['root'];
+      }
+
+      foreach ($packages as $package) {
+        $path = $package['install_path'] ?? null;
+
+        // Composer may describe several Console installations in one process.
+        if (!is_string($path) || $installation === false || realpath($path) !== $installation) {
+          continue;
+        }
+
+        $version = $package['pretty_version'] ?? $package['version'] ?? null;
+
+        if (is_string($version)) {
+          return $version;
+        }
+      }
+    }
+
+    return 'Unknown';
   }
 
   /**
@@ -223,6 +248,11 @@ class Inspector
 
   private static function getRuntimePackageVersion(string $packageName): ?string
   {
+    if ($packageName === PACKAGE_NAME_CLI) {
+      $version = self::getRunningCLIVersion();
+      return $version === 'Unknown' ? null : $version;
+    }
+
     try {
       if (InstalledVersions::isInstalled($packageName)) {
         return InstalledVersions::getPrettyVersion($packageName)
