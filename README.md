@@ -187,6 +187,41 @@ Useful options include:
 
 Database-aware commands also support MySQL, MariaDB, PostgreSQL, SQLite, and MSSQL where applicable.
 
+## Web Component groups
+
+Configure independent bundles with explicit source files or directories:
+
+```json
+{
+  "webComponents": {
+    "groups": {
+      "site": {
+        "sources": ["src/WebComponents/Site"],
+        "output": "public/js/site.min.js"
+      },
+      "sandbox": {
+        "sources": ["src/WebComponents/PlaygroundEditor"],
+        "output": "public/js/sandbox.min.js"
+      }
+    }
+  }
+}
+```
+
+```bash
+assegai wc:build --group=site
+assegai wc:list --group=sandbox --json
+assegai wc:watch --group=site --group=sandbox
+```
+
+Omit `--group` to select all configured groups. Without `webComponents.groups`, the existing `src/**/*.wc.ts` discovery and single-bundle paths are unchanged. Grouped discovery visits only the selected sources; files outside the configured groups are excluded. Paths are relative to the workspace. Source memberships cannot overlap, and artifact paths must stay in the workspace without conflicting with another group or source path. Importing a different group's `.wc.ts` component is rejected. Shared ordinary TypeScript/CSS dependencies are allowed.
+
+Each group owns its configured JavaScript output and the sibling `.css` output emitted by esbuild. A stylesheet no longer emitted is removed. Cache files are separate under `.cache/assegai/groups/<name>/`: `wc-entry.ts`, `web-components.manifest.json`, and `esbuild-meta.json`. The metafile is esbuild's dependency graph, including transitive input paths and emitted outputs relative to the workspace. Building one group leaves unselected groups' files unchanged. Compiler/runtime builds and deployment uploads remain separate application workflows.
+
+Watch mode detects new, removed and renamed components, including the first component in an empty source directory. It checks directory membership at the configured hot-reload polling interval using the existing watch tick. Esbuild tracks dependency content edits. Successful builds update per-group hot-reload markers and the existing root marker, so Core's existing browser poller observes changes to any selected group. For a configured marker `public/.assegai/wc-hot-reload.json`, group markers live at `public/.assegai/groups/<name>/wc-hot-reload.json`.
+
+One watch session coordinates the selected groups and stops its children together. Build locks prevent concurrent writers to the same group; another group can be built independently. `serve --dev` watches all configured groups. `--no-hot-reload` retains watch builds without writing browser markers. CLI command failures return a nonzero exit code.
+
 ## Custom schematics
 
 You can extend the generator without forking the CLI.

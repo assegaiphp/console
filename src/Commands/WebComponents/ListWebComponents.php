@@ -30,6 +30,7 @@ class ListWebComponents extends Command
   {
     $this
       ->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The workspace directory', getcwd())
+      ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'List only these configured groups')
       ->addOption('json', null, InputOption::VALUE_NONE, 'Render the result as JSON');
   }
 
@@ -50,7 +51,12 @@ class ListWebComponents extends Command
       return Command::FAILURE;
     }
 
-    $components = $this->createBuilder()->discover($workspace);
+    try {
+      $components = $this->createBuilder()->discover($workspace, $input->getOption('group'));
+    } catch (\InvalidArgumentException $exception) {
+      $output->writeln('<error>' . $exception->getMessage() . '</error>');
+      return Command::FAILURE;
+    }
 
     if ($input->getOption('json')) {
       $output->writeln(json_encode($components, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '[]');
