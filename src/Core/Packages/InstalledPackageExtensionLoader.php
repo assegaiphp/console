@@ -3,9 +3,12 @@
 namespace Assegai\Console\Core\Packages;
 
 use Assegai\Console\Util\Path;
+use Composer\Autoload\ClassLoader;
 
 class InstalledPackageExtensionLoader
 {
+  private static ?ClassLoader $consoleLoader = null;
+
   /**
    * @return InstalledPackageExtension[]
    */
@@ -24,6 +27,13 @@ class InstalledPackageExtensionLoader
         require_once $workspaceAutoload;
       }
     }
+
+    // Workspace autoloaders can prepend an older Console. Protect discovery
+    // itself as well as later commands, without reordering other namespaces.
+    self::$consoleLoader ??= new ClassLoader();
+    self::$consoleLoader->setPsr4('Assegai\\Console\\', dirname(__DIR__, 2));
+    self::$consoleLoader->unregister();
+    self::$consoleLoader->register(true);
 
     $extensions = [];
     $packageManifests = glob($vendorPath . '/*/*/composer.json') ?: [];

@@ -212,8 +212,15 @@ it('uses the executing CLI when a workspace autoloader contains an older Console
   try {
     mkdir($workspace . '/vendor');
     mkdir($workspace . '/old-console/WebComponents/Builder', 0755, true);
+    mkdir($workspace . '/old-console/Core/Packages', 0755, true);
+    mkdir($workspace . '/vendor/example/extension', 0755, true);
     file_put_contents($workspace . '/old-console/WebComponents/Builder/WebComponentBuilder.php',
       '<?php namespace Assegai\\Console\\WebComponents\\Builder; final class WebComponentBuilder {}');
+    file_put_contents($workspace . '/old-console/Core/Packages/InstalledPackageExtension.php',
+      '<?php namespace Assegai\\Console\\Core\\Packages; class InstalledPackageExtension { public function __construct() { throw new \\RuntimeException("Loaded old Console extension class"); } }');
+    file_put_contents($workspace . '/vendor/example/extension/composer.json', json_encode([
+      'name' => 'example/extension', 'extra' => ['assegai' => ['aliases' => ['fixture']]],
+    ]));
     file_put_contents($workspace . '/vendor/autoload.php', <<<'PHP'
 <?php
 $loader = new Composer\Autoload\ClassLoader();

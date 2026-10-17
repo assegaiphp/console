@@ -27,13 +27,11 @@ use Assegai\Console\Core\Packages\InstalledPackageExtensionLoader;
 use Assegai\Console\Util\CliInputNormalizer;
 use Assegai\Console\Util\CliVersionChecker;
 use Assegai\Console\Util\Path;
-use Composer\Autoload\ClassLoader;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 
 class ApplicationFactory
 {
-  private static ?ClassLoader $consoleLoader = null;
   /**
    * @param string[]|null $argv
    */
@@ -51,14 +49,6 @@ class ApplicationFactory
     $resolvedWorkspace = self::resolveWorkspace($workspace, $normalizedArgv);
 
     $extensions = InstalledPackageExtensionLoader::load($resolvedWorkspace);
-    // Workspace loaders may prepend their own older Console installation.
-    // Keep this executing installation's classes together without reordering
-    // the project's framework or other dependency namespaces.
-    self::$consoleLoader ??= new ClassLoader();
-    self::$consoleLoader->setPsr4(__NAMESPACE__ . '\\', __DIR__);
-    self::$consoleLoader->unregister();
-    self::$consoleLoader->register(true);
-
     foreach ($extensions as $extension) {
       $application->addCommands($extension->instantiateCommands());
     }
