@@ -21,7 +21,7 @@ function bootstrap(): void
 {
   try {
     $app = ApplicationFactory::create();
-    $app->run();
+    exit($app->run());
   } catch (Exception $e) {
     echo $e->getMessage();
     exit(1);

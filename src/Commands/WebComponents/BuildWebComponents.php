@@ -4,7 +4,6 @@ namespace Assegai\Console\Commands\WebComponents;
 
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\WebComponents\Builder\WebComponentBuilder;
-use Assegai\Console\WebComponents\WebComponentConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -19,7 +18,8 @@ class BuildWebComponents extends Command
 {
   public function configure(): void
   {
-    $this->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The workspace directory', getcwd());
+    $this->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The workspace directory', getcwd())
+      ->addOption('group', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build only these configured groups');
   }
 
   public function execute(InputInterface $input, OutputInterface $output): int
@@ -33,24 +33,30 @@ class BuildWebComponents extends Command
     }
 
     $builder = $this->createBuilder();
-    $components = $builder->discover($workspace);
-    $status = $builder->build($workspace);
+    try {
+      $plan = $builder->prepare($workspace, $input->getOption('group'));
+      $status = $builder->build($workspace, plan: $plan);
+    } catch (\InvalidArgumentException | \RuntimeException $exception) {
+      $output->writeln('<error>' . $exception->getMessage() . '</error>');
+      return Command::FAILURE;
+    }
 
     if ($status !== Command::SUCCESS) {
       $output->writeln('<error>Failed to build Web Components. Ensure esbuild is installed and available on PATH.</error>');
       return Command::FAILURE;
     }
 
-    if (empty($components)) {
-      $output->writeln('<comment>No Web Components found.</comment>');
-      return Command::SUCCESS;
+    foreach ($plan as $item) {
+      if ($item['components'] === []) {
+        $output->writeln('<comment>No Web Components found.</comment>');
+        continue;
+      }
+      $output->writeln(sprintf(
+        'Built <info>%d</info> Web Components into <comment>%s</comment>.',
+        count($item['components']),
+        $item['group']->output
+      ));
     }
-
-    $output->writeln(sprintf(
-      'Built <info>%d</info> Web Components into <comment>%s</comment>.',
-      count($components),
-      WebComponentConfig::getOutputPath($workspace)
-    ));
 
     return Command::SUCCESS;
   }

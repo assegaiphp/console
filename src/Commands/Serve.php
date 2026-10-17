@@ -210,7 +210,7 @@ class Serve extends Command
       return false;
     }
 
-    $command = sprintf(
+    $command = (PHP_OS_FAMILY === 'Windows' ? '' : 'exec ') . sprintf(
       '%s %s wc:watch --directory %s',
       escapeshellarg(PHP_BINARY),
       escapeshellarg($entrypoint),

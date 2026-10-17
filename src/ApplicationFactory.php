@@ -48,7 +48,8 @@ class ApplicationFactory
 
     $resolvedWorkspace = self::resolveWorkspace($workspace, $normalizedArgv);
 
-    foreach (InstalledPackageExtensionLoader::load($resolvedWorkspace) as $extension) {
+    $extensions = InstalledPackageExtensionLoader::load($resolvedWorkspace);
+    foreach ($extensions as $extension) {
       $application->addCommands($extension->instantiateCommands());
     }
 

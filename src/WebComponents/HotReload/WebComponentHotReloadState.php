@@ -4,13 +4,14 @@ namespace Assegai\Console\WebComponents\HotReload;
 
 use Assegai\Console\Util\Path;
 use Assegai\Console\WebComponents\WebComponentConfig;
+use Assegai\Console\WebComponents\WebComponentGroup;
 
 final class WebComponentHotReloadState
 {
   private ?string $lastVersion = null;
   private float $lastWriteAt = 0.0;
 
-  public function __construct(private readonly string $workspace)
+  public function __construct(private readonly string $workspace, private readonly ?WebComponentGroup $group = null)
   {
   }
 
@@ -28,9 +29,9 @@ final class WebComponentHotReloadState
     return $this->writeState($this->lastVersion);
   }
 
-  public function synchronize(): bool
+  public function synchronize(?string $version = null, bool $checkBundle = true): bool
   {
-    $version = $this->resolveBundleVersion() ?? $this->lastVersion ?? $this->makeVersion();
+    $version ??= ($checkBundle ? $this->resolveBundleVersion() : null) ?? $this->lastVersion ?? $this->makeVersion();
     $heartbeatSeconds = max(0.25, WebComponentConfig::getHotReloadPollInterval($this->workspace) / 1000);
 
     if ($version === $this->lastVersion && (microtime(true) - $this->lastWriteAt) < $heartbeatSeconds) {
@@ -75,12 +76,12 @@ final class WebComponentHotReloadState
 
   private function getFilename(): string
   {
-    return Path::join($this->workspace, WebComponentConfig::getHotReloadPath($this->workspace));
+    return Path::join($this->workspace, $this->group?->hotReloadPath ?? WebComponentConfig::getHotReloadPath($this->workspace));
   }
 
   private function getBundleUrl(): string
   {
-    $path = '/' . ltrim(WebComponentConfig::getOutputPath($this->workspace), '/');
+    $path = '/' . ltrim($this->group?->output ?? WebComponentConfig::getOutputPath($this->workspace), '/');
 
     if (str_starts_with($path, '/public/')) {
       return substr($path, strlen('/public'));
@@ -140,7 +141,7 @@ final class WebComponentHotReloadState
 
   private function resolveBundleVersion(): ?string
   {
-    $bundleFilename = Path::join($this->workspace, WebComponentConfig::getOutputPath($this->workspace));
+    $bundleFilename = Path::join($this->workspace, $this->group?->output ?? WebComponentConfig::getOutputPath($this->workspace));
 
     if (!is_file($bundleFilename)) {
       return null;
