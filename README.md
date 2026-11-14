@@ -154,19 +154,19 @@ The current OpenSwoole path is still experimental. It is intended for careful te
 
 ## Upgrading existing projects
 
-The Console release determines the framework release line that `assegai update` can select. Composer constraints such as `^0.9.0` deliberately exclude 0.10, so update the globally installed CLI before asking it to migrate a 0.9 project:
+Console maintains explicit compatible package recommendations. The supported Core baseline is `^0.11.0`; ORM, Events and the other compatible companion packages retain their published 0.10 lines. Package recommendations are independent of the running CLI's version metadata. Composer constraints such as `^0.10.0` exclude Core 0.11, so update the global CLI before migrating an existing project:
 
 ```bash
 $ assegai global update
 # or: assegai -g update
 $ assegai --version
-$ assegai update --to=0.10 --dry-run
-$ assegai update --to=0.10
+$ assegai update --to=0.11 --dry-run
+$ assegai update --to=0.11
 ```
 
 The dry run lists every direct requirement change and the Composer update set without changing files. A cross-release update then requires confirmation; non-interactive environments must pass `--yes` explicitly.
 
-If the project itself requires `assegaiphp/console:^0.9`, do not try to upgrade that local dependency by itself. Run the globally installed 0.10 CLI so Core, the local Console requirement, and the other coordinated first-party packages move to 0.10 in one Composer transaction.
+If the project itself requires an older `assegaiphp/console`, run the current globally installed CLI so Core and the local Console requirement can move to 0.11 in one Composer transaction. Installed companion packages use their own recommended constraints; compatible newer constraints and independent queue-driver constraints are preserved. The update does not require ORM or Events 0.11 releases.
 
 The command hydrates `assegai.json`, updates `composer.json`, and runs Composer with all dependent packages. It does not rewrite application PHP source or create `config/auth.php`. Review the [update advisor](https://update.assegaiphp.com/) for the application-owned configuration and verification steps. If Composer fails, the CLI restores `assegai.json`, `composer.json`, and `composer.lock`; run `composer install` if Composer changed `vendor/` before failing.
 

@@ -6,6 +6,23 @@ class FirstPartyPackageCatalog
 {
   private const PACKAGE_VENDOR = 'assegaiphp';
 
+  /** @return array<string, string> Published package lines compatible with the supported Core baseline. */
+  public static function recommendedConstraints(): array
+  {
+    return [
+      PACKAGE_NAME_CLI => RECOMMENDED_CLI_VERSION_CONSTRAINT,
+      PACKAGE_NAME_CORE => RECOMMENDED_CORE_VERSION_CONSTRAINT,
+      PACKAGE_NAME_ORM => RECOMMENDED_ORM_VERSION_CONSTRAINT,
+      PACKAGE_NAME_EVENTS => RECOMMENDED_EVENTS_VERSION_CONSTRAINT,
+      'assegaiphp/auth' => '^0.10.0',
+      'assegaiphp/collections' => '^0.10.0',
+      'assegaiphp/common' => '^0.10.1',
+      'assegaiphp/forms' => '^0.10.0',
+      'assegaiphp/util' => '^0.10.0',
+      'assegaiphp/validation' => '^0.10.0',
+    ];
+  }
+
   /**
    * @return array{packageName: string, constraint: string}|null
    */
@@ -17,24 +34,10 @@ class FirstPartyPackageCatalog
       return null;
     }
 
-    return match ($packageName) {
-      PACKAGE_NAME_CORE => [
-        'packageName' => PACKAGE_NAME_CORE,
-        'constraint' => RECOMMENDED_CORE_VERSION_CONSTRAINT,
-      ],
-      PACKAGE_NAME_ORM => [
-        'packageName' => PACKAGE_NAME_ORM,
-        'constraint' => RECOMMENDED_ORM_VERSION_CONSTRAINT,
-      ],
-      PACKAGE_NAME_EVENTS => [
-        'packageName' => PACKAGE_NAME_EVENTS,
-        'constraint' => RECOMMENDED_EVENTS_VERSION_CONSTRAINT,
-      ],
-      default => [
-        'packageName' => $packageName,
-        'constraint' => '*',
-      ],
-    };
+    return [
+      'packageName' => $packageName,
+      'constraint' => self::recommendedConstraints()[$packageName] ?? '*',
+    ];
   }
 
   private static function normalizePackageName(string $requestedPackage): ?string

@@ -124,7 +124,7 @@ it('keeps the executing installation version across CLI entrypoints and autoload
   }
 })->with(['checkout', 'dependency', 'proxy', 'custom-vendor', 'symlink'])->with([false, true]);
 
-it('uses the executing version for inspectors, update checks and framework recommendations', function () {
+it('keeps executing CLI identity separate from maintained package recommendations', function () {
   $fixture = runningCliFixture('dependency', '0.9.5');
   try {
     $autoload = var_export($fixture['autoload'], true);
@@ -140,9 +140,11 @@ echo json_encode([
   Assegai\Console\Util\CliVersionChecker::forRunningCli()->getCurrentVersion(),
   recommended_framework_release_line(),
   RECOMMENDED_FRAMEWORK_RELEASE_LINE,
+  RECOMMENDED_ORM_VERSION_CONSTRAINT,
+  RECOMMENDED_EVENTS_VERSION_CONSTRAINT,
 ]);
 PHP]);
-    expect(json_decode($output, true))->toBe(['0.10.4', '0.10.4', '0.10.4', '^0.10.0', '^0.10.0']);
+    expect(json_decode($output, true))->toBe(['0.10.4', '0.10.4', '0.10.4', '^0.11.0', '^0.11.0', '^0.10.0', '^0.10.0']);
   } finally {
     VersionWorkspaceFactory::remove($fixture['root']);
   }
