@@ -3,8 +3,24 @@
 use Assegai\Console\Core\Packages\FirstPartyPackageCatalog;
 
 describe('FirstPartyPackageCatalog', function () {
-  it('keeps Events on the active framework release line', function () {
-    expect(RECOMMENDED_EVENTS_VERSION_CONSTRAINT)->toBe(RECOMMENDED_FRAMEWORK_RELEASE_LINE);
+  it('recommends published package lines independently of the Core release line', function () {
+    expect(FirstPartyPackageCatalog::recommendedConstraints())->toBe([
+      PACKAGE_NAME_CLI => '^0.11.0',
+      PACKAGE_NAME_CORE => '^0.11.0',
+      PACKAGE_NAME_ORM => '^0.10.0',
+      PACKAGE_NAME_EVENTS => '^0.10.0',
+      'assegaiphp/auth' => '^0.10.0',
+      'assegaiphp/collections' => '^0.10.0',
+      'assegaiphp/common' => '^0.10.1',
+      'assegaiphp/forms' => '^0.10.0',
+      'assegaiphp/util' => '^0.10.0',
+      'assegaiphp/validation' => '^0.10.0',
+    ]);
+    foreach (FirstPartyPackageCatalog::recommendedConstraints() as $package => $constraint) {
+      expect(FirstPartyPackageCatalog::resolve($package))->toBe([
+        'packageName' => $package, 'constraint' => $constraint,
+      ]);
+    }
   });
 
   it('resolves first-party shortcuts without requiring an allowlist entry', function () {
@@ -21,7 +37,7 @@ describe('FirstPartyPackageCatalog', function () {
     ]);
   });
 
-  it('keeps release-line constraints for framework-coupled packages', function (string $package, string $packageName, string $constraint) {
+  it('uses the supported constraint for each managed package', function (string $package, string $packageName, string $constraint) {
     expect(FirstPartyPackageCatalog::resolve($package))->toBe([
       'packageName' => $packageName,
       'constraint' => $constraint,

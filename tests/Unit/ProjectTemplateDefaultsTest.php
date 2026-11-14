@@ -36,7 +36,9 @@ describe('Project template defaults', function () {
   it('pins the recommended core dependency for new projects', function () {
     $composer = ProjectTemplateDefaults::loadComposerConfig();
 
-    expect($composer['require'][PACKAGE_NAME_CORE])->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT);
+    expect($composer['require'][PACKAGE_NAME_CORE])->toBe('^0.11.0');
+    $template = json_decode(file_get_contents(__DIR__ . '/../../templates/composer.json') ?: '', true);
+    expect($template['require'][PACKAGE_NAME_CORE])->toBe($composer['require'][PACKAGE_NAME_CORE]);
     expect($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION);
     expect($composer['autoload']['psr-4'])->toBe([]);
   });
@@ -61,8 +63,11 @@ describe('Project template defaults', function () {
     ]);
   });
 
-  it('keeps the recommended orm dependency on the same release line as core', function () {
-    expect(RECOMMENDED_ORM_VERSION_CONSTRAINT)->toBe(RECOMMENDED_CORE_VERSION_CONSTRAINT);
+  it('uses the supported Core baseline without moving companion packages to nonexistent releases', function () {
+    expect(recommended_framework_release_line())->toBe('^0.11.0');
+    expect(RECOMMENDED_FRAMEWORK_RELEASE_LINE)->toBe('^0.11.0');
+    expect(RECOMMENDED_ORM_VERSION_CONSTRAINT)->toBe('^0.10.0');
+    expect(RECOMMENDED_EVENTS_VERSION_CONSTRAINT)->toBe('^0.10.0');
   });
 
   it('derives framework release lines from semantic CLI versions', function () {

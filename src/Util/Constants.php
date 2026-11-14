@@ -1,13 +1,16 @@
 <?php
 
-use Assegai\Console\Core\Database\Enumerations\DatabaseType;
-use Assegai\Console\Util\Inspector;
-
 const PACKAGE_NAME_CORE = 'assegaiphp/core';
 const PACKAGE_NAME_CLI = 'assegaiphp/console';
 const PACKAGE_NAME_ORM = 'assegaiphp/orm';
 const PACKAGE_NAME_EVENTS = 'assegaiphp/events';
-const RECOMMENDED_FRAMEWORK_RELEASE_LINE_FALLBACK = '^0.10.0';
+// Package release lines are maintained compatibility policy, not CLI identity.
+const RECOMMENDED_CORE_VERSION_CONSTRAINT = '^0.11.0';
+const RECOMMENDED_CLI_VERSION_CONSTRAINT = '^0.11.0';
+const RECOMMENDED_ORM_VERSION_CONSTRAINT = '^0.10.0';
+const RECOMMENDED_EVENTS_VERSION_CONSTRAINT = '^0.10.0';
+const RECOMMENDED_FRAMEWORK_RELEASE_LINE = RECOMMENDED_CORE_VERSION_CONSTRAINT;
+const RECOMMENDED_FRAMEWORK_RELEASE_LINE_FALLBACK = RECOMMENDED_CORE_VERSION_CONSTRAINT;
 
 if (!function_exists('recommended_framework_release_line_for_version')) {
     function recommended_framework_release_line_for_version(string $version): string
@@ -23,20 +26,12 @@ if (!function_exists('recommended_framework_release_line_for_version')) {
 if (!function_exists('recommended_framework_release_line')) {
     function recommended_framework_release_line(?string $version = null): string
     {
-        $version = $version ?? Inspector::getRunningCLIVersion();
-
-        if (!is_string($version) || trim($version) === '') {
-            return RECOMMENDED_FRAMEWORK_RELEASE_LINE_FALLBACK;
-        }
-
-        return recommended_framework_release_line_for_version($version);
+        return $version === null
+            ? RECOMMENDED_CORE_VERSION_CONSTRAINT
+            : recommended_framework_release_line_for_version($version);
     }
 }
 
-define('RECOMMENDED_FRAMEWORK_RELEASE_LINE', recommended_framework_release_line());
-define('RECOMMENDED_CORE_VERSION_CONSTRAINT', RECOMMENDED_FRAMEWORK_RELEASE_LINE);
-define('RECOMMENDED_ORM_VERSION_CONSTRAINT', RECOMMENDED_FRAMEWORK_RELEASE_LINE);
-define('RECOMMENDED_EVENTS_VERSION_CONSTRAINT', RECOMMENDED_FRAMEWORK_RELEASE_LINE);
 const DEFAULT_PROJECT_NAME = 'assegai-app';
 const DEFAULT_PROJECT_VERSION = '0.0.1';
 const DEFAULT_PROJECT_TYPE = 'project';

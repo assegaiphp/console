@@ -3,6 +3,7 @@
 namespace Assegai\Console\Commands;
 
 use Assegai\Console\Core\Packages\InstalledPackageExtensionLoader;
+use Assegai\Console\Core\Packages\FirstPartyPackageCatalog;
 use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\ProjectTemplateDefaults;
 use Assegai\Console\Util\ComposerManifest;
@@ -29,19 +30,6 @@ use RuntimeException;
 )]
 class Update extends Command
 {
-  private const FIRST_PARTY_RELEASE_LINE_PACKAGES = [
-    PACKAGE_NAME_CLI,
-    PACKAGE_NAME_CORE,
-    PACKAGE_NAME_ORM,
-    PACKAGE_NAME_EVENTS,
-    'assegaiphp/auth',
-    'assegaiphp/collections',
-    'assegaiphp/common',
-    'assegaiphp/forms',
-    'assegaiphp/util',
-    'assegaiphp/validation',
-  ];
-
   private const INDEPENDENT_FIRST_PARTY_PACKAGES = [
     'assegaiphp/beanstalkd',
     'assegaiphp/rabbitmq',
@@ -51,7 +39,7 @@ class Update extends Command
   {
     $this
       ->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The workspace directory to update', getcwd())
-      ->addOption('to', null, InputOption::VALUE_REQUIRED, 'The target framework release line, for example 0.10')
+      ->addOption('to', null, InputOption::VALUE_REQUIRED, 'The target Core release line, for example 0.11')
       ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Preview the update without changing workspace files or dependencies')
       ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Approve a cross-release update without prompting');
   }
@@ -171,20 +159,24 @@ class Update extends Command
     }
 
     if (preg_match('/^\^?v?(\d+)\.(\d+)(?:\.(?:\d+|x))?$/i', $requestedTarget, $matches) !== 1) {
-      $output->writeln('<error>Invalid target release line. Use a value such as 0.10 or 0.10.0.</error>');
+      $output->writeln('<error>Invalid target release line. Use a value such as 0.11 or 0.11.0.</error>');
       return false;
     }
 
     $targetConstraint = sprintf('^%s.%s.0', $matches[1], $matches[2]);
     $targetReleaseLine = $this->releaseLine($targetConstraint);
-    $cliReleaseLine = $this->releaseLine(RECOMMENDED_FRAMEWORK_RELEASE_LINE);
+    $supportedReleaseLine = $this->releaseLine(RECOMMENDED_CORE_VERSION_CONSTRAINT);
 
-    if ($targetReleaseLine !== $cliReleaseLine) {
+    if ($targetReleaseLine !== $supportedReleaseLine) {
       $output->writeln(sprintf(
         '<error>This Console release manages the %s framework line, not %s.</error>',
-        $this->formatReleaseLine($cliReleaseLine),
+        $this->formatReleaseLine($supportedReleaseLine),
         $this->formatReleaseLine($targetReleaseLine),
       ));
+      if (version_compare(ltrim($targetConstraint, '^'), ltrim(RECOMMENDED_CORE_VERSION_CONSTRAINT, '^'), '<')) {
+        $output->writeln('<comment>Use a Console release supporting the requested older Core line for maintenance. This command does not downgrade projects.</comment>');
+        return false;
+      }
       $output->writeln(
         '<comment>Update the global CLI first with `assegai global update` or `assegai -g update`, then retry.</comment>',
       );
@@ -237,7 +229,7 @@ class Update extends Command
       $beforeRequirements = is_array($before[$section] ?? null) ? $before[$section] : [];
       $afterRequirements = is_array($after[$section] ?? null) ? $after[$section] : [];
 
-      foreach (self::FIRST_PARTY_RELEASE_LINE_PACKAGES as $packageName) {
+      foreach (array_keys(FirstPartyPackageCatalog::recommendedConstraints()) as $packageName) {
         $beforeConstraint = $beforeRequirements[$packageName] ?? null;
         $afterConstraint = $afterRequirements[$packageName] ?? null;
 
@@ -497,7 +489,7 @@ class Update extends Command
       $composerConfig = ComposerManifest::ensureRecommendedRequirement(
         $composerConfig,
         PACKAGE_NAME_ORM,
-        $targetConstraint
+        RECOMMENDED_ORM_VERSION_CONSTRAINT
       );
       $packages[] = PACKAGE_NAME_ORM;
     }
@@ -506,7 +498,7 @@ class Update extends Command
       $composerConfig = ComposerManifest::ensureRecommendedRequirement(
         $composerConfig,
         PACKAGE_NAME_EVENTS,
-        $targetConstraint
+        RECOMMENDED_EVENTS_VERSION_CONSTRAINT
       );
       $packages[] = PACKAGE_NAME_EVENTS;
     }
@@ -539,7 +531,7 @@ class Update extends Command
         continue;
       }
 
-      foreach (self::FIRST_PARTY_RELEASE_LINE_PACKAGES as $packageName) {
+      foreach (FirstPartyPackageCatalog::recommendedConstraints() as $packageName => $recommendedConstraint) {
         if (! array_key_exists($packageName, $requirements)) {
           continue;
         }
@@ -547,7 +539,7 @@ class Update extends Command
         $composerConfig = ComposerManifest::ensureRecommendedRequirement(
           $composerConfig,
           $packageName,
-          $targetConstraint,
+          $packageName === PACKAGE_NAME_CORE ? $targetConstraint : $recommendedConstraint,
           $section,
         );
         $packages[] = $packageName;
