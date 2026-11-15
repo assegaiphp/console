@@ -1,6 +1,7 @@
 <?php
 
 use Assegai\Console\AssegaiApplication;
+use Assegai\Console\Commands\ReleaseCheck;
 use Assegai\Console\Util\CliVersionChecker;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -47,6 +48,23 @@ function notificationApplication(string $currentVersion, false|string $metadata)
 }
 
 describe('AssegaiApplication update notification', function () {
+  it('keeps release checks offline without creating an update cache', function () {
+    $requests = 0;
+    $cache = sys_get_temp_dir() . '/release-notification-' . bin2hex(random_bytes(8)) . '/version.json';
+    $checker = new CliVersionChecker('0.11.0', $cache, static function (string $url) use (&$requests): false {
+      $requests++;
+      return false;
+    });
+    $application = new AssegaiApplication($checker);
+    $application->setAutoExit(false);
+    $application->addCommand(new ReleaseCheck());
+    $tester = new ApplicationTester($application);
+    expect($tester->run(['command' => 'release:check'], ['capture_stderr_separately' => true]))->toBe(Command::FAILURE)
+      ->and($requests)->toBe(0)->and(is_dir(dirname($cache)))->toBeFalse()
+      ->and($tester->getErrorOutput(true))->toBe('')
+      ->and(json_decode($tester->getDisplay(true), true, flags: JSON_THROW_ON_ERROR)['status'])->toBe('blocked');
+  });
+
   it('writes an available version notice to stderr without polluting command output', function () {
     $tester = new ApplicationTester(notificationApplication('0.9.5', notificationVersionMetadata('0.10.1')));
 

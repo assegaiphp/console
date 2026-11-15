@@ -2,6 +2,9 @@
 
 namespace Assegai\Console\Util;
 
+use Composer\Semver\Constraint\Constraint;
+use Composer\Semver\Intervals;
+use Composer\Semver\VersionParser;
 use RuntimeException;
 
 /**
@@ -132,49 +135,33 @@ class ComposerManifest
 
     $existingConstraint = $requirements[$packageName] ?? null;
 
-    if (! is_string($existingConstraint) || $existingConstraint === '') {
+    if ($existingConstraint === null) {
       return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
     }
 
-    if (self::constraintVersionCompare($existingConstraint, $recommendedConstraint) >= 0) {
-      return $composerConfig;
+    if (!is_string($existingConstraint) || trim($existingConstraint) === '') {
+      throw new RuntimeException("Please correct the invalid $packageName constraint in $section before updating.");
     }
 
-    return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
-  }
-
-  private static function constraintVersionCompare(string $leftConstraint, string $rightConstraint): int
-  {
-    $leftVersion = self::extractLowestComparableVersion($leftConstraint);
-    $rightVersion = self::extractLowestComparableVersion($rightConstraint);
-
-    if ($leftVersion === null || $rightVersion === null) {
-      return 1;
+    try {
+      $parser = new VersionParser();
+      $existing = $parser->parseConstraints($existingConstraint);
+      $recommended = $parser->parseConstraints($recommendedConstraint);
+      $intervals = Intervals::get($existing);
+      if ($intervals['branches']['names'] !== [] || $intervals['branches']['exclude']) {
+        throw new RuntimeException("Please review the development-branch constraint for $packageName before updating.");
+      }
+      if (Intervals::isSubsetOf($existing, $recommended)
+        || Intervals::isSubsetOf($existing, new Constraint('>=', $recommended->getUpperBound()->getVersion()))) {
+        return $composerConfig;
+      }
+      if (Intervals::isSubsetOf($recommended, $existing)
+        || Intervals::isSubsetOf($existing, new Constraint('<', $recommended->getLowerBound()->getVersion()))) {
+        return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
+      }
+    } catch (\UnexpectedValueException | \InvalidArgumentException $error) {
+      throw new RuntimeException("Please correct the $packageName constraint before updating: " . $error->getMessage(), previous: $error);
     }
-
-    return version_compare($leftVersion, $rightVersion);
-  }
-
-  private static function extractLowestComparableVersion(string $constraint): ?string
-  {
-    if (preg_match_all('/\d+(?:\.\d+){0,2}/', $constraint, $matches) !== 1 || empty($matches[0])) {
-      return null;
-    }
-
-    $versions = array_map(self::normalizeComparableVersion(...), $matches[0]);
-    usort($versions, static fn(string $left, string $right): int => version_compare($left, $right));
-
-    return $versions[0] ?? null;
-  }
-
-  private static function normalizeComparableVersion(string $version): string
-  {
-    $parts = explode('.', $version);
-
-    while (count($parts) < 3) {
-      $parts[] = '0';
-    }
-
-    return implode('.', array_slice($parts, 0, 3));
+    throw new RuntimeException("Please review the custom $packageName constraint '$existingConstraint' against '$recommendedConstraint'. The update cannot change it without broadening or downgrading it.");
   }
 }

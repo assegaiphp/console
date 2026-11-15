@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "releaseLines": {
+    "0.9": {"assegaiphp/attributes":"1.0","assegaiphp/beanstalkd":"1.0","assegaiphp/rabbitmq":"1.0"},
+    "0.10": {"assegaiphp/attributes":"1.0","assegaiphp/beanstalkd":"1.1","assegaiphp/rabbitmq":"1.1"},
+    "0.11": {"assegaiphp/attributes":"1.0","assegaiphp/beanstalkd":"1.2","assegaiphp/rabbitmq":"1.2"}
+  },
+  "modules": {
+    "assegaiphp/attributes": {"repository":"assegaiphp/attributes","directory":"attributes","kind":"library","versioning":"stable-dependency","publication":"released"},
+    "assegaiphp/auth": {"repository":"assegaiphp/auth","directory":"auth","kind":"library","versioning":"framework","publication":"released"},
+    "assegaiphp/beanstalkd": {"repository":"assegaiphp/beanstalkd","directory":"beanstalkd","kind":"library","versioning":"legacy-coordinated","publication":"released"},
+    "assegaiphp/cms": {"repository":"assegaiphp/cms","directory":"cms","kind":"library","versioning":"framework","publication":"unreleased"},
+    "assegaiphp/collections": {"repository":"assegaiphp/collections","directory":"collections","kind":"library","versioning":"framework","publication":"released"},
+    "assegaiphp/common": {"repository":"assegaiphp/common","directory":"common","kind":"library","versioning":"framework","publication":"released"},
+    "assegaiphp/console": {"repository":"assegaiphp/console","directory":"console","kind":"library","versioning":"framework","publication":"released"},
+    "assegaiphp/core": {"repository":"assegaiphp/core","directory":"core","kind":"library","versioning":"framework","publication":"released"},
+    "assegaiphp/events": {"repository":"assegaiphp/events","directory":"events","kind":"library","versioning":"framework","publication":"released"},
+    "assegaiphp/forms": {"repository":"assegaiphp/forms","directory":"forms","kind":"library","versioning":"framework","publication":"released"},
+    "assegaiphp/orm": {"repository":"assegaiphp/orm","directory":"orm","kind":"library","versioning":"framework","publication":"released"},
+    "assegaiphp/rabbitmq": {"repository":"assegaiphp/rabbitmq","directory":"rabbitmq","kind":"library","versioning":"legacy-coordinated","publication":"released"},
+    "assegaiphp/starter": {"repository":"assegaiphp/starter","directory":"starter","kind":"project","versioning":"framework","publication":"released"},
+    "assegaiphp/util": {"repository":"assegaiphp/util","directory":"util","kind":"library","versioning":"framework","publication":"released"},
+    "assegaiphp/validation": {"repository":"assegaiphp/validation","directory":"validation","kind":"library","versioning":"framework","publication":"released"}
+  },
+  "consumers": {
+    "assegaiphp/website": {"repository":"assegaiphp/website-v3","directory":"website-v3","kind":"website"}
+  },
+  "retired": {
+    "assegaiphp/assegai": {"reason":"obsolete"},
+    "assegaiphp/cli": {"reason":"abandoned"}
+  }
+}

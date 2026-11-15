@@ -4,11 +4,11 @@ const PACKAGE_NAME_CORE = 'assegaiphp/core';
 const PACKAGE_NAME_CLI = 'assegaiphp/console';
 const PACKAGE_NAME_ORM = 'assegaiphp/orm';
 const PACKAGE_NAME_EVENTS = 'assegaiphp/events';
-// Package release lines are maintained compatibility policy, not CLI identity.
-const RECOMMENDED_CORE_VERSION_CONSTRAINT = '^0.11.0';
-const RECOMMENDED_CLI_VERSION_CONSTRAINT = '^0.11.0';
-const RECOMMENDED_ORM_VERSION_CONSTRAINT = '^0.10.0';
-const RECOMMENDED_EVENTS_VERSION_CONSTRAINT = '^0.10.0';
+// Compatibility names are projections of the single reviewed release inventory.
+define('RECOMMENDED_CORE_VERSION_CONSTRAINT', \Assegai\Console\Releases\BundledRelease::inventory()->recommendedConstraints()[PACKAGE_NAME_CORE]);
+define('RECOMMENDED_CLI_VERSION_CONSTRAINT', \Assegai\Console\Releases\BundledRelease::inventory()->recommendedConstraints()[PACKAGE_NAME_CLI]);
+define('RECOMMENDED_ORM_VERSION_CONSTRAINT', \Assegai\Console\Releases\BundledRelease::inventory()->recommendedConstraints()[PACKAGE_NAME_ORM]);
+define('RECOMMENDED_EVENTS_VERSION_CONSTRAINT', \Assegai\Console\Releases\BundledRelease::inventory()->recommendedConstraints()[PACKAGE_NAME_EVENTS]);
 const RECOMMENDED_FRAMEWORK_RELEASE_LINE = RECOMMENDED_CORE_VERSION_CONSTRAINT;
 const RECOMMENDED_FRAMEWORK_RELEASE_LINE_FALLBACK = RECOMMENDED_CORE_VERSION_CONSTRAINT;
 

@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "repository": "assegaiphp/core",
+  "sourceSha": "9a405927081cf3573faa38b9b87239c21707fae8",
+  "canonicalModulesPath": "meta/framework-modules.json",
+  "inventoryPath": "meta/releases/0.11.json",
+  "canonicalModulesSha256": "sha256:19cc773a31fcb3316866749cdc5b7984b086018c52bba33ff2d07685318ab71d",
+  "inventorySha256": "sha256:4f51e28382865ade6cd5687708db29a5fff2095ef8d27e13609224d90b0924bf"
+}

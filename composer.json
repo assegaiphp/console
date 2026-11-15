@@ -24,6 +24,7 @@
         "ext-pdo": "*",
         "atatusoft-ltd/plural": "^1.2",
         "assegaiphp/common": "^0.10.1",
+        "composer/semver": "^3.4",
         "symfony/console": "^8.0",
         "laravel/prompts": "^0.3"
     },

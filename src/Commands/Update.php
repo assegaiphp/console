@@ -6,6 +6,7 @@ use Assegai\Console\Core\Packages\InstalledPackageExtensionLoader;
 use Assegai\Console\Core\Packages\FirstPartyPackageCatalog;
 use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\ProjectTemplateDefaults;
+use Assegai\Console\Releases\BundledRelease;
 use Assegai\Console\Util\ComposerManifest;
 use Assegai\Console\Util\Enumerations\Color;
 use Assegai\Console\Util\Enumerations\ColorFX;
@@ -30,11 +31,6 @@ use RuntimeException;
 )]
 class Update extends Command
 {
-  private const INDEPENDENT_FIRST_PARTY_PACKAGES = [
-    'assegaiphp/beanstalkd',
-    'assegaiphp/rabbitmq',
-  ];
-
   public function configure(): void
   {
     $this
@@ -67,11 +63,12 @@ class Update extends Command
       return Command::FAILURE;
     }
 
-    [$composerConfig, $packages] = $this->buildComposerMigration(
-      $workspace,
-      $originalComposerConfig,
-      $targetConstraint,
-    );
+    try {
+      [$composerConfig, $packages] = $this->buildComposerMigration($workspace, $originalComposerConfig, $targetConstraint);
+    } catch (RuntimeException $error) {
+      $output->writeln('<error>' . $error->getMessage() . '</error>');
+      return Command::FAILURE;
+    }
     $sourceConstraint = $this->findRequirementConstraint($originalComposerConfig, PACKAGE_NAME_CORE);
     $plannedCoreConstraint = $this->findRequirementConstraint($composerConfig, PACKAGE_NAME_CORE) ?? $targetConstraint;
     $isCrossReleaseUpdate = $this->hasAlignedCrossReleaseChanges(
@@ -163,7 +160,7 @@ class Update extends Command
       return false;
     }
 
-    $targetConstraint = sprintf('^%s.%s.0', $matches[1], $matches[2]);
+    $targetConstraint = sprintf('~%s.%s.0', $matches[1], $matches[2]);
     $targetReleaseLine = $this->releaseLine($targetConstraint);
     $supportedReleaseLine = $this->releaseLine(RECOMMENDED_CORE_VERSION_CONSTRAINT);
 
@@ -173,7 +170,7 @@ class Update extends Command
         $this->formatReleaseLine($supportedReleaseLine),
         $this->formatReleaseLine($targetReleaseLine),
       ));
-      if (version_compare(ltrim($targetConstraint, '^'), ltrim(RECOMMENDED_CORE_VERSION_CONSTRAINT, '^'), '<')) {
+      if (version_compare(ltrim($targetConstraint, '~^'), ltrim(RECOMMENDED_CORE_VERSION_CONSTRAINT, '~^'), '<')) {
         $output->writeln('<comment>Use a Console release supporting the requested older Core line for maintenance. This command does not downgrade projects.</comment>');
         return false;
       }
@@ -183,7 +180,7 @@ class Update extends Command
       return false;
     }
 
-    return $targetConstraint;
+    return RECOMMENDED_CORE_VERSION_CONSTRAINT;
   }
 
   /**
@@ -508,8 +505,6 @@ class Update extends Command
       $packages,
       $targetConstraint,
     );
-    $packages = $this->appendDirectIndependentFirstPartyPackages($composerConfig, $packages);
-
     return [$composerConfig, $packages];
   }
 
@@ -531,7 +526,13 @@ class Update extends Command
         continue;
       }
 
-      foreach (FirstPartyPackageCatalog::recommendedConstraints() as $packageName => $recommendedConstraint) {
+      $recommendations = FirstPartyPackageCatalog::recommendedConstraints();
+      foreach (array_keys($requirements) as $packageName) {
+        if (str_starts_with($packageName, 'assegaiphp/') && !isset($recommendations[$packageName])) {
+          throw new RuntimeException("Please review $packageName: it is not a released module in this Console inventory.");
+        }
+      }
+      foreach ($recommendations as $packageName => $recommendedConstraint) {
         if (! array_key_exists($packageName, $requirements)) {
           continue;
         }
@@ -542,35 +543,15 @@ class Update extends Command
           $packageName === PACKAGE_NAME_CORE ? $targetConstraint : $recommendedConstraint,
           $section,
         );
+        $constraint = $composerConfig[$section][$packageName] ?? null;
+        if (!is_string($constraint) || BundledRelease::inventory()->requirementIssues($packageName, $constraint) !== []) {
+          throw new RuntimeException("Please review $packageName in $section: its custom or newer requirement conflicts with the coordinated release plan. No project files were changed.");
+        }
         $packages[] = $packageName;
       }
     }
 
     return [$composerConfig, array_values(array_unique($packages))];
-  }
-
-  /**
-   * @param array<string, mixed> $composerConfig
-   * @param string[] $packages
-   * @return string[]
-   */
-  protected function appendDirectIndependentFirstPartyPackages(array $composerConfig, array $packages): array
-  {
-    foreach (['require', 'require-dev'] as $section) {
-      $requirements = $composerConfig[$section] ?? [];
-
-      if (! is_array($requirements)) {
-        continue;
-      }
-
-      foreach (self::INDEPENDENT_FIRST_PARTY_PACKAGES as $packageName) {
-        if (array_key_exists($packageName, $requirements)) {
-          $packages[] = $packageName;
-        }
-      }
-    }
-
-    return array_values(array_unique($packages));
   }
 
   /**

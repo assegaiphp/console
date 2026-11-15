@@ -45,6 +45,19 @@ function deleteComposerManifestWorkspace(string $directory): void
 }
 
 describe('ComposerManifest', function () {
+  it('uses Composer intervals to upgrade older ranges and preserve narrower compatible ranges', function (string $existing, string $expected) {
+    $manifest = ['require' => ['assegaiphp/core' => $existing]];
+    expect(ComposerManifest::ensureRecommendedRequirement($manifest, 'assegaiphp/core', '~0.11.1')['require']['assegaiphp/core'])->toBe($expected);
+  })->with([
+    ['^0.10.2', '~0.11.1'], ['0.10.2', '~0.11.1'], ['^0.11.0', '~0.11.1'],
+    ['>=0.11.2 <0.11.4', '>=0.11.2 <0.11.4'], ['~0.11.9', '~0.11.9'], ['^0.12.0', '^0.12.0'],
+  ]);
+
+  it('requires review for ambiguous custom ranges and development branches', function (string $constraint) {
+    expect(fn() => ComposerManifest::ensureRecommendedRequirement(['require' => ['assegaiphp/core' => $constraint]], 'assegaiphp/core', '~0.11.1'))
+      ->toThrow(RuntimeException::class, 'review');
+  })->with(['^0.10 || ^0.12', '>=0.10.2 <0.11.5', 'dev-main']);
+
   it('resolves the workspace source namespace from composer autoload metadata', function () {
     $workspace = createComposerManifestWorkspace([
       'autoload' => [
