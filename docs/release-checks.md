@@ -34,6 +34,8 @@ Use `--mode=consumer` for enforcement. Supply `--console-root=/pinned-console --
 
 The shared composite action lives at `.github/actions/package-policy`. Call it from a full reviewed Console commit, supplying its explicit `console-root`, `console-ref`, `core-root`, `core-ref`, `inventory`, `modules`, `manifest` and `semver-autoload` inputs. Its `ref` input defaults to the actual GitHub ref. The action performs no checkout, dependency installation or network lookup; callers supply pinned checkouts and reuse the locked tool installation/cache. Both hooks and the action invoke the same consumer mode. Existing repository checks and publishing restrictions remain required.
 
+Console's CI calls the pinned Core reusable workflow before its existing build jobs, including release-branch and tag pushes. Its tracked pre-push hook runs the same policy before Composer analysis/tests. For local hook use, explicitly provide `ASSEGAI_RELEASE_CONSOLE` and `ASSEGAI_RELEASE_CORE` as the reviewed checkout roots. The hook checks the actual destination ref and committed manifest; annotated tags are resolved to their commit before checking source identity. Tracking a hook does not install it: inspect the effective hooks directory before activation, preserving every existing guard. Unpublished source pins cannot run remotely until those commits are available under the authorized publishing workflow.
+
 ## Full inventory stages
 
 The same standalone entrypoint accepts `--mode=prepare|publish` and `--evidence=/owner-evidence.json`. An installed Console provides the equivalent `assegai release:check --stage=prepare|publish` command with explicit `--inventory`, `--modules` and `--evidence` files.
