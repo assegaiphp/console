@@ -10,13 +10,29 @@ use RuntimeException;
 /** Bounded, read-only observations of explicitly supplied Git source checkouts. */
 final readonly class SourceCheckout
 {
-  private function __construct(public string $root, private ProcessRunner $runner) {}
+  /** @param array<string, string> $environment */
+  private function __construct(public string $root, private ProcessRunner $runner, private array $environment) {}
 
   public static function at(string $directory): self
   {
     $root = realpath($directory);
     if ($root === false || !is_dir($root)) { throw new RuntimeException('An explicit source checkout is required.'); }
-    $checkout = new self($root, new ProcessRunner());
+    $runner = new ProcessRunner();
+    // Hooks export the pushing repository's context. Git defines which variables
+    // must be cleared before observing another checkout; keep all other settings.
+    $variables = $runner->run(['git', 'rev-parse', '--local-env-vars'], $root, timeoutSeconds: 5, maxOutputBytes: 8192);
+    if (!$variables->successful || trim($variables->stdout) === '') {
+      throw new RuntimeException('Cannot identify Git repository-local environment variables.');
+    }
+    $environment = getenv();
+    foreach (explode("\n", trim($variables->stdout)) as $name) {
+      $name = trim($name);
+      if (preg_match('/\AGIT_[A-Z0-9_]+\z/', $name) !== 1) {
+        throw new RuntimeException('Git reported an invalid repository-local environment variable.');
+      }
+      unset($environment[$name]);
+    }
+    $checkout = new self($root, $runner, $environment);
     if (realpath(trim($checkout->git(['rev-parse', '--show-toplevel']))) !== $root) {
       throw new RuntimeException('The source directory must identify its actual Git checkout root.');
     }
@@ -44,13 +60,15 @@ final readonly class SourceCheckout
   {
     $copyRoot = realpath($copyRoot ?? $this->root);
     if ($copyRoot === false) { throw new RuntimeException('An explicit source copy root is required.'); }
+    $prefix = rtrim($copyRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     foreach ($filenames as $filename) {
       $path = realpath($filename);
-      if ($path === false || !is_file($path) || !str_starts_with($path, $copyRoot . '/')) {
+      if ($path === false || !is_file($path) || !str_starts_with($path, $prefix)) {
         throw new RuntimeException('Pinned input files must belong to the explicit source checkout.');
       }
       $contents = @file_get_contents($path, length: 1048577);
-      if ($contents === false || strlen($contents) > 1048576 || $contents !== $this->fileAt($ref, substr($path, strlen($copyRoot) + 1))) {
+      $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($prefix)));
+      if ($contents === false || strlen($contents) > 1048576 || $contents !== $this->fileAt($ref, $relative)) {
         throw new RuntimeException('An input differs from its explicitly pinned source commit.');
       }
     }
@@ -61,7 +79,8 @@ final readonly class SourceCheckout
    */
   private function git(array $arguments): string
   {
-    $result = $this->runner->run(['git', '--no-optional-locks', '-C', $this->root, ...$arguments], $this->root, timeoutSeconds: 5, maxOutputBytes: 1048576);
+    $result = $this->runner->run(['git', '--no-optional-locks', '-C', $this->root, ...$arguments], $this->root,
+      timeoutSeconds: 5, maxOutputBytes: 1048576, environment: $this->environment);
     if (!$result->successful) { throw new RuntimeException('Cannot verify the explicitly supplied Git source.'); }
     return $result->stdout;
   }

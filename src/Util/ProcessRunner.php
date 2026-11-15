@@ -7,8 +7,10 @@ use RuntimeException;
 /** Runs argument arrays without a shell, with bounded temporary output. */
 final class ProcessRunner
 {
-  /** @param non-empty-list<string> $command */
-  public function run(array $command, string $directory, int $timeoutSeconds = 120, int $maxOutputBytes = 8388608): ProcessResult
+  /** @param non-empty-list<string> $command
+   * @param array<string, string>|null $environment Null preserves normal environment inheritance.
+   */
+  public function run(array $command, string $directory, int $timeoutSeconds = 120, int $maxOutputBytes = 8388608, ?array $environment = null): ProcessResult
   {
     if ($timeoutSeconds < 0 || $maxOutputBytes < 1) {
       throw new RuntimeException('The process deadline must be nonnegative and its output limit positive.');
@@ -26,7 +28,7 @@ final class ProcessRunner
     }
     $process = null;
     try {
-      $process = proc_open($command, [0 => ['file', 'php://stdin', 'r'], 1 => $stdout, 2 => $stderr], $pipes, $directory);
+      $process = proc_open($command, [0 => ['file', 'php://stdin', 'r'], 1 => $stdout, 2 => $stderr], $pipes, $directory, $environment);
       if (!is_resource($process)) {
         throw new RuntimeException('Cannot start the requested process.');
       }

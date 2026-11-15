@@ -36,6 +36,8 @@ The shared composite action lives at `.github/actions/package-policy`. Call it f
 
 Console's CI calls the pinned Core reusable workflow before its existing build jobs, including release-branch and tag pushes. Its tracked pre-push hook runs the same policy before Composer analysis/tests. For local hook use, explicitly provide `ASSEGAI_RELEASE_CONSOLE` and `ASSEGAI_RELEASE_CORE` as the reviewed checkout roots. The hook checks the actual destination ref and committed manifest; annotated tags are resolved to their commit before checking source identity. Tracking a hook does not install it: inspect the effective hooks directory before activation, preserving every existing guard. Unpublished source pins cannot run remotely until those commits are available under the authorized publishing workflow.
 
+Source observations clear Git's repository-local environment in their own child processes, using the names reported by `git rev-parse --local-env-vars`. This allows actual Git hooks to inspect the explicitly supplied foreign checkouts while preserving the hook's own context and normal subprocess inheritance. Native contained file paths are converted to Git's `/` path form after containment checks.
+
 ## Full inventory stages
 
 The same standalone entrypoint accepts `--mode=prepare|publish` and `--evidence=/owner-evidence.json`. An installed Console provides the equivalent `assegai release:check --stage=prepare|publish` command with explicit `--inventory`, `--modules` and `--evidence` files.
