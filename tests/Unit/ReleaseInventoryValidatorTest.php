@@ -397,6 +397,20 @@ final class ReleaseInventoryValidatorTest extends TestCase
     }
   }
 
+  public function testBlocksReleaseAndTagRefsForUnreleasedModulesWhileAllowingDevelopmentObservations(): void
+  {
+    $this->canonical['modules']['assegaiphp/core']['publication'] = 'unreleased';
+    $this->writeRelease('modules', $this->canonical);
+    $manifest = $this->writeRelease('manifest', ['name' => 'assegaiphp/core']);
+    $validator = new ReleaseInventoryValidator();
+    self::assertSame('passed', $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest, 'refs/heads/develop')['status']);
+    foreach (['refs/tags/1.2.0', 'refs/heads/release/1.2.0'] as $reference) {
+      $result = $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest, $reference);
+      self::assertSame('blocked', $result['status']);
+      self::assertContains('unreleased-publication', array_column($result['issues'], 'code'));
+    }
+  }
+
   private static function hashFile(string $filename): string
   {
     return hash_file('sha256', $filename) ?: throw new RuntimeException('Cannot hash the controlled fixture.');

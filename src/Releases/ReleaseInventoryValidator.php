@@ -113,6 +113,9 @@ final class ReleaseInventoryValidator
           str_starts_with($reference, 'refs/heads/release/') => substr($reference, strlen('refs/heads/release/')),
           default => null,
         };
+        if ($version !== null && $inventory->publication[$name] !== ModulePublication::Released) {
+          $issues[] = self::issue('unreleased-publication', 'reference', 'An unreleased module must be promoted through canonical lifecycle review before a release branch or version tag can pass.');
+        }
         if ($version !== null && !self::versionsMatch($version, $inventory->packages[$name]['version'])) {
           $issues[] = self::issue('release-reference', 'reference', 'The actual release branch or version tag must match this module’s reviewed planned version.');
         }
