@@ -1,6 +1,7 @@
 <?php
 
 use Assegai\Console\Core\Packages\FirstPartyPackageCatalog;
+use PHPUnit\Framework\Assert;
 
 describe('FirstPartyPackageCatalog', function () {
   it('preserves later patches on the reviewed line and rejects unresolvable or different lines', function () {
@@ -17,7 +18,8 @@ describe('FirstPartyPackageCatalog', function () {
         'assegaiphp/core' => '~0.11.1', 'assegaiphp/console' => '~0.11.1',
         'assegaiphp/events' => '~0.11.0', 'assegaiphp/orm' => '~0.11.0',
         'assegaiphp/attributes' => '~1.0.3', 'assegaiphp/rabbitmq' => '~1.2.0', 'assegaiphp/beanstalkd' => '~1.2.0',
-      ])->not->toHaveKey('assegaiphp/cms');
+      ]);
+    Assert::assertArrayNotHasKey('assegaiphp/cms', $constraints);
     foreach ($constraints as $package => $constraint) {
       expect(FirstPartyPackageCatalog::resolve($package))->toBe(['packageName' => $package, 'constraint' => $constraint]);
     }

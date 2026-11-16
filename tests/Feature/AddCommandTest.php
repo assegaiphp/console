@@ -67,19 +67,19 @@ PHP);
 it('preserves the existing consumer support when adding an already declared first-party package', function (string $constraint) {
   $workspace = createAddCommandWorkspace();
   try {
-    $manifest = json_decode(file_get_contents($workspace . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest = json_decode(file_get_contents($workspace . '/composer.json') ?: throw new RuntimeException('Cannot read the owned Composer fixture.'), true, flags: JSON_THROW_ON_ERROR);
     $manifest['require']['assegaiphp/common'] = $constraint;
     file_put_contents($workspace . '/composer.json', json_encode($manifest, JSON_THROW_ON_ERROR));
     $tester = new CommandTester(new Add());
     expect($tester->execute(['package' => 'common', '--directory' => $workspace, '--no-install' => true]))->toBe(Command::SUCCESS);
-    expect(json_decode(file_get_contents($workspace . '/composer.json'), true, flags: JSON_THROW_ON_ERROR)['require']['assegaiphp/common'])->toBe($constraint);
+    expect(json_decode(file_get_contents($workspace . '/composer.json') ?: throw new RuntimeException('Cannot read the owned Composer fixture.'), true, flags: JSON_THROW_ON_ERROR)['require']['assegaiphp/common'])->toBe($constraint);
   } finally { removeAddCommandWorkspace($workspace); }
 })->with(['^0.10.1', '^0.10.1 || ~0.11.0']);
 
 it('rejects unbounded and development first-party declarations before writes', function (string $constraint) {
   $workspace = createAddCommandWorkspace();
   try {
-    $manifest = json_decode(file_get_contents($workspace . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest = json_decode(file_get_contents($workspace . '/composer.json') ?: throw new RuntimeException('Cannot read the owned Composer fixture.'), true, flags: JSON_THROW_ON_ERROR);
     $manifest['require']['assegaiphp/common'] = $constraint;
     $before = json_encode($manifest, JSON_THROW_ON_ERROR);
     file_put_contents($workspace . '/composer.json', $before);
