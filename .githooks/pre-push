@@ -10,6 +10,10 @@ fi
 
 policy_console="${ASSEGAI_RELEASE_CONSOLE:?Please set ASSEGAI_RELEASE_CONSOLE to the reviewed Console policy checkout.}"
 policy_core="${ASSEGAI_RELEASE_CORE:?Please set ASSEGAI_RELEASE_CORE to the reviewed Core data checkout.}"
+support_arguments=(--purpose=current-train)
+if [ -n "${ASSEGAI_RELEASE_EVIDENCE:-}" ]; then
+  support_arguments+=("--evidence=$ASSEGAI_RELEASE_EVIDENCE")
+fi
 while read -r local_ref local_sha remote_ref remote_sha; do
   if [[ "$local_sha" =~ ^0+$ ]]; then
     continue
@@ -23,13 +27,13 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   fi
   php "$policy_console/tools/release-check.php" \
     --mode=consumer --format=json \
-    --console-root="$policy_console" --console-ref=b0e5478fe7dc40b031eb53c6334f0cd3b37aecca \
+    --console-root="$policy_console" --console-ref=d66c11df1916a08b10c9006862a2d8d7bfedd96f \
     --core-root="$policy_core" --core-ref=9a405927081cf3573faa38b9b87239c21707fae8 \
     --inventory="$policy_core/meta/releases/0.11.json" \
     --modules="$policy_core/meta/framework-modules.json" \
     --manifest="$repo_root/composer.json" \
     --semver-autoload="$policy_console/tools/policy/vendor/autoload.php" \
-    --ref="$remote_ref"
+    --ref="$remote_ref" "${support_arguments[@]}"
 done
 
 has_composer_script() {
