@@ -434,19 +434,16 @@ PHP);
 
 function resolveConsoleVendorAutoload(): string
 {
-  $repoRoot = realpath(__DIR__ . '/../../');
-
-  if (!is_string($repoRoot)) {
-    throw new RuntimeException('Failed to resolve the console repository root for queue command tests.');
+  $interface = \Assegai\Common\Interfaces\Queues\QueueInterface::class;
+  $source = (new ReflectionClass($interface))->getFileName();
+  foreach (\Composer\Autoload\ClassLoader::getRegisteredLoaders() as $vendor => $loader) {
+    $autoload = $vendor . '/autoload.php';
+    $file = $loader->findFile($interface);
+    if ($file !== false && realpath($file) === $source && is_file($autoload)) {
+      return $autoload;
+    }
   }
-
-  $autoloadFile = $repoRoot . '/vendor/autoload.php';
-
-  if (!is_file($autoloadFile)) {
-    throw new RuntimeException('Failed to locate the console Composer autoloader for queue command tests.');
-  }
-
-  return $autoloadFile;
+  throw new RuntimeException('The queue fixture requires the actual bootstrapped Common dependency autoloader.');
 }
 
 function deleteQueueWorkspace(string $directory): void

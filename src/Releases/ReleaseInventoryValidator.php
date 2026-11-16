@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Assegai\Console\Releases;
 
+use Assegai\Console\Util\ComposerManifest;
 use Composer\Semver\Constraint\Constraint;
 use Composer\Semver\Constraint\ConstraintInterface;
 use Composer\Semver\Intervals;
@@ -66,7 +67,7 @@ final class ReleaseInventoryValidator
           $issues[] = self::issue('website-dependencies', 'website.' . $section . '.' . $name, 'Website first-party requirements must identify released, actually locked modules.');
           continue;
         }
-        foreach (self::subsetIssues($constraint, $plan['installConstraint']) as $message) {
+        foreach (self::rangeIssues($constraint) as $message) {
           $issues[] = self::issue('website-dependencies', 'website.' . $section . '.' . $name, $message);
         }
         if (!self::versionAllowed($observation->versions[$name], $constraint)) {
@@ -94,18 +95,30 @@ final class ReleaseInventoryValidator
   /** A manifest policy observation is separate from whole-release readiness.
    * @return array<string, mixed>
    */
-  public function validateManifestFiles(string $inventoryPath, string $modulesPath, string $manifestPath, ?string $reference = null): array
+  public function validateManifestFiles(string $inventoryPath, string $modulesPath, string $manifestPath, ?string $reference = null,
+    ReleasePurpose $purpose = ReleasePurpose::CurrentTrain, ?string $evidencePath = null): array
   {
     $issues = [];
     $inventoryHash = $modulesHash = $manifestHash = $name = null;
     try {
       [$inventory, $inventoryHash, $modulesHash] = $this->readInventory($inventoryPath, $modulesPath, $issues);
       [$manifest, $manifestHash] = $this->read($manifestPath);
+      $owner = [];
+      if ($evidencePath !== null) {
+        [$owner] = $this->read($evidencePath);
+        $checkout = SourceCheckout::at(dirname($manifestPath));
+        if (($owner['schema'] ?? null) !== 2 || ($owner['purpose'] ?? null) !== $purpose->value
+          || ($owner['package'] ?? null) !== ($manifest['name'] ?? null) || ($owner['manifestSha256'] ?? null) !== $manifestHash
+          || ($owner['sourceSha'] ?? null) !== $checkout->head() || !$checkout->isClean()) {
+          throw new RuntimeException('Owner support evidence must bind this purpose and the actual clean consumer source/manifest.');
+        }
+        $checkout->verifyFiles($owner['sourceSha'], [$manifestPath]);
+      }
       $name = $manifest['name'] ?? null;
       if (!is_string($name) || !isset($inventory->packages[$name])) {
         throw new RuntimeException('The manifest must identify a canonical planned module.');
       }
-      if (array_key_exists('version', $manifest) && !self::versionsMatch($manifest['version'], $inventory->packages[$name]['version'])) {
+      if ($purpose === ReleasePurpose::CurrentTrain && array_key_exists('version', $manifest) && !self::versionsMatch($manifest['version'], $inventory->packages[$name]['version'])) {
         $issues[] = self::issue('manifest-version', 'version', 'An explicit manifest version must match the reviewed target version.');
       }
       if ($reference !== null) {
@@ -120,7 +133,7 @@ final class ReleaseInventoryValidator
         if ($version !== null && $inventory->publication[$name] !== ModulePublication::Released) {
           $issues[] = self::issue('unreleased-publication', 'reference', 'An unreleased module must be promoted through canonical lifecycle review before a release branch or version tag can pass.');
         }
-        if ($version !== null && !self::versionsMatch($version, $inventory->packages[$name]['version'])) {
+        if ($purpose === ReleasePurpose::CurrentTrain && $version !== null && !self::versionsMatch($version, $inventory->packages[$name]['version'])) {
           $issues[] = self::issue('release-reference', 'reference', 'The actual release branch or version tag must match this module’s reviewed planned version.');
         }
       }
@@ -134,7 +147,18 @@ final class ReleaseInventoryValidator
             $issues[] = self::issue('manifest-dependency', $section . '.' . $dependency, 'The dependency must identify an allowed canonical module and constraint.');
             continue;
           }
-          foreach (self::subsetIssues($constraint, $plan['installConstraint']) as $message) {
+          $messages = self::rangeIssues($constraint);
+          if ($purpose === ReleasePurpose::CurrentTrain && !self::versionAllowed($plan['version'], $constraint)) {
+            $messages[] = 'Current-train qualification requires acceptance of the exact planned dependency artifact.';
+          }
+          if ($evidencePath !== null) {
+            $sections = isset($owner['dependencySupport']) ? self::map($owner['dependencySupport']) : [];
+            $providers = isset($sections[$section]) ? self::map($sections[$section]) : [];
+            $support = $providers[$dependency] ?? null;
+            $messages = [...$messages, ...DependencySupport::issues($constraint,
+              $purpose === ReleasePurpose::CurrentTrain ? $plan['installConstraint'] : null, $support)];
+          }
+          foreach ($messages as $message) {
             $issues[] = self::issue('manifest-dependency', $section . '.' . $dependency, $message);
           }
         }
@@ -142,7 +166,10 @@ final class ReleaseInventoryValidator
     } catch (RuntimeException | JsonException $error) {
       $issues[] = self::issue('invalid-input', 'inputs', $error->getMessage());
     }
-    return ['schema' => 1, 'kind' => 'package-policy', 'status' => $issues === [] ? 'passed' : 'blocked', 'package' => $name, 'reference' => $reference,
+    $status = $purpose === ReleasePurpose::CurrentTrain ? 'passed' : ($evidencePath === null ? 'observed' : 'compatible');
+    return ['schema' => 2, 'kind' => 'package-policy', 'purpose' => $purpose->value,
+      'qualification' => $evidencePath !== null ? 'consumer-support' : ($purpose === ReleasePurpose::CurrentTrain ? 'structural' : 'observation'),
+      'releaseReady' => false, 'status' => $issues === [] ? $status : 'blocked', 'package' => $name, 'reference' => $reference,
       'inventorySha256' => $inventoryHash, 'canonicalModulesSha256' => $modulesHash, 'manifestSha256' => $manifestHash, 'issues' => $issues];
   }
 
@@ -398,14 +425,16 @@ final class ReleaseInventoryValidator
     }
   }
 
+  /** @return list<string> */
+  public static function rangeIssues(string $constraint): array
+  {
+    try { self::numericRange($constraint); return []; }
+    catch (\InvalidArgumentException | \UnexpectedValueException $error) { return [$error->getMessage()]; }
+  }
+
   private static function numericRange(string $constraint): ConstraintInterface
   {
-    $range = (new VersionParser())->parseConstraints($constraint);
-    $intervals = Intervals::get($range);
-    if ($intervals['numeric'] === [] || $intervals['branches']['names'] !== [] || $intervals['branches']['exclude']) {
-      throw new \InvalidArgumentException('The constraint must describe a nonempty numeric release range.');
-    }
-    return $range;
+    return ComposerManifest::parseRequirement($constraint);
   }
 
   public static function versionsMatch(mixed $left, mixed $right): bool

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "32694ceb1399f85ce963a68b5f3e8ed4",
+    "content-hash": "9bb10e32e3768f94bc4dc809a9dbb743",
     "packages": [
         {
             "name": "assegaiphp/attributes",

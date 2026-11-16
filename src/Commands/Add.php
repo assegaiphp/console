@@ -8,6 +8,7 @@ use Assegai\Console\Core\Packages\InstalledPackageExtensionLoader;
 use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\ProjectTemplateDefaults;
 use Assegai\Console\Releases\BundledRelease;
+use Assegai\Console\Releases\ReleasePurpose;
 use Assegai\Console\Util\ComposerManifest;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
@@ -60,7 +61,7 @@ class Add extends Command
       $composerConfig = ComposerManifest::ensureRecommendedRequirement($composerConfig, $packageName, $packageMetadata['constraint']);
       if (str_starts_with($packageName, 'assegaiphp/')) {
         $constraint = $composerConfig['require'][$packageName] ?? null;
-        if (!is_string($constraint) || BundledRelease::inventory()->requirementIssues($packageName, $constraint) !== []) {
+        if (!is_string($constraint) || BundledRelease::inventory()->requirementIssues($packageName, $constraint, ReleasePurpose::PublishedCompatibility) !== []) {
           throw new RuntimeException("Please review the custom or newer $packageName requirement against the coordinated release plan. No project files were changed.");
         }
       }

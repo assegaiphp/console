@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Assegai\Console\Releases;
 
+use Assegai\Console\Util\ComposerManifest;
+use Assegai\Console\Util\RequirementIntent;
+
 /** Validates generated owner receipts; it never turns a plan into publication authority. */
 final class ReleaseEvidenceValidator
 {
@@ -13,7 +16,8 @@ final class ReleaseEvidenceValidator
    */
   public function validate(ReleaseInventory $inventory, ReleaseStage $stage, string $inventoryHash, string $modulesHash, array $canonical, array $evidence, array &$issues): void
   {
-    if (($evidence['schema'] ?? null) !== 1 || ($evidence['inventorySha256'] ?? null) !== $inventoryHash
+    if (($evidence['schema'] ?? null) !== 2 || ($evidence['purpose'] ?? null) !== ReleasePurpose::CurrentTrain->value
+      || ($evidence['inventorySha256'] ?? null) !== $inventoryHash
       || ($evidence['canonicalModulesSha256'] ?? null) !== $modulesHash) {
       $issues[] = ReleaseInventoryValidator::issue('stale-evidence', 'evidence', 'Evidence must bind the exact inventory and canonical module bytes.');
       return;
@@ -48,8 +52,9 @@ final class ReleaseEvidenceValidator
       $module = ReleaseInventoryValidator::map($modules[$name] ?? null);
       $source = $module['sourceSha'] ?? null;
       $dependency = $module['dependencySha256'] ?? null;
-      if (!self::gitSha($source) || !ReleaseInventoryValidator::isHash($dependency)) {
-        $issues[] = ReleaseInventoryValidator::issue('source-identity', 'evidence.modules.' . $name, 'An exact candidate source and dependency identity are required.');
+      if (!self::gitSha($source) || !ReleaseInventoryValidator::isHash($dependency)
+        || !ReleaseInventoryValidator::isHash($module['manifestSha256'] ?? null)) {
+        $issues[] = ReleaseInventoryValidator::issue('source-identity', 'evidence.modules.' . $name, 'Exact candidate source, manifest and dependency identities are required.');
         continue;
       }
       $isReleased = isset($released[$name]);
@@ -61,7 +66,7 @@ final class ReleaseEvidenceValidator
       foreach ($isReleased ? ['package', 'releaseNotes'] : [] as $kind) {
         $check = ReleaseInventoryValidator::map($checks[$kind] ?? null);
         if (($check['status'] ?? null) !== 'passed' || ($check['sourceSha'] ?? null) !== $source
-          || ($check['dependencySha256'] ?? null) !== $dependency) {
+          || ($check['dependencySha256'] ?? null) !== $dependency || ($check['manifestSha256'] ?? null) !== $module['manifestSha256']) {
           $issues[] = ReleaseInventoryValidator::issue('candidate-check', 'evidence.modules.' . $name . '.checks.' . $kind,
             'A completed check must name the exact candidate source and dependencies.');
         }
@@ -82,7 +87,13 @@ final class ReleaseEvidenceValidator
             $issues[] = ReleaseInventoryValidator::issue('unreleased-dependency', 'evidence.modules.' . $name . '.' . $section . '.' . $dependencyName,
               'A released module cannot depend on an unreleased module.');
           }
-          foreach (ReleaseInventoryValidator::subsetIssues($constraint, $dependencyPlan['installConstraint']) as $message) {
+          if (!ReleaseInventoryValidator::versionAllowed($dependencyPlan['version'], $constraint)) {
+            $issues[] = ReleaseInventoryValidator::issue('dependency-target', 'evidence.modules.' . $name . '.' . $section . '.' . $dependencyName,
+              'Current-train qualification requires acceptance of the exact planned dependency artifact.');
+          }
+          $sections = isset($module['dependencySupport']) ? ReleaseInventoryValidator::map($module['dependencySupport']) : [];
+          $providers = isset($sections[$section]) ? ReleaseInventoryValidator::map($sections[$section]) : [];
+          foreach (DependencySupport::issues($constraint, $dependencyPlan['installConstraint'], $providers[$dependencyName] ?? null) as $message) {
             $issues[] = ReleaseInventoryValidator::issue('dependency-line', 'evidence.modules.' . $name . '.' . $section . '.' . $dependencyName, $message);
           }
         }
@@ -139,9 +150,49 @@ final class ReleaseEvidenceValidator
         if ($kind === 'catalog' && $constraint !== $plan['installConstraint']) {
           $issues[] = ReleaseInventoryValidator::issue('cli-recommendation', 'evidence.cli.catalog.' . $name, 'The catalog recommendation differs from the reviewed inventory.');
         }
-        foreach (ReleaseInventoryValidator::subsetIssues($constraint, $plan['installConstraint']) as $message) {
+        $messages = $kind === 'update' ? ReleaseInventoryValidator::rangeIssues($constraint)
+          : ReleaseInventoryValidator::subsetIssues($constraint, $plan['installConstraint']);
+        foreach ($messages as $message) {
           $issues[] = ReleaseInventoryValidator::issue('cli-line', 'evidence.cli.' . $kind . '.' . $name, $message);
         }
+      }
+      if ($kind === 'update') { $this->updateOperation($inventory, $cli['updateOperation'] ?? null, $recommendations, $issues); }
+    }
+  }
+
+  /** @param array<string, mixed> $after
+   * @param list<array{code: string, path: string, message: string}> $issues
+   */
+  private function updateOperation(ReleaseInventory $inventory, mixed $value, array $after, array &$issues): void
+  {
+    $operation = ReleaseInventoryValidator::map($value);
+    $before = ReleaseInventoryValidator::map($operation['before'] ?? null);
+    $intent = is_string($operation['intent'] ?? null) ? RequirementIntent::tryFrom($operation['intent']) : null;
+    $expected = 'sha256:' . hash('sha256', json_encode(['before' => $before, 'after' => $after], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    if ($intent === null || $intent === RequirementIntent::EnforceMinimum
+      || ($operation['previewSha256'] ?? null) !== $expected || !is_bool($operation['removalsApproved'] ?? null)
+      || !ReleaseInventoryValidator::isHash($operation['beforeManifestSha256'] ?? null)
+      || !ReleaseInventoryValidator::isHash($operation['afterManifestSha256'] ?? null)) {
+      $issues[] = ReleaseInventoryValidator::issue('cli-update-intent', 'evidence.cli.updateOperation', 'Update observations require explicit intent, original/final manifest identities and a bound before/after preview.');
+      return;
+    }
+    foreach ($before as $name => $constraint) {
+      $next = $after[$name] ?? null;
+      if (!is_string($constraint) || !is_string($next) || ReleaseInventoryValidator::rangeIssues($constraint) !== []
+        || ReleaseInventoryValidator::rangeIssues($next) !== []) {
+        $issues[] = ReleaseInventoryValidator::issue('cli-update-support', 'evidence.cli.updateOperation.' . $name, 'Update support observations require the complete valid original and final ranges.');
+        continue;
+      }
+      if (($intent === RequirementIntent::PreserveSupport && $constraint !== $next)
+        || (ComposerManifest::removesSupport($constraint, $next) && $operation['removalsApproved'] !== true)) {
+        $issues[] = ReleaseInventoryValidator::issue('cli-update-support', 'evidence.cli.updateOperation.' . $name, 'Existing support must be preserved or its removal explicitly previewed and approved.');
+      }
+    }
+    foreach ($after as $name => $constraint) {
+      $recommendation = $inventory->recommendedConstraints()[$name] ?? null;
+      if (is_string($constraint) && ($recommendation === null || (!isset($before[$name]) && ReleaseInventoryValidator::subsetIssues($constraint, $recommendation) !== [])
+        || ($intent === RequirementIntent::CoordinatedUpgrade && $inventory->requirementIssues($name, $constraint) !== []))) {
+        $issues[] = ReleaseInventoryValidator::issue('cli-update-target', 'evidence.cli.update.' . $name, 'New recommendations and coordinated upgrades must accept the requested train without an unsupported downgrade.');
       }
     }
   }
@@ -191,7 +242,7 @@ final class ReleaseEvidenceValidator
     }
   }
 
-  private static function gitSha(mixed $value): bool
+  public static function gitSha(mixed $value): bool
   {
     return is_string($value) && preg_match('/\A(?:[a-f0-9]{40}|[a-f0-9]{64})\z/', $value) === 1;
   }

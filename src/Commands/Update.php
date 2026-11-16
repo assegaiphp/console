@@ -8,6 +8,7 @@ use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\ProjectTemplateDefaults;
 use Assegai\Console\Releases\BundledRelease;
 use Assegai\Console\Util\ComposerManifest;
+use Assegai\Console\Util\RequirementIntent;
 use Assegai\Console\Util\Enumerations\Color;
 use Assegai\Console\Util\Enumerations\ColorFX;
 use Assegai\Console\Util\Inspector;
@@ -75,8 +76,12 @@ class Update extends Command
       $originalComposerConfig,
       $composerConfig,
     );
+    $removesSupport = array_any($this->requirementChanges($originalComposerConfig, $composerConfig), static fn(array $change): bool =>
+      $change['from'] !== '(not required)' && $change['to'] !== '(removed)'
+      && ComposerManifest::removesSupport($change['from'], $change['to']));
+    $requiresApproval = $isCrossReleaseUpdate || $removesSupport;
 
-    if ($isCrossReleaseUpdate || (bool) $input->getOption('dry-run')) {
+    if ($requiresApproval || (bool) $input->getOption('dry-run')) {
       $this->renderUpdatePlan(
         $workspace,
         $sourceConstraint,
@@ -94,7 +99,7 @@ class Update extends Command
     }
 
     if (
-      $isCrossReleaseUpdate &&
+      $requiresApproval &&
       ! $this->confirmCrossReleaseUpdate($input, $output)
     ) {
       return $input->isInteractive() ? Command::SUCCESS : Command::FAILURE;
@@ -295,6 +300,10 @@ class Update extends Command
           $change['from'],
           $change['to'],
         ));
+        if ($change['from'] !== '(not required)' && $change['to'] !== '(removed)'
+          && ComposerManifest::removesSupport($change['from'], $change['to'])) {
+          $output->writeln('    Removes previously admitted versions; explicit approval is required.');
+        }
       }
     }
 
@@ -350,7 +359,7 @@ class Update extends Command
     }
 
     if (! $input->isInteractive()) {
-      $output->writeln('<error>Cross-release updates require explicit approval.</error>');
+      $output->writeln('<error>Cross-release updates and support removals require explicit approval.</error>');
       $output->writeln('<comment>Review with --dry-run, then re-run with --yes in non-interactive environments.</comment>');
       return false;
     }
@@ -365,7 +374,7 @@ class Update extends Command
     $confirmed = (bool) $helper->ask(
       $input,
       $output,
-      new ConfirmationQuestion("\nApply this cross-release update? [y/N] ", false),
+      new ConfirmationQuestion("\nApply this update plan? [y/N] ", false),
     );
 
     if (! $confirmed) {
@@ -471,13 +480,15 @@ class Update extends Command
     $composerConfig = ComposerManifest::ensureRecommendedRequirement(
       $composerConfig,
       'php',
-      '^' . MIN_PHP_VERSION
+      '^' . MIN_PHP_VERSION,
+      intent: RequirementIntent::EnforceMinimum,
     );
 
     $composerConfig = ComposerManifest::ensureRecommendedRequirement(
       $composerConfig,
       PACKAGE_NAME_CORE,
-      $targetConstraint
+      $targetConstraint,
+      intent: RequirementIntent::CoordinatedUpgrade,
     );
 
     $packages = [PACKAGE_NAME_CORE];
@@ -486,7 +497,8 @@ class Update extends Command
       $composerConfig = ComposerManifest::ensureRecommendedRequirement(
         $composerConfig,
         PACKAGE_NAME_ORM,
-        RECOMMENDED_ORM_VERSION_CONSTRAINT
+        RECOMMENDED_ORM_VERSION_CONSTRAINT,
+        intent: RequirementIntent::CoordinatedUpgrade,
       );
       $packages[] = PACKAGE_NAME_ORM;
     }
@@ -495,7 +507,8 @@ class Update extends Command
       $composerConfig = ComposerManifest::ensureRecommendedRequirement(
         $composerConfig,
         PACKAGE_NAME_EVENTS,
-        RECOMMENDED_EVENTS_VERSION_CONSTRAINT
+        RECOMMENDED_EVENTS_VERSION_CONSTRAINT,
+        intent: RequirementIntent::CoordinatedUpgrade,
       );
       $packages[] = PACKAGE_NAME_EVENTS;
     }
@@ -542,6 +555,7 @@ class Update extends Command
           $packageName,
           $packageName === PACKAGE_NAME_CORE ? $targetConstraint : $recommendedConstraint,
           $section,
+          RequirementIntent::CoordinatedUpgrade,
         );
         $constraint = $composerConfig[$section][$packageName] ?? null;
         if (!is_string($constraint) || BundledRelease::inventory()->requirementIssues($packageName, $constraint) !== []) {

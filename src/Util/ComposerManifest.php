@@ -3,6 +3,7 @@
 namespace Assegai\Console\Util;
 
 use Composer\Semver\Constraint\Constraint;
+use Composer\Semver\Constraint\ConstraintInterface;
 use Composer\Semver\Intervals;
 use Composer\Semver\VersionParser;
 use RuntimeException;
@@ -116,7 +117,7 @@ class ComposerManifest
   }
 
   /**
-   * Ensure a package meets at least the recommended constraint without lowering newer app constraints.
+   * Preserve existing support by default; plan upgrades or an actual minimum only with explicit intent.
    *
    * @param array<string, mixed> $composerConfig
    * @return array<string, mixed>
@@ -126,6 +127,7 @@ class ComposerManifest
     string $packageName,
     string $recommendedConstraint,
     string $section = 'require',
+    RequirementIntent $intent = RequirementIntent::PreserveSupport,
   ): array {
     $requirements = $composerConfig[$section] ?? [];
 
@@ -144,24 +146,45 @@ class ComposerManifest
     }
 
     try {
-      $parser = new VersionParser();
-      $existing = $parser->parseConstraints($existingConstraint);
-      $recommended = $parser->parseConstraints($recommendedConstraint);
-      $intervals = Intervals::get($existing);
-      if ($intervals['branches']['names'] !== [] || $intervals['branches']['exclude']) {
-        throw new RuntimeException("Please review the development-branch constraint for $packageName before updating.");
-      }
+      $existing = self::parseRequirement($existingConstraint, bounded: false);
+      $recommended = self::parseRequirement($recommendedConstraint, bounded: false);
+      if ($intent === RequirementIntent::PreserveSupport) { return $composerConfig; }
       if (Intervals::isSubsetOf($existing, $recommended)
         || Intervals::isSubsetOf($existing, new Constraint('>=', $recommended->getUpperBound()->getVersion()))) {
         return $composerConfig;
       }
-      if (Intervals::isSubsetOf($recommended, $existing)
-        || Intervals::isSubsetOf($existing, new Constraint('<', $recommended->getLowerBound()->getVersion()))) {
+      if (Intervals::isSubsetOf($recommended, $existing)) {
+        if ($intent === RequirementIntent::EnforceMinimum && $existing->getLowerBound()->compareTo($recommended->getLowerBound(), '<')) {
+          return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
+        }
+        return $composerConfig;
+      }
+      if (Intervals::isSubsetOf($existing, new Constraint('<', $recommended->getLowerBound()->getVersion()))) {
         return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
       }
     } catch (\UnexpectedValueException | \InvalidArgumentException $error) {
       throw new RuntimeException("Please correct the $packageName constraint before updating: " . $error->getMessage(), previous: $error);
     }
     throw new RuntimeException("Please review the custom $packageName constraint '$existingConstraint' against '$recommendedConstraint'. The update cannot change it without broadening or downgrading it.");
+  }
+
+  /** Parse numeric support; qualification additionally requires finite bounds. */
+  public static function parseRequirement(string $constraint, bool $bounded = true): ConstraintInterface
+  {
+    if ($constraint === '' || strlen($constraint) > 1024 || preg_match('/@(?!stable\b)|-(?:dev|alpha|beta|rc)/i', $constraint)) {
+      throw new \InvalidArgumentException('Please review the unsupported requirement or development stability flag.');
+    }
+    $range = (new VersionParser())->parseConstraints($constraint);
+    $intervals = Intervals::get($range);
+    if ($intervals['numeric'] === [] || $intervals['branches']['names'] !== [] || $intervals['branches']['exclude']
+      || ($bounded && $range->getUpperBound()->isPositiveInfinity())) {
+      throw new \InvalidArgumentException('Please review the unsupported development, empty or unbounded requirement.');
+    }
+    return $range;
+  }
+
+  public static function removesSupport(string $before, string $after): bool
+  {
+    return !Intervals::isSubsetOf(self::parseRequirement($before, bounded: false), self::parseRequirement($after, bounded: false));
   }
 }

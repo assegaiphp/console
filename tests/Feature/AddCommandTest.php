@@ -41,6 +41,7 @@ function bootstrap(): void
 {
   AssegaiFactory::create(AppModule::class)->run();
 }
+
 PHP);
 
   file_put_contents($workspace . '/src/AppModule.php', <<<'PHP'
@@ -62,6 +63,31 @@ PHP);
 
   return $workspace;
 }
+
+it('preserves the existing consumer support when adding an already declared first-party package', function (string $constraint) {
+  $workspace = createAddCommandWorkspace();
+  try {
+    $manifest = json_decode(file_get_contents($workspace . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['require']['assegaiphp/common'] = $constraint;
+    file_put_contents($workspace . '/composer.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+    $tester = new CommandTester(new Add());
+    expect($tester->execute(['package' => 'common', '--directory' => $workspace, '--no-install' => true]))->toBe(Command::SUCCESS);
+    expect(json_decode(file_get_contents($workspace . '/composer.json'), true, flags: JSON_THROW_ON_ERROR)['require']['assegaiphp/common'])->toBe($constraint);
+  } finally { removeAddCommandWorkspace($workspace); }
+})->with(['^0.10.1', '^0.10.1 || ~0.11.0']);
+
+it('rejects unbounded and development first-party declarations before writes', function (string $constraint) {
+  $workspace = createAddCommandWorkspace();
+  try {
+    $manifest = json_decode(file_get_contents($workspace . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['require']['assegaiphp/common'] = $constraint;
+    $before = json_encode($manifest, JSON_THROW_ON_ERROR);
+    file_put_contents($workspace . '/composer.json', $before);
+    $tester = new CommandTester(new Add());
+    expect($tester->execute(['package' => 'common', '--directory' => $workspace, '--no-install' => true]))->toBe(Command::FAILURE)
+      ->and(file_get_contents($workspace . '/composer.json'))->toBe($before);
+  } finally { removeAddCommandWorkspace($workspace); }
+})->with(['*', 'dev-main', '~0.11.0@dev']);
 
 function removeAddCommandWorkspace(string $directory): void
 {

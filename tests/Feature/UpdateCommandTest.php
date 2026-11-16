@@ -77,6 +77,30 @@ function deleteUpdateWorkspace(string $directory): void
   rmdir($directory);
 }
 
+it('preserves an existing support union in the coordinated update preview', function () {
+  $workspace = createUpdateWorkspace(['composer' => ['name' => 'acme/app', 'require' => [
+    'php' => '^8.4', PACKAGE_NAME_CORE => '~0.11.1', 'assegaiphp/common' => '^0.10.1 || ~0.11.0',
+  ]]]);
+  try {
+    $before = file_get_contents($workspace . '/composer.json');
+    $tester = new CommandTester(new Update());
+    expect($tester->execute(['--directory' => $workspace, '--to' => '0.11', '--dry-run' => true]))->toBe(Command::SUCCESS)
+      ->and($tester->getDisplay())->not->toContain('assegaiphp/common (require):')
+      ->and(file_get_contents($workspace . '/composer.json'))->toBe($before);
+  } finally { deleteUpdateWorkspace($workspace); }
+});
+
+it('previews and requires approval for a minimum-runtime support removal within the same framework line', function () {
+  $workspace = createUpdateWorkspace(['composer' => ['name' => 'acme/app', 'require' => ['php' => '^8.3', PACKAGE_NAME_CORE => '~0.11.1']]]);
+  try {
+    $before = file_get_contents($workspace . '/composer.json');
+    $tester = new CommandTester(new Update());
+    expect($tester->execute(['--directory' => $workspace], ['interactive' => false]))->toBe(Command::FAILURE)
+      ->and($tester->getDisplay())->toContain('Removes previously admitted versions; explicit approval is required.')
+      ->and(file_get_contents($workspace . '/composer.json'))->toBe($before);
+  } finally { deleteUpdateWorkspace($workspace); }
+});
+
 /**
  * @param string[] $aliases
  */
@@ -279,9 +303,9 @@ PHP,
         ->and($composer['require'][PACKAGE_NAME_EVENTS])->toBe(RECOMMENDED_EVENTS_VERSION_CONSTRAINT)
         ->and(RECOMMENDED_EVENTS_VERSION_CONSTRAINT)->toBe('~0.11.0')
         ->and($composer['require']['assegaiphp/auth'])->toBe('~0.11.0')
-        ->and($composer['require']['assegaiphp/rabbitmq'])->toBe('~1.2.0')
+        ->and($composer['require']['assegaiphp/rabbitmq'])->toBe('^1.0.0')
         ->and($composer['require-dev'][PACKAGE_NAME_CLI])->toBe(RECOMMENDED_CLI_VERSION_CONSTRAINT)
-        ->and($composer['require-dev']['assegaiphp/beanstalkd'])->toBe('~1.2.0')
+        ->and($composer['require-dev']['assegaiphp/beanstalkd'])->toBe('^1.1.2')
         ->and($composer['require-dev']['assegaiphp/forms'])->toBe('~0.11.0')
         ->and($command->composerCalls[0])->toEqualCanonicalizing([PACKAGE_NAME_CORE, PACKAGE_NAME_EVENTS, 'assegaiphp/auth', PACKAGE_NAME_CLI, 'assegaiphp/forms', 'assegaiphp/rabbitmq', 'assegaiphp/beanstalkd']);
     } finally {
@@ -694,7 +718,7 @@ PHP,
 
       expect($status)->toBe(Command::FAILURE)
         ->and(file_get_contents($workspace . '/composer.json'))->toBe($originalComposer)
-        ->and($tester->getDisplay(true))->toContain('Cross-release updates require explicit approval')
+        ->and($tester->getDisplay(true))->toContain('Cross-release updates and support removals require explicit approval')
         ->toContain('Review with --dry-run, then re-run with --yes');
     } finally {
       deleteUpdateWorkspace($workspace);
@@ -740,7 +764,7 @@ PHP,
         ->and($command->composerWasRun)->toBeFalse()
         ->and(file_get_contents($workspace . '/composer.json'))->toBe($originalComposer)
         ->and($tester->getDisplay(true))->toContain('assegaiphp/auth (require): ^0.9.0 → ~0.11.0')
-        ->toContain('Cross-release updates require explicit approval');
+        ->toContain('Cross-release updates and support removals require explicit approval');
     } finally {
       deleteUpdateWorkspace($workspace);
     }

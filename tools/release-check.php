@@ -4,10 +4,10 @@
 declare(strict_types=1);
 
 // Standalone entrypoint: no installed Console, application or first-party graph required.
-$result = ['schema' => 1, 'status' => 'blocked', 'issues' => []];
+$result = ['schema' => 2, 'status' => 'blocked', 'issues' => []];
 try {
   $options = [];
-  $allowed = ['mode', 'inventory', 'modules', 'manifest', 'evidence', 'website-manifest', 'website-lock', 'semver-autoload', 'format', 'console-root', 'console-ref', 'core-root', 'core-ref', 'ref'];
+  $allowed = ['mode', 'purpose', 'inventory', 'modules', 'manifest', 'evidence', 'website-manifest', 'website-lock', 'semver-autoload', 'format', 'console-root', 'console-ref', 'core-root', 'core-ref', 'ref'];
   foreach (array_slice($argv, 1) as $argument) {
     if (preg_match('/\A--([a-z-]+)=(.+)\z/D', $argument, $match) !== 1 || !in_array($match[1], $allowed, true)
       || isset($options[$match[1]]) || preg_match('/[\x00-\x1f\x7f]/', $match[2])) {
@@ -15,7 +15,7 @@ try {
     }
     $options[$match[1]] = $match[2];
   }
-  foreach (['mode', 'inventory', 'modules', 'semver-autoload'] as $required) {
+  foreach (['mode', 'purpose', 'inventory', 'modules', 'semver-autoload'] as $required) {
     if (!isset($options[$required])) { throw new RuntimeException('--' . $required . ' is required.'); }
   }
   if (($options['format'] ?? 'json') !== 'json' || !in_array($options['mode'], ['package', 'consumer', 'prepare', 'publish'], true)) {
@@ -40,6 +40,11 @@ try {
     throw new RuntimeException('The supplied autoloader has already loaded a different Console release validator.');
   }
   $reader = new Assegai\Console\Releases\ReleaseInventoryValidator();
+  $purpose = Assegai\Console\Releases\ReleasePurpose::tryFrom($options['purpose']);
+  if ($purpose === null || (in_array($options['mode'], ['prepare', 'publish'], true)
+    && $purpose !== Assegai\Console\Releases\ReleasePurpose::CurrentTrain)) {
+    throw new RuntimeException('Use an explicit valid purpose; prepare/publish require current-train.');
+  }
   $sourcePins = null;
   if ($options['mode'] === 'consumer') {
     foreach (['console-ref', 'core-root', 'core-ref', 'ref'] as $required) {
@@ -48,6 +53,7 @@ try {
     $console = Assegai\Console\Releases\SourceCheckout::at($options['console-root'] ?? dirname(__DIR__));
     $files = glob(__DIR__ . '/../src/Releases/*.php') ?: [];
     $console->verifyFiles($options['console-ref'], [...$files, __FILE__, __DIR__ . '/../src/Util/ProcessRunner.php', __DIR__ . '/../src/Util/ProcessResult.php',
+      __DIR__ . '/../src/Util/ComposerManifest.php', __DIR__ . '/../src/Util/RequirementIntent.php',
       __DIR__ . '/policy/composer.json', __DIR__ . '/policy/composer.lock'], dirname(__DIR__));
     $core = Assegai\Console\Releases\SourceCheckout::at($options['core-root']);
     $core->verifyFiles($options['core-ref'], [$options['modules'], $options['inventory']]);
@@ -55,14 +61,14 @@ try {
   }
   if (in_array($options['mode'], ['package', 'consumer'], true)) {
     if (!isset($options['manifest'])) { throw new RuntimeException('--manifest is required in package mode.'); }
-    $result = $reader->validateManifestFiles($options['inventory'], $options['modules'], $options['manifest'], $options['ref'] ?? null);
+    $result = $reader->validateManifestFiles($options['inventory'], $options['modules'], $options['manifest'], $options['ref'] ?? null, $purpose, $options['evidence'] ?? null);
     if ($sourcePins !== null) { $result['sourcePins'] = $sourcePins; }
   } else {
     $result = $reader->validateFiles($options['inventory'], $options['modules'], Assegai\Console\Releases\ReleaseStage::from($options['mode']),
       $options['evidence'] ?? null, $options['website-manifest'] ?? null, $options['website-lock'] ?? null)->toArray();
   }
 } catch (Throwable $error) {
-  $result = ['schema' => 1, 'status' => 'blocked', 'issues' => [['code' => 'invalid-input', 'path' => 'inputs', 'message' => $error->getMessage()]]];
+  $result = ['schema' => 2, 'status' => 'blocked', 'issues' => [['code' => 'invalid-input', 'path' => 'inputs', 'message' => $error->getMessage()]]];
 }
 echo json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), PHP_EOL;
-exit(in_array($result['status'], ['passed', 'ready'], true) ? 0 : 1);
+exit(in_array($result['status'], ['passed', 'ready', 'observed', 'compatible'], true) ? 0 : 1);

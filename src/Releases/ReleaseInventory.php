@@ -27,13 +27,18 @@ final readonly class ReleaseInventory
     return array_map(static fn(array $package): string => $package['installConstraint'], $this->releasedPackages());
   }
 
-  /** @return list<string> */
-  public function requirementIssues(string $name, string $constraint): array
+  /** Recommendation planning only; full release qualification requires owner evidence.
+   * @return list<string>
+   */
+  public function requirementIssues(string $name, string $constraint, ReleasePurpose $purpose = ReleasePurpose::CurrentTrain): array
   {
     $package = $this->releasedPackages()[$name] ?? null;
     $line = $this->packageReleaseLines[$name] ?? null;
-    return $package === null || $line === null ? ['The package is not a released module in this inventory.']
-      : ReleaseInventoryValidator::subsetIssues($constraint, $package['installConstraint']);
+    if ($package === null || $line === null) { return ['The package is not a released module in this inventory.']; }
+    if ($purpose === ReleasePurpose::PublishedCompatibility) { return ReleaseInventoryValidator::rangeIssues($constraint); }
+    if (ReleaseInventoryValidator::subsetIssues($constraint, $package['installConstraint']) === []
+      || ReleaseInventoryValidator::subsetIssues($package['installConstraint'], $constraint) === []) { return []; }
+    return ['The custom or newer requirement conflicts with the coordinated release plan.'];
   }
 
   /** @return array{schema: int, inventorySha256: string, canonicalModulesSha256: string, requirements: array<string, mixed>} */

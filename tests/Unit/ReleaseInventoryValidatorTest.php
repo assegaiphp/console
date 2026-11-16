@@ -65,7 +65,7 @@ final class ReleaseInventoryValidatorTest extends TestCase
     $this->modulesFile = $this->writeRelease('modules', $this->canonical);
     $inventoryHash = 'sha256:' . self::hashFile($this->inventoryFile);
     $modulesHash = 'sha256:' . self::hashFile($this->modulesFile);
-    $this->releaseEvidence = ['schema' => 1, 'inventorySha256' => $inventoryHash, 'canonicalModulesSha256' => $modulesHash,
+    $this->releaseEvidence = ['schema' => 2, 'purpose' => 'current-train', 'inventorySha256' => $inventoryHash, 'canonicalModulesSha256' => $modulesHash,
       'membership' => ['status' => 'passed', 'canonicalModulesSha256' => $modulesHash, 'catalogSha256' => 'sha256:' . str_repeat('f', 64),
         'publishedPackages' => array_keys($this->releasePlan['packages']), 'unpublishedModules' => []],
       'modules' => [], 'cli' => ['catalog' => [], 'defaults' => [], 'update' => []], 'publication' => [],
@@ -77,8 +77,9 @@ final class ReleaseInventoryValidatorTest extends TestCase
       $sources[$name] = $source;
       $dependencies[$name] = $dependency;
       $versions[$name] = $package['version'];
-      $check = ['status' => 'passed', 'sourceSha' => $source, 'dependencySha256' => $dependency];
-      $this->releaseEvidence['modules'][$name] = ['sourceSha' => $source, 'dependencySha256' => $dependency,
+      $manifestHash = 'sha256:' . hash('sha256', 'manifest:' . $name);
+      $check = ['status' => 'passed', 'sourceSha' => $source, 'dependencySha256' => $dependency, 'manifestSha256' => $manifestHash];
+      $this->releaseEvidence['modules'][$name] = ['sourceSha' => $source, 'dependencySha256' => $dependency, 'manifestSha256' => $manifestHash,
         'require' => new stdClass(), 'require-dev' => new stdClass(), 'checks' => ['package' => $check, 'releaseNotes' => $check]];
       foreach (['catalog', 'defaults', 'update'] as $kind) {
         $this->releaseEvidence['cli'][$kind][$name] = $package['installConstraint'];
@@ -102,6 +103,7 @@ final class ReleaseInventoryValidatorTest extends TestCase
       'runtime' => ['status' => 'passed', 'sourceSha' => $websiteSource, 'composerLockSha256' => $websiteLock],
       'render' => ['status' => 'passed', 'sourceSha' => $websiteSource, 'composerLockSha256' => $websiteLock],
     ];
+    $this->bindUpdateOperation();
     $this->evidenceFile = $this->writeRelease('evidence', $this->releaseEvidence);
   }
 
@@ -296,11 +298,74 @@ final class ReleaseInventoryValidatorTest extends TestCase
     self::assertContains('composer-versions', array_column($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->issues, 'code'));
   }
 
-  public function testIntentionalFloorAdvanceStillRejectsOlderDependentRequirements(): void
+  public function testIntentionalFloorAdvanceNeedsReviewedSupportBeforeReleaseReadiness(): void
   {
     $this->planCoreArtifact('1.2.1', '~1.2.1');
     $manifest = $this->writeRelease('manifest', ['name' => 'assegaiphp/console', 'require' => (object) ['assegaiphp/core' => '~1.2.0']]);
-    self::assertSame('blocked', (new ReleaseInventoryValidator())->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest)['status']);
+    $validator = new ReleaseInventoryValidator();
+    $observation = $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest);
+    self::assertSame('passed', $observation['status']);
+    self::assertSame('structural', $observation['qualification']);
+    self::assertFalse($observation['releaseReady']);
+    $this->releaseEvidence['modules']['assegaiphp/console']['require'] = (object) ['assegaiphp/core' => '~1.2.0'];
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    self::assertContains('dependency-line', array_column($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->issues, 'code'));
+  }
+
+  public function testPublishedObservationCannotQualifyAnOlderOnlyRequirementForTheTarget(): void
+  {
+    $manifest = $this->writeRelease('manifest', ['name' => 'assegaiphp/console', 'require' => (object) ['assegaiphp/core' => '~1.1.0']]);
+    $validator = new ReleaseInventoryValidator();
+    $ordinary = $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest, purpose: \Assegai\Console\Releases\ReleasePurpose::PublishedCompatibility);
+    self::assertSame('observed', $ordinary['status']);
+    self::assertSame('published-compatibility', $ordinary['purpose']);
+    self::assertFalse($ordinary['releaseReady']);
+    self::assertSame('blocked', $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest)['status']);
+    $this->releaseEvidence['purpose'] = 'published-compatibility';
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    self::assertFalse($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->isReady);
+  }
+
+  public function testReviewedConsumerUnionPassesStructuralPolicyButNeedsBoundSupportAtReadiness(): void
+  {
+    $requirement = '~1.1.0 || ~1.2.0';
+    $manifest = $this->writeRelease('manifest', ['name' => 'assegaiphp/console', 'require' => (object) ['assegaiphp/core' => $requirement]]);
+    $validator = new ReleaseInventoryValidator();
+    self::assertSame('passed', $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest)['status']);
+    $module = &$this->releaseEvidence['modules']['assegaiphp/console'];
+    $module['require'] = (object) ['assegaiphp/core' => $requirement];
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    self::assertFalse($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->isReady);
+    $module['dependencySupport'] = (object) ['require' => (object) ['assegaiphp/core' => (object) [
+      'requirement' => $requirement, 'contracts' => [(object) ['interval' => '~1.1.0', 'historySha256' => 'sha256:' . str_repeat('a', 64), 'apiBasisSha256' => 'sha256:' . str_repeat('b', 64)]],
+      'samples' => [(object) ['version' => '1.1.0', 'sourceSha' => str_repeat('c', 40), 'lockSha256' => 'sha256:' . str_repeat('d', 64),
+        'graphSha256' => 'sha256:' . str_repeat('e', 64), 'check' => (object) ['status' => 'passed', 'environment' => 'controlled protocol fixture']]],
+    ]]];
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    self::assertTrue($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->isReady);
+    $module['manifestSha256'] = 'sha256:' . str_repeat('9', 64);
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    self::assertContains('candidate-check', array_column($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->issues, 'code'));
+  }
+
+  public function testRejectsLegacyEvidenceAndUnapprovedUpdateSupportRemovals(): void
+  {
+    $validator = new ReleaseInventoryValidator();
+    $this->releaseEvidence['schema'] = 1;
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    self::assertFalse($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->isReady);
+    $this->releaseEvidence['schema'] = 2;
+    $before = $this->releaseEvidence['cli']['update'];
+    $before['assegaiphp/core'] = '~1.1.0 || ~1.2.0';
+    $this->releaseEvidence['cli']['updateOperation']['before'] = $before;
+    $this->releaseEvidence['cli']['updateOperation']['previewSha256'] = 'sha256:' . hash('sha256', json_encode([
+      'before' => $before, 'after' => $this->releaseEvidence['cli']['update'],
+    ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    self::assertContains('cli-update-support', array_column($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->issues, 'code'));
+    $this->releaseEvidence['cli']['updateOperation']['removalsApproved'] = true;
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    self::assertTrue($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->isReady);
   }
 
   public function testContainmentUsesCompleteComposerSetsIncludingGapsAndUnions(): void
@@ -332,7 +397,7 @@ final class ReleaseInventoryValidatorTest extends TestCase
     $name = 'assegaiphp/draft';
     $this->canonical['modules'][$name] = ['repository' => $name, 'directory' => 'draft', 'kind' => 'library', 'versioning' => 'framework', 'publication' => 'unreleased'];
     $this->releasePlan['packages'][$name] = ['version' => '1.2.0', 'installConstraint' => '~1.2.0'];
-    $this->releaseEvidence['modules'][$name] = ['sourceSha' => sha1($name), 'dependencySha256' => 'sha256:' . hash('sha256', $name),
+    $this->releaseEvidence['modules'][$name] = ['sourceSha' => sha1($name), 'dependencySha256' => 'sha256:' . hash('sha256', $name), 'manifestSha256' => 'sha256:' . hash('sha256', 'manifest:' . $name),
       'require' => new stdClass(), 'require-dev' => new stdClass(), 'checks' => new stdClass()];
     $this->releaseEvidence['membership']['unpublishedModules'] = [$name];
     $this->writeRelease('inventory', $this->releasePlan);
@@ -357,17 +422,76 @@ final class ReleaseInventoryValidatorTest extends TestCase
     $autoload = $this->releaseDirectory . '/semver-autoload.php';
     file_put_contents($autoload, '<?php spl_autoload_register(static function(string $class): void { $prefix="Composer\\\\Semver\\\\"; if(str_starts_with($class,$prefix)){require ' . var_export($semverDirectory, true) . ' . "/" . str_replace("\\\\", "/", substr($class,strlen($prefix))) . ".php";}});');
     $manifest = $this->writeRelease('manifest', ['name' => 'assegaiphp/core', 'require' => (object) ['assegaiphp/attributes' => '~1.0.3']]);
-    $process = new \Symfony\Component\Process\Process([PHP_BINARY, dirname(__DIR__, 2) . '/tools/release-check.php', '--mode=package',
+    $process = new \Symfony\Component\Process\Process([PHP_BINARY, dirname(__DIR__, 2) . '/tools/release-check.php', '--mode=package', '--purpose=current-train',
       '--inventory=' . $this->inventoryFile, '--modules=' . $this->modulesFile, '--manifest=' . $manifest, '--semver-autoload=' . $autoload], $this->releaseDirectory, timeout: 5);
     $process->run();
     $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
     expect($process->getExitCode())->toBe(0)->and($process->getErrorOutput())->toBe('')
       ->and($result)->toMatchArray(['kind' => 'package-policy', 'status' => 'passed']);
     self::assertArrayNotHasKey('isReady', $result);
+    $withoutPurpose = [PHP_BINARY,
+      dirname(__DIR__, 2) . '/tools/release-check.php', '--mode=package', '--inventory=' . $this->inventoryFile,
+      '--modules=' . $this->modulesFile, '--manifest=' . $manifest, '--semver-autoload=' . $autoload];
+    $missing = new \Symfony\Component\Process\Process($withoutPurpose, $this->releaseDirectory, timeout: 5);
+    $missing->run();
+    self::assertSame(1, $missing->getExitCode());
+    self::assertStringContainsString('--purpose is required', $missing->getOutput());
     $this->writeRelease('manifest', ['name' => 'assegaiphp/core', 'require' => (object) ['assegaiphp/attributes' => '~1.2.0']]);
     $process->run();
     expect($process->getExitCode())->toBe(1)
       ->and(json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR)['status'])->toBe('blocked');
+  }
+
+  public function testStandaloneSupportEvidenceBindsActualConsumerSourceManifestAndPurpose(): void
+  {
+    $root = $this->releaseDirectory . '/consumer';
+    mkdir($root);
+    $names = new \Symfony\Component\Process\Process(['git', 'rev-parse', '--local-env-vars'], timeout: 5);
+    $names->mustRun();
+    $env = [];
+    foreach (explode("\n", trim($names->getOutput())) as $key) { $env[trim($key)] = false; }
+    $git = static function (array $args) use ($root, $env): string {
+      $process = new \Symfony\Component\Process\Process(['git', '-C', $root, ...$args], env: $env, timeout: 5);
+      $process->mustRun();
+      return trim($process->getOutput());
+    };
+    $requirement = '~1.1.0 || ~1.2.0';
+    $manifest = $root . '/composer.json';
+    file_put_contents($manifest, json_encode(['name' => 'assegaiphp/console', 'require' => ['assegaiphp/core' => $requirement]], JSON_THROW_ON_ERROR));
+    $git(['init', '--initial-branch=fixture']);
+    $git(['add', 'composer.json']);
+    $git(['-c', 'user.name=Policy Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-m', 'test: record controlled consumer manifest']);
+    $proof = ['requirement' => $requirement,
+      'contracts' => [['interval' => '~1.1.0', 'historySha256' => 'sha256:' . str_repeat('a', 64), 'apiBasisSha256' => 'sha256:' . str_repeat('b', 64)]],
+      'samples' => [['version' => '1.1.0', 'sourceSha' => str_repeat('c', 40), 'lockSha256' => 'sha256:' . str_repeat('d', 64),
+        'graphSha256' => 'sha256:' . str_repeat('e', 64), 'check' => ['status' => 'passed', 'environment' => 'controlled protocol fixture']]],
+    ];
+    $owner = ['schema' => 2, 'purpose' => 'current-train', 'package' => 'assegaiphp/console', 'sourceSha' => $git(['rev-parse', 'HEAD']),
+      'manifestSha256' => 'sha256:' . self::hashFile($manifest), 'dependencySupport' => ['require' => ['assegaiphp/core' => $proof]]];
+    $receipt = $this->writeRelease('owner', $owner);
+    $validator = new ReleaseInventoryValidator();
+    $result = $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest, evidencePath: $receipt);
+    self::assertSame('passed', $result['status']);
+    self::assertSame('consumer-support', $result['qualification']);
+    self::assertFalse($result['releaseReady']);
+    foreach (['sourceSha' => str_repeat('9', 40), 'manifestSha256' => 'sha256:' . str_repeat('9', 64), 'purpose' => 'published-compatibility'] as $key => $value) {
+      $stale = $owner;
+      $stale[$key] = $value;
+      $this->writeRelease('owner', $stale);
+      self::assertSame('blocked', $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest, evidencePath: $receipt)['status']);
+    }
+    $owner['purpose'] = 'published-compatibility';
+    $owner['dependencySupport']['require']['assegaiphp/core']['contracts'][] = ['interval' => '~1.2.0',
+      'historySha256' => 'sha256:' . str_repeat('f', 64), 'apiBasisSha256' => 'sha256:' . str_repeat('0', 64)];
+    $sample = $proof['samples'][0];
+    $sample['version'] = '1.2.0';
+    $owner['dependencySupport']['require']['assegaiphp/core']['samples'][] = $sample;
+    $this->writeRelease('owner', $owner);
+    $ordinary = $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest,
+      purpose: \Assegai\Console\Releases\ReleasePurpose::PublishedCompatibility, evidencePath: $receipt);
+    self::assertSame('compatible', $ordinary['status']);
+    self::assertFalse($ordinary['releaseReady']);
+    self::assertSame('blocked', $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest, evidencePath: $receipt)['status']);
   }
 
   #[DataProvider('websiteLockCompatibility')]
@@ -436,6 +560,14 @@ final class ReleaseInventoryValidatorTest extends TestCase
     return $path;
   }
 
+  private function bindUpdateOperation(): void
+  {
+    $after = $this->releaseEvidence['cli']['update'];
+    $this->releaseEvidence['cli']['updateOperation'] = ['intent' => 'coordinated-upgrade', 'before' => $after,
+      'beforeManifestSha256' => 'sha256:' . str_repeat('1', 64), 'afterManifestSha256' => 'sha256:' . str_repeat('2', 64),
+      'removalsApproved' => false, 'previewSha256' => 'sha256:' . hash('sha256', json_encode(['before' => $after, 'after' => $after], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR))];
+  }
+
   private function planCoreArtifact(string $version, string $envelope): void
   {
     $name = 'assegaiphp/core';
@@ -443,6 +575,7 @@ final class ReleaseInventoryValidatorTest extends TestCase
     $this->releaseEvidence['composer']['versions'][$name] = $version;
     $this->releaseEvidence['publication'][$name]['version'] = $version;
     foreach (['catalog', 'defaults', 'update'] as $kind) { $this->releaseEvidence['cli'][$kind][$name] = $envelope; }
+    $this->bindUpdateOperation();
     $this->writeRelease('inventory', $this->releasePlan);
     $hash = 'sha256:' . self::hashFile($this->inventoryFile);
     $this->releaseEvidence['inventorySha256'] = $this->releaseEvidence['website']['content']['inventorySha256'] = $hash;

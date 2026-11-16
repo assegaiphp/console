@@ -45,16 +45,27 @@ function deleteComposerManifestWorkspace(string $directory): void
 }
 
 describe('ComposerManifest', function () {
-  it('uses Composer intervals to upgrade older ranges and preserve narrower compatible ranges', function (string $existing, string $expected) {
+  it('preserves an existing union before any coordinated migration', function () {
+    $manifest = ['require' => ['assegaiphp/common' => '^0.10.1 || ~0.11.0']];
+    expect(ComposerManifest::ensureRecommendedRequirement($manifest, 'assegaiphp/common', '~0.11.0'))->toBe($manifest);
+  });
+
+  it('preserves a satisfied platform minimum without imposing an upper boundary', function () {
+    $manifest = ['require' => ['php' => '>=8.4']];
+    expect(ComposerManifest::ensureRecommendedRequirement($manifest, 'php', '^8.4',
+      intent: \Assegai\Console\Util\RequirementIntent::EnforceMinimum))->toBe($manifest);
+  });
+
+  it('plans explicit older-range upgrades and preserves admitted support', function (string $existing, string $expected) {
     $manifest = ['require' => ['assegaiphp/core' => $existing]];
-    expect(ComposerManifest::ensureRecommendedRequirement($manifest, 'assegaiphp/core', '~0.11.1')['require']['assegaiphp/core'])->toBe($expected);
+    expect(ComposerManifest::ensureRecommendedRequirement($manifest, 'assegaiphp/core', '~0.11.1', intent: \Assegai\Console\Util\RequirementIntent::CoordinatedUpgrade)['require']['assegaiphp/core'])->toBe($expected);
   })->with([
-    ['^0.10.2', '~0.11.1'], ['0.10.2', '~0.11.1'], ['^0.11.0', '~0.11.1'],
+    ['^0.10.2', '~0.11.1'], ['0.10.2', '~0.11.1'], ['^0.11.0', '^0.11.0'],
     ['>=0.11.2 <0.11.4', '>=0.11.2 <0.11.4'], ['~0.11.9', '~0.11.9'], ['^0.12.0', '^0.12.0'],
   ]);
 
   it('requires review for ambiguous custom ranges and development branches', function (string $constraint) {
-    expect(fn() => ComposerManifest::ensureRecommendedRequirement(['require' => ['assegaiphp/core' => $constraint]], 'assegaiphp/core', '~0.11.1'))
+    expect(fn() => ComposerManifest::ensureRecommendedRequirement(['require' => ['assegaiphp/core' => $constraint]], 'assegaiphp/core', '~0.11.1', intent: \Assegai\Console\Util\RequirementIntent::CoordinatedUpgrade))
       ->toThrow(RuntimeException::class, 'review');
   })->with(['^0.10 || ^0.12', '>=0.10.2 <0.11.5', 'dev-main']);
 

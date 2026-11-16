@@ -22,7 +22,8 @@ final readonly class ReleaseValidationResult
   /** @return array<string, mixed> */
   public function toArray(): array
   {
-    return ['schema' => 1, 'stage' => $this->stage->value, 'status' => $this->isReady ? 'ready' : 'blocked',
+    return ['schema' => 2, 'purpose' => ReleasePurpose::CurrentTrain->value, 'qualification' => 'release', 'releaseReady' => $this->isReady,
+      'stage' => $this->stage->value, 'status' => $this->isReady ? 'ready' : 'blocked',
       'inventorySha256' => $this->inventorySha256, 'canonicalModulesSha256' => $this->canonicalModulesSha256,
       'releaseLine' => $this->inventory?->releaseLine, 'website' => $this->inventory?->website->toArray(), 'issues' => $this->issues];
   }
