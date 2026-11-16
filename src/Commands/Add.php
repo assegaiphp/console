@@ -7,6 +7,8 @@ use Assegai\Console\Core\Packages\InstalledPackageExtension;
 use Assegai\Console\Core\Packages\InstalledPackageExtensionLoader;
 use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\ProjectTemplateDefaults;
+use Assegai\Console\Releases\BundledRelease;
+use Assegai\Console\Releases\ReleasePurpose;
 use Assegai\Console\Util\ComposerManifest;
 use Assegai\Console\Util\Inspector;
 use Assegai\Console\Util\Path;
@@ -47,7 +49,7 @@ class Add extends Command
 
     if ($packageMetadata === null) {
       $output->writeln(
-        '<error>Unsupported package. Use a first-party shortcut such as rabbitmq or a full assegaiphp/* package name.</error>'
+        '<error>This package has no public recommendation in this Console release inventory. Use a released first-party package such as rabbitmq. If the package was released later, update the CLI with `assegai global update`.</error>'
       );
       return Command::FAILURE;
     }
@@ -56,16 +58,17 @@ class Add extends Command
 
     try {
       $composerConfig = ComposerManifest::load($workspace);
-    } catch (RuntimeException) {
-      $output->writeln('<error>Failed to load composer.json.</error>');
+      $composerConfig = ComposerManifest::ensureRecommendedRequirement($composerConfig, $packageName, $packageMetadata['constraint']);
+      if (str_starts_with($packageName, 'assegaiphp/')) {
+        $constraint = $composerConfig['require'][$packageName] ?? null;
+        if (!is_string($constraint) || BundledRelease::inventory()->requirementIssues($packageName, $constraint, ReleasePurpose::PublishedCompatibility) !== []) {
+          throw new RuntimeException("Please review the custom or newer $packageName requirement against the coordinated release plan. No project files were changed.");
+        }
+      }
+    } catch (RuntimeException $error) {
+      $output->writeln('<error>' . $error->getMessage() . '</error>');
       return Command::FAILURE;
     }
-
-    $composerConfig = ComposerManifest::ensureRequirement(
-      $composerConfig,
-      $packageName,
-      $packageMetadata['constraint']
-    );
 
     if (!ComposerManifest::save($workspace, $composerConfig)) {
       $output->writeln('<error>Failed to update composer.json.</error>');
@@ -112,6 +115,10 @@ class Add extends Command
 
     if ($installedExtension !== null) {
       $firstPartyPackage = FirstPartyPackageCatalog::resolve($installedExtension->packageName);
+
+      if (str_starts_with($installedExtension->packageName, 'assegaiphp/')) {
+        return $firstPartyPackage;
+      }
 
       return [
         'packageName' => $installedExtension->packageName,

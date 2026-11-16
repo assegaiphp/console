@@ -6,7 +6,9 @@ use Assegai\Console\Core\Packages\InstalledPackageExtensionLoader;
 use Assegai\Console\Core\Packages\FirstPartyPackageCatalog;
 use Assegai\Console\Core\Packages\PackageInstallContext;
 use Assegai\Console\Core\ProjectTemplateDefaults;
+use Assegai\Console\Releases\BundledRelease;
 use Assegai\Console\Util\ComposerManifest;
+use Assegai\Console\Util\RequirementIntent;
 use Assegai\Console\Util\Enumerations\Color;
 use Assegai\Console\Util\Enumerations\ColorFX;
 use Assegai\Console\Util\Inspector;
@@ -30,11 +32,6 @@ use RuntimeException;
 )]
 class Update extends Command
 {
-  private const INDEPENDENT_FIRST_PARTY_PACKAGES = [
-    'assegaiphp/beanstalkd',
-    'assegaiphp/rabbitmq',
-  ];
-
   public function configure(): void
   {
     $this
@@ -67,19 +64,24 @@ class Update extends Command
       return Command::FAILURE;
     }
 
-    [$composerConfig, $packages] = $this->buildComposerMigration(
-      $workspace,
-      $originalComposerConfig,
-      $targetConstraint,
-    );
+    try {
+      [$composerConfig, $packages] = $this->buildComposerMigration($workspace, $originalComposerConfig, $targetConstraint);
+    } catch (RuntimeException $error) {
+      $output->writeln('<error>' . $error->getMessage() . '</error>');
+      return Command::FAILURE;
+    }
     $sourceConstraint = $this->findRequirementConstraint($originalComposerConfig, PACKAGE_NAME_CORE);
     $plannedCoreConstraint = $this->findRequirementConstraint($composerConfig, PACKAGE_NAME_CORE) ?? $targetConstraint;
     $isCrossReleaseUpdate = $this->hasAlignedCrossReleaseChanges(
       $originalComposerConfig,
       $composerConfig,
     );
+    $removesSupport = array_any($this->requirementChanges($originalComposerConfig, $composerConfig), static fn(array $change): bool =>
+      $change['from'] !== '(not required)' && $change['to'] !== '(removed)'
+      && ComposerManifest::removesSupport($change['from'], $change['to']));
+    $requiresApproval = $isCrossReleaseUpdate || $removesSupport;
 
-    if ($isCrossReleaseUpdate || (bool) $input->getOption('dry-run')) {
+    if ($requiresApproval || (bool) $input->getOption('dry-run')) {
       $this->renderUpdatePlan(
         $workspace,
         $sourceConstraint,
@@ -97,7 +99,7 @@ class Update extends Command
     }
 
     if (
-      $isCrossReleaseUpdate &&
+      $requiresApproval &&
       ! $this->confirmCrossReleaseUpdate($input, $output)
     ) {
       return $input->isInteractive() ? Command::SUCCESS : Command::FAILURE;
@@ -163,7 +165,7 @@ class Update extends Command
       return false;
     }
 
-    $targetConstraint = sprintf('^%s.%s.0', $matches[1], $matches[2]);
+    $targetConstraint = sprintf('~%s.%s.0', $matches[1], $matches[2]);
     $targetReleaseLine = $this->releaseLine($targetConstraint);
     $supportedReleaseLine = $this->releaseLine(RECOMMENDED_CORE_VERSION_CONSTRAINT);
 
@@ -173,7 +175,7 @@ class Update extends Command
         $this->formatReleaseLine($supportedReleaseLine),
         $this->formatReleaseLine($targetReleaseLine),
       ));
-      if (version_compare(ltrim($targetConstraint, '^'), ltrim(RECOMMENDED_CORE_VERSION_CONSTRAINT, '^'), '<')) {
+      if (version_compare(ltrim($targetConstraint, '~^'), ltrim(RECOMMENDED_CORE_VERSION_CONSTRAINT, '~^'), '<')) {
         $output->writeln('<comment>Use a Console release supporting the requested older Core line for maintenance. This command does not downgrade projects.</comment>');
         return false;
       }
@@ -183,7 +185,7 @@ class Update extends Command
       return false;
     }
 
-    return $targetConstraint;
+    return RECOMMENDED_CORE_VERSION_CONSTRAINT;
   }
 
   /**
@@ -298,6 +300,10 @@ class Update extends Command
           $change['from'],
           $change['to'],
         ));
+        if ($change['from'] !== '(not required)' && $change['to'] !== '(removed)'
+          && ComposerManifest::removesSupport($change['from'], $change['to'])) {
+          $output->writeln('    Removes previously admitted versions; explicit approval is required.');
+        }
       }
     }
 
@@ -353,7 +359,7 @@ class Update extends Command
     }
 
     if (! $input->isInteractive()) {
-      $output->writeln('<error>Cross-release updates require explicit approval.</error>');
+      $output->writeln('<error>Cross-release updates and support removals require explicit approval.</error>');
       $output->writeln('<comment>Review with --dry-run, then re-run with --yes in non-interactive environments.</comment>');
       return false;
     }
@@ -368,7 +374,7 @@ class Update extends Command
     $confirmed = (bool) $helper->ask(
       $input,
       $output,
-      new ConfirmationQuestion("\nApply this cross-release update? [y/N] ", false),
+      new ConfirmationQuestion("\nApply this update plan? [y/N] ", false),
     );
 
     if (! $confirmed) {
@@ -474,13 +480,15 @@ class Update extends Command
     $composerConfig = ComposerManifest::ensureRecommendedRequirement(
       $composerConfig,
       'php',
-      '^' . MIN_PHP_VERSION
+      '^' . MIN_PHP_VERSION,
+      intent: RequirementIntent::EnforceMinimum,
     );
 
     $composerConfig = ComposerManifest::ensureRecommendedRequirement(
       $composerConfig,
       PACKAGE_NAME_CORE,
-      $targetConstraint
+      $targetConstraint,
+      intent: RequirementIntent::CoordinatedUpgrade,
     );
 
     $packages = [PACKAGE_NAME_CORE];
@@ -489,7 +497,8 @@ class Update extends Command
       $composerConfig = ComposerManifest::ensureRecommendedRequirement(
         $composerConfig,
         PACKAGE_NAME_ORM,
-        RECOMMENDED_ORM_VERSION_CONSTRAINT
+        RECOMMENDED_ORM_VERSION_CONSTRAINT,
+        intent: RequirementIntent::CoordinatedUpgrade,
       );
       $packages[] = PACKAGE_NAME_ORM;
     }
@@ -498,7 +507,8 @@ class Update extends Command
       $composerConfig = ComposerManifest::ensureRecommendedRequirement(
         $composerConfig,
         PACKAGE_NAME_EVENTS,
-        RECOMMENDED_EVENTS_VERSION_CONSTRAINT
+        RECOMMENDED_EVENTS_VERSION_CONSTRAINT,
+        intent: RequirementIntent::CoordinatedUpgrade,
       );
       $packages[] = PACKAGE_NAME_EVENTS;
     }
@@ -508,8 +518,6 @@ class Update extends Command
       $packages,
       $targetConstraint,
     );
-    $packages = $this->appendDirectIndependentFirstPartyPackages($composerConfig, $packages);
-
     return [$composerConfig, $packages];
   }
 
@@ -531,7 +539,13 @@ class Update extends Command
         continue;
       }
 
-      foreach (FirstPartyPackageCatalog::recommendedConstraints() as $packageName => $recommendedConstraint) {
+      $recommendations = FirstPartyPackageCatalog::recommendedConstraints();
+      foreach (array_keys($requirements) as $packageName) {
+        if (str_starts_with($packageName, 'assegaiphp/') && !isset($recommendations[$packageName])) {
+          throw new RuntimeException("Please review $packageName: it is not a released module in this Console inventory.");
+        }
+      }
+      foreach ($recommendations as $packageName => $recommendedConstraint) {
         if (! array_key_exists($packageName, $requirements)) {
           continue;
         }
@@ -541,36 +555,17 @@ class Update extends Command
           $packageName,
           $packageName === PACKAGE_NAME_CORE ? $targetConstraint : $recommendedConstraint,
           $section,
+          RequirementIntent::CoordinatedUpgrade,
         );
+        $constraint = $composerConfig[$section][$packageName] ?? null;
+        if (!is_string($constraint) || BundledRelease::inventory()->requirementIssues($packageName, $constraint) !== []) {
+          throw new RuntimeException("Please review $packageName in $section: its custom or newer requirement conflicts with the coordinated release plan. No project files were changed.");
+        }
         $packages[] = $packageName;
       }
     }
 
     return [$composerConfig, array_values(array_unique($packages))];
-  }
-
-  /**
-   * @param array<string, mixed> $composerConfig
-   * @param string[] $packages
-   * @return string[]
-   */
-  protected function appendDirectIndependentFirstPartyPackages(array $composerConfig, array $packages): array
-  {
-    foreach (['require', 'require-dev'] as $section) {
-      $requirements = $composerConfig[$section] ?? [];
-
-      if (! is_array($requirements)) {
-        continue;
-      }
-
-      foreach (self::INDEPENDENT_FIRST_PARTY_PACKAGES as $packageName) {
-        if (array_key_exists($packageName, $requirements)) {
-          $packages[] = $packageName;
-        }
-      }
-    }
-
-    return array_values(array_unique($packages));
   }
 
   /**

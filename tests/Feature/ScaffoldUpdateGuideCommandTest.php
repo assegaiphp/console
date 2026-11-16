@@ -8,12 +8,8 @@ function createUpgradeScaffoldWorkspace(): string
 {
   $workspace = sys_get_temp_dir() . '/' . uniqid('update-scaffold-', true);
 
-  if (!mkdir($workspace . '/website/src/Update/Data/upgrades', 0755, true) && !is_dir($workspace . '/website/src/Update/Data/upgrades')) {
+  if (!mkdir($workspace, 0755, true)) {
     throw new RuntimeException("Failed to create workspace: $workspace");
-  }
-
-  if (!mkdir($workspace . '/core/docs/releases', 0755, true) && !is_dir($workspace . '/core/docs/releases')) {
-    throw new RuntimeException("Failed to create releases docs directory: $workspace");
   }
 
   return $workspace;
@@ -51,12 +47,12 @@ describe('updates:scaffold command', function () {
       $status = $tester->execute([
         'from' => '0.9.0',
         'to' => '1.0.0',
-        '--directory' => $workspace,
+        '--output' => $workspace,
         '--title' => 'Upgrade from 0.9.0 to 1.0.0',
       ]);
 
-      $guideFile = $workspace . '/website/src/Update/Data/upgrades/0.9.0-to-1.0.0.php';
-      $notesFile = $workspace . '/core/docs/releases/1.0.0-upgrade-notes-draft.md';
+      $guideFile = $workspace . '/0.9.0-to-1.0.0.php';
+      $notesFile = $workspace . '/1.0.0-upgrade-notes-draft.md';
 
       expect($status)->toBe(Command::SUCCESS)
         ->and(file_exists($guideFile))->toBeTrue()
@@ -64,6 +60,28 @@ describe('updates:scaffold command', function () {
         ->and(file_get_contents($guideFile) ?: '')->toContain("'from' => '0.9.0'")
         ->and(file_get_contents($guideFile) ?: '')->toContain("'to' => '1.0.0'")
         ->and(file_get_contents($notesFile) ?: '')->toContain('# 1.0.0 Upgrade Notes Draft');
+    } finally {
+      removeUpgradeScaffoldWorkspace($workspace);
+    }
+  });
+
+  it('removes guessed repository writes and refuses missing, live or existing draft targets', function () {
+    $workspace = createUpgradeScaffoldWorkspace();
+    try {
+      $tester = new CommandTester(new ScaffoldUpdateGuide());
+      $arguments = ['from' => '0.10.0', 'to' => '0.11.1'];
+      expect($tester->execute($arguments))->toBe(Command::FAILURE);
+      file_put_contents($workspace . '/composer.json', '{"name":"assegaiphp/website"}');
+      mkdir($workspace . '/content');
+      expect($tester->execute($arguments + ['--output' => $workspace . '/content']))->toBe(Command::FAILURE)
+        ->and(scandir($workspace . '/content'))->toBe(['.', '..']);
+      unlink($workspace . '/composer.json');
+      file_put_contents($workspace . '/0.11.1-upgrade-notes-draft.md', 'preserve');
+      expect($tester->execute($arguments + ['--output' => $workspace]))->toBe(Command::FAILURE)
+        ->and(file_get_contents($workspace . '/0.11.1-upgrade-notes-draft.md'))->toBe('preserve')
+        ->and(file_exists($workspace . '/0.10.0-to-0.11.1.php'))->toBeFalse()
+        ->and(file_exists($workspace . '/website'))->toBeFalse()
+        ->and(file_exists($workspace . '/core'))->toBeFalse();
     } finally {
       removeUpgradeScaffoldWorkspace($workspace);
     }

@@ -12,6 +12,7 @@ use Assegai\Console\Commands\GlobalUpdate;
 use Assegai\Console\Commands\Info;
 use Assegai\Console\Commands\KeyGenerate;
 use Assegai\Console\Commands\NewProject;
+use Assegai\Console\Commands\ReleaseCheck;
 use Assegai\Console\Commands\Queue\QueueList;
 use Assegai\Console\Commands\Queue\QueueWork;
 use Assegai\Console\Commands\Schematic\SchematicInit;
@@ -29,6 +30,8 @@ use Assegai\Console\Util\CliVersionChecker;
 use Assegai\Console\Util\Path;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
+use Symfony\Component\Console\Input\ArgvInput;
 
 class ApplicationFactory
 {
@@ -48,7 +51,7 @@ class ApplicationFactory
 
     $resolvedWorkspace = self::resolveWorkspace($workspace, $normalizedArgv);
 
-    $extensions = InstalledPackageExtensionLoader::load($resolvedWorkspace);
+    $extensions = self::isReleaseCheck($application, $normalizedArgv) ? [] : InstalledPackageExtensionLoader::load($resolvedWorkspace);
     foreach ($extensions as $extension) {
       $application->addCommands($extension->instantiateCommands());
     }
@@ -56,6 +59,18 @@ class ApplicationFactory
     $application->setDefaultCommand('info');
 
     return $application;
+  }
+
+  /** @param list<string> $argv */
+  private static function isReleaseCheck(Application $application, array $argv): bool
+  {
+    $name = (new ArgvInput($argv))->getFirstArgument();
+    if ($name === null) { return false; }
+    try {
+      return $application->find($name) instanceof ReleaseCheck;
+    } catch (CommandNotFoundException) {
+      return false;
+    }
   }
 
   /**
@@ -74,6 +89,7 @@ class ApplicationFactory
       new Info(),
       new KeyGenerate(),
       new NewProject(),
+      new ReleaseCheck(),
       new QueueList(),
       new QueueWork(),
       new SchematicInit(),
@@ -89,7 +105,7 @@ class ApplicationFactory
   }
 
   /**
-   * @param string[] $argv
+   * @param list<string> $argv
    */
   private static function resolveWorkspace(?string $workspace, array $argv): string
   {
@@ -100,10 +116,6 @@ class ApplicationFactory
     $fallback = Path::normalize(getcwd() ?: '.');
 
     foreach ($argv as $index => $argument) {
-      if (!is_string($argument)) {
-        continue;
-      }
-
       if (str_starts_with($argument, '--directory=')) {
         return Path::normalize(substr($argument, strlen('--directory=')));
       }

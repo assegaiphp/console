@@ -1,0 +1,13 @@
+{
+  "name": "assegai-tools/release-policy",
+  "description": "Locked semver-only tooling for the shared coordinated-release checker.",
+  "type": "project",
+  "license": "MIT",
+  "require": {
+    "php": ">=8.4",
+    "composer/semver": "^3.6"
+  },
+  "config": {
+    "allow-plugins": false
+  }
+}

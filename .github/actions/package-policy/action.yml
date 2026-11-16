@@ -1,0 +1,60 @@
+name: Coordinated package policy
+description: Run the shared offline policy reader against explicitly pinned source and data.
+inputs:
+  console-root:
+    description: Explicit checkout of the pinned Console policy source.
+    required: true
+  console-ref:
+    description: Full reviewed Console commit identity.
+    required: true
+  core-root:
+    description: Explicit checkout containing the pinned Core data.
+    required: true
+  core-ref:
+    description: Full reviewed Core data commit identity.
+    required: true
+  inventory:
+    description: Explicit inventory file in the Core checkout.
+    required: true
+  modules:
+    description: Explicit canonical module file in the Core checkout.
+    required: true
+  manifest:
+    description: Candidate module composer.json file.
+    required: true
+  semver-autoload:
+    description: Explicit autoloader from the caller's locked semver-only tool installation.
+    required: true
+  evidence:
+    description: Explicit generated consumer owner support receipt when requirements extend the current recommendation.
+    required: false
+  ref:
+    description: Actual Git ref being checked; pre-push callers supply the destination ref.
+    default: ${{ github.ref }}
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        POLICY_CONSOLE_ROOT: ${{ inputs.console-root }}
+        POLICY_CONSOLE_REF: ${{ inputs.console-ref }}
+        POLICY_CORE_ROOT: ${{ inputs.core-root }}
+        POLICY_CORE_REF: ${{ inputs.core-ref }}
+        POLICY_INVENTORY: ${{ inputs.inventory }}
+        POLICY_MODULES: ${{ inputs.modules }}
+        POLICY_MANIFEST: ${{ inputs.manifest }}
+        POLICY_SEMVER_AUTOLOAD: ${{ inputs.semver-autoload }}
+        POLICY_CHECKED_REF: ${{ inputs.ref }}
+        POLICY_OWNER_EVIDENCE: ${{ inputs.evidence }}
+      run: |
+        support_arguments=(--purpose=current-train)
+        if [ -n "$POLICY_OWNER_EVIDENCE" ]; then
+          support_arguments+=("--evidence=$POLICY_OWNER_EVIDENCE")
+        fi
+        php "$GITHUB_ACTION_PATH/../../../tools/release-check.php" \
+          --mode=consumer --format=json \
+          --console-root="$POLICY_CONSOLE_ROOT" --console-ref="$POLICY_CONSOLE_REF" \
+          --core-root="$POLICY_CORE_ROOT" --core-ref="$POLICY_CORE_REF" \
+          --inventory="$POLICY_INVENTORY" --modules="$POLICY_MODULES" \
+          --manifest="$POLICY_MANIFEST" --semver-autoload="$POLICY_SEMVER_AUTOLOAD" \
+          --ref="$POLICY_CHECKED_REF" "${support_arguments[@]}"

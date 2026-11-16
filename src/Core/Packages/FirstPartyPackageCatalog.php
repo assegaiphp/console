@@ -2,25 +2,16 @@
 
 namespace Assegai\Console\Core\Packages;
 
+use Assegai\Console\Releases\BundledRelease;
+
 class FirstPartyPackageCatalog
 {
   private const PACKAGE_VENDOR = 'assegaiphp';
 
-  /** @return array<string, string> Published package lines compatible with the supported Core baseline. */
+  /** @return array<string, string> Reviewed public-module recommendations for the coordinated release. */
   public static function recommendedConstraints(): array
   {
-    return [
-      PACKAGE_NAME_CLI => RECOMMENDED_CLI_VERSION_CONSTRAINT,
-      PACKAGE_NAME_CORE => RECOMMENDED_CORE_VERSION_CONSTRAINT,
-      PACKAGE_NAME_ORM => RECOMMENDED_ORM_VERSION_CONSTRAINT,
-      PACKAGE_NAME_EVENTS => RECOMMENDED_EVENTS_VERSION_CONSTRAINT,
-      'assegaiphp/auth' => '^0.10.0',
-      'assegaiphp/collections' => '^0.10.0',
-      'assegaiphp/common' => '^0.10.1',
-      'assegaiphp/forms' => '^0.10.0',
-      'assegaiphp/util' => '^0.10.0',
-      'assegaiphp/validation' => '^0.10.0',
-    ];
+    return BundledRelease::inventory()->recommendedConstraints();
   }
 
   /**
@@ -30,13 +21,14 @@ class FirstPartyPackageCatalog
   {
     $packageName = self::normalizePackageName($requestedPackage);
 
-    if ($packageName === null) {
+    $constraints = self::recommendedConstraints();
+    if ($packageName === null || !isset($constraints[$packageName])) {
       return null;
     }
 
     return [
       'packageName' => $packageName,
-      'constraint' => self::recommendedConstraints()[$packageName] ?? '*',
+      'constraint' => $constraints[$packageName],
     ];
   }
 

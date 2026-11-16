@@ -20,7 +20,7 @@ function runningCliFixture(string $layout, string $projectVersion = '0.10.3'): a
     }
   }
 
-  foreach (['src', 'bin', 'assets'] as $directory) {
+  foreach (['src', 'bin', 'assets', 'meta'] as $directory) {
     if (!copy_directory($repository . '/' . $directory, $installation . '/' . $directory)) {
       throw new RuntimeException("Failed to copy $directory");
     }
@@ -144,7 +144,7 @@ echo json_encode([
   RECOMMENDED_EVENTS_VERSION_CONSTRAINT,
 ]);
 PHP]);
-    expect(json_decode($output, true))->toBe(['0.10.4', '0.10.4', '0.10.4', '^0.11.0', '^0.11.0', '^0.10.0', '^0.10.0']);
+    expect(json_decode($output, true))->toBe(['0.10.4', '0.10.4', '0.10.4', '~0.11.1', '~0.11.1', '~0.11.0', '~0.11.0']);
   } finally {
     VersionWorkspaceFactory::remove($fixture['root']);
   }

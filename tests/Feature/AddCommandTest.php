@@ -41,6 +41,7 @@ function bootstrap(): void
 {
   AssegaiFactory::create(AppModule::class)->run();
 }
+
 PHP);
 
   file_put_contents($workspace . '/src/AppModule.php', <<<'PHP'
@@ -62,6 +63,31 @@ PHP);
 
   return $workspace;
 }
+
+it('preserves the existing consumer support when adding an already declared first-party package', function (string $constraint) {
+  $workspace = createAddCommandWorkspace();
+  try {
+    $manifest = json_decode(file_get_contents($workspace . '/composer.json') ?: throw new RuntimeException('Cannot read the owned Composer fixture.'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['require']['assegaiphp/common'] = $constraint;
+    file_put_contents($workspace . '/composer.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+    $tester = new CommandTester(new Add());
+    expect($tester->execute(['package' => 'common', '--directory' => $workspace, '--no-install' => true]))->toBe(Command::SUCCESS);
+    expect(json_decode(file_get_contents($workspace . '/composer.json') ?: throw new RuntimeException('Cannot read the owned Composer fixture.'), true, flags: JSON_THROW_ON_ERROR)['require']['assegaiphp/common'])->toBe($constraint);
+  } finally { removeAddCommandWorkspace($workspace); }
+})->with(['^0.10.1', '^0.10.1 || ~0.11.0']);
+
+it('rejects unbounded and development first-party declarations before writes', function (string $constraint) {
+  $workspace = createAddCommandWorkspace();
+  try {
+    $manifest = json_decode(file_get_contents($workspace . '/composer.json') ?: throw new RuntimeException('Cannot read the owned Composer fixture.'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['require']['assegaiphp/common'] = $constraint;
+    $before = json_encode($manifest, JSON_THROW_ON_ERROR);
+    file_put_contents($workspace . '/composer.json', $before);
+    $tester = new CommandTester(new Add());
+    expect($tester->execute(['package' => 'common', '--directory' => $workspace, '--no-install' => true]))->toBe(Command::FAILURE)
+      ->and(file_get_contents($workspace . '/composer.json'))->toBe($before);
+  } finally { removeAddCommandWorkspace($workspace); }
+})->with(['*', 'dev-main', '~0.11.0@dev']);
 
 function removeAddCommandWorkspace(string $directory): void
 {
@@ -125,6 +151,20 @@ function installFakeWorkspacePackage(
 }
 
 describe('Add command', function () {
+  it('removes the installed-alias bypass for unreviewed first-party modules', function () {
+    $workspace = createAddCommandWorkspace();
+    installFakeWorkspacePackage($workspace, 'assegaiphp/unreviewed', 'FixtureUnreviewedInstaller', '<?php', ['unreviewed-alias']);
+    try {
+      $before = file_get_contents($workspace . '/composer.json');
+      $tester = new CommandTester(new Add());
+      expect($tester->execute(['package' => 'unreviewed-alias', '--directory' => $workspace, '--no-install' => true]))->toBe(Command::FAILURE)
+        ->and(file_get_contents($workspace . '/composer.json'))->toBe($before)
+        ->and($tester->getDisplay())->toContain('no public recommendation');
+    } finally {
+      removeAddCommandWorkspace($workspace);
+    }
+  });
+
   it('adds events to composer config, assegai config, and the root module when the package is already installed', function () {
     $workspace = createAddCommandWorkspace();
     installFakeWorkspacePackage(
@@ -313,7 +353,7 @@ PHP,
 
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
 
-      expect($composer['require']['assegaiphp/rabbitmq'] ?? null)->toBe('*');
+      expect($composer['require']['assegaiphp/rabbitmq'] ?? null)->toBe('~1.2.0');
       expect($tester->getDisplay())->toContain('UPDATE composer.json');
     } finally {
       removeAddCommandWorkspace($workspace);
@@ -345,7 +385,7 @@ PHP,
     $workspace = createAddCommandWorkspace();
     installFakeWorkspacePackage(
       $workspace,
-      'assegaiphp/payments',
+      'acme/payments',
       'Assegai\\Payments\\Assegai\\Console\\AddCommandPaymentsPackageInstaller',
       <<<'PHP'
 <?php
@@ -380,7 +420,7 @@ PHP,
 
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
 
-      expect($composer['require']['assegaiphp/payments'] ?? null)->toBe('*')
+      expect($composer['require']['acme/payments'] ?? null)->toBe('*')
         ->and($composer['require'])->not->toHaveKey('assegaiphp/billing')
         ->and(file_get_contents($workspace . '/payments-installed'))->toBe('yes');
     } finally {
@@ -403,7 +443,7 @@ PHP,
 
       $composer = json_decode(file_get_contents($workspace . '/composer.json') ?: '', true);
 
-      expect($composer['require']['assegaiphp/beanstalkd'] ?? null)->toBe('*');
+      expect($composer['require']['assegaiphp/beanstalkd'] ?? null)->toBe('~1.2.0');
     } finally {
       removeAddCommandWorkspace($workspace);
     }
@@ -421,7 +461,7 @@ PHP,
       ]);
 
       expect($status)->toBe(Command::FAILURE);
-      expect($tester->getDisplay())->toContain('Unsupported package');
+      expect($tester->getDisplay())->toContain('no public recommendation');
     } finally {
       removeAddCommandWorkspace($workspace);
     }

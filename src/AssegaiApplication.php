@@ -43,7 +43,7 @@ final class AssegaiApplication extends Application
 
     $commandName = $input->getFirstArgument();
 
-    if (in_array($commandName, ['global:update', 'self:update', '_complete'], true)) {
+    if (in_array($commandName, ['global:update', 'self:update', '_complete', 'release:check'], true)) {
       return;
     }
 

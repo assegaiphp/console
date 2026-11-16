@@ -2,6 +2,10 @@
 
 namespace Assegai\Console\Util;
 
+use Composer\Semver\Constraint\Constraint;
+use Composer\Semver\Constraint\ConstraintInterface;
+use Composer\Semver\Intervals;
+use Composer\Semver\VersionParser;
 use RuntimeException;
 
 /**
@@ -113,7 +117,7 @@ class ComposerManifest
   }
 
   /**
-   * Ensure a package meets at least the recommended constraint without lowering newer app constraints.
+   * Preserve existing support by default; plan upgrades or an actual minimum only with explicit intent.
    *
    * @param array<string, mixed> $composerConfig
    * @return array<string, mixed>
@@ -123,6 +127,7 @@ class ComposerManifest
     string $packageName,
     string $recommendedConstraint,
     string $section = 'require',
+    RequirementIntent $intent = RequirementIntent::PreserveSupport,
   ): array {
     $requirements = $composerConfig[$section] ?? [];
 
@@ -132,49 +137,54 @@ class ComposerManifest
 
     $existingConstraint = $requirements[$packageName] ?? null;
 
-    if (! is_string($existingConstraint) || $existingConstraint === '') {
+    if ($existingConstraint === null) {
       return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
     }
 
-    if (self::constraintVersionCompare($existingConstraint, $recommendedConstraint) >= 0) {
-      return $composerConfig;
+    if (!is_string($existingConstraint) || trim($existingConstraint) === '') {
+      throw new RuntimeException("Please correct the invalid $packageName constraint in $section before updating.");
     }
 
-    return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
+    try {
+      $existing = self::parseRequirement($existingConstraint, bounded: false);
+      $recommended = self::parseRequirement($recommendedConstraint, bounded: false);
+      if ($intent === RequirementIntent::PreserveSupport) { return $composerConfig; }
+      if (Intervals::isSubsetOf($existing, $recommended)
+        || Intervals::isSubsetOf($existing, new Constraint('>=', $recommended->getUpperBound()->getVersion()))) {
+        return $composerConfig;
+      }
+      if (Intervals::isSubsetOf($recommended, $existing)) {
+        if ($intent === RequirementIntent::EnforceMinimum && $existing->getLowerBound()->compareTo($recommended->getLowerBound(), '<')) {
+          return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
+        }
+        return $composerConfig;
+      }
+      if (Intervals::isSubsetOf($existing, new Constraint('<', $recommended->getLowerBound()->getVersion()))) {
+        return self::ensureRequirement($composerConfig, $packageName, $recommendedConstraint, $section);
+      }
+    } catch (\UnexpectedValueException | \InvalidArgumentException $error) {
+      throw new RuntimeException("Please correct the $packageName constraint before updating: " . $error->getMessage(), previous: $error);
+    }
+    throw new RuntimeException("Please review the custom $packageName constraint '$existingConstraint' against '$recommendedConstraint'. The update cannot change it without broadening or downgrading it.");
   }
 
-  private static function constraintVersionCompare(string $leftConstraint, string $rightConstraint): int
+  /** Parse numeric support; qualification additionally requires finite bounds. */
+  public static function parseRequirement(string $constraint, bool $bounded = true): ConstraintInterface
   {
-    $leftVersion = self::extractLowestComparableVersion($leftConstraint);
-    $rightVersion = self::extractLowestComparableVersion($rightConstraint);
-
-    if ($leftVersion === null || $rightVersion === null) {
-      return 1;
+    if ($constraint === '' || strlen($constraint) > 1024 || preg_match('/@(?!stable\b)|-(?:dev|alpha|beta|rc)/i', $constraint)) {
+      throw new \InvalidArgumentException('Please review the unsupported requirement or development stability flag.');
     }
-
-    return version_compare($leftVersion, $rightVersion);
+    $range = (new VersionParser())->parseConstraints($constraint);
+    $intervals = Intervals::get($range);
+    if ($intervals['numeric'] === [] || $intervals['branches']['names'] !== [] || $intervals['branches']['exclude']
+      || ($bounded && $range->getUpperBound()->isPositiveInfinity())) {
+      throw new \InvalidArgumentException('Please review the unsupported development, empty or unbounded requirement.');
+    }
+    return $range;
   }
 
-  private static function extractLowestComparableVersion(string $constraint): ?string
+  public static function removesSupport(string $before, string $after): bool
   {
-    if (preg_match_all('/\d+(?:\.\d+){0,2}/', $constraint, $matches) !== 1 || empty($matches[0])) {
-      return null;
-    }
-
-    $versions = array_map(self::normalizeComparableVersion(...), $matches[0]);
-    usort($versions, static fn(string $left, string $right): int => version_compare($left, $right));
-
-    return $versions[0] ?? null;
-  }
-
-  private static function normalizeComparableVersion(string $version): string
-  {
-    $parts = explode('.', $version);
-
-    while (count($parts) < 3) {
-      $parts[] = '0';
-    }
-
-    return implode('.', array_slice($parts, 0, 3));
+    return !Intervals::isSubsetOf(self::parseRequirement($before, bounded: false), self::parseRequirement($after, bounded: false));
   }
 }

@@ -135,7 +135,7 @@ describe('Workspace manager', function () {
 
       expect($composer)->toBeArray();
       expect($composer['require']['php'])->toBe('^' . MIN_PHP_VERSION);
-      expect($composer['require'][PACKAGE_NAME_CORE])->toBe('^0.11.0');
+      expect($composer['require'][PACKAGE_NAME_CORE])->toBe('~0.11.1');
       expect($composer['autoload']['psr-4'])->toBe(['Acme\\BlogApi\\' => 'src/']);
       expect(array_key_exists('Assegai\\App\\', $composer['autoload']['psr-4']))->toBeFalse();
       expect($readme)->toContain('This project was scaffolded with `assegai new`.');

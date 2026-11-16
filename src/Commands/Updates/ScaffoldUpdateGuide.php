@@ -22,7 +22,7 @@ class ScaffoldUpdateGuide extends Command
     $this
       ->addArgument('from', InputArgument::REQUIRED, 'The version users are upgrading from.')
       ->addArgument('to', InputArgument::REQUIRED, 'The version users are upgrading to.')
-      ->addOption('directory', 'd', InputOption::VALUE_REQUIRED, 'The Assegai monorepo root.', getcwd())
+      ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'An existing caller-owned draft directory outside source repositories and Composer projects.')
       ->addOption('title', null, InputOption::VALUE_REQUIRED, 'The guide title.')
       ->addOption('eyebrow', null, InputOption::VALUE_REQUIRED, 'The guide eyebrow.', 'Release Upgrade')
       ->addOption('status-label', null, InputOption::VALUE_REQUIRED, 'The status label.', 'Planned Release')
@@ -32,32 +32,33 @@ class ScaffoldUpdateGuide extends Command
 
   protected function execute(InputInterface $input, OutputInterface $output): int
   {
-    $root = Path::normalize((string) ($input->getOption('directory') ?: getcwd() ?: '.'));
+    $requestedOutput = $input->getOption('output');
+    $root = is_string($requestedOutput) && $requestedOutput !== '' ? realpath($requestedOutput) : false;
     $from = trim((string) $input->getArgument('from'));
     $to = trim((string) $input->getArgument('to'));
 
-    if ($from === '' || $to === '') {
-      $output->writeln('<error>Both from and to versions are required.</error>');
+    if ($from === '' || $to === '' || $this->slugify($from) === '' || $this->slugify($to) === '') {
+      $output->writeln('<error>Both from and to versions must produce nonempty draft names.</error>');
       return Command::FAILURE;
     }
 
-    $upgradeDirectory = Path::join($root, 'website', 'src', 'Update', 'Data', 'upgrades');
-    $releaseNotesDirectory = Path::join($root, 'core', 'docs', 'releases');
-
-    if (!is_dir($upgradeDirectory) && !mkdir($upgradeDirectory, 0755, true) && !is_dir($upgradeDirectory)) {
-      throw new RuntimeException('Failed to create update advisor upgrades directory.');
-    }
-
-    if (!is_dir($releaseNotesDirectory) && !mkdir($releaseNotesDirectory, 0755, true) && !is_dir($releaseNotesDirectory)) {
-      throw new RuntimeException('Failed to create releases docs directory.');
+    if ($root === false || !is_dir($root) || !is_writable($root) || !$this->isDraftDirectory($root)) {
+      $output->writeln('<error>Please supply --output with an existing writable directory outside source repositories and Composer projects. Drafts must be reviewed by the Website owner before admission.</error>');
+      return Command::FAILURE;
     }
 
     $filenameSlug = $this->slugify($from) . '-to-' . $this->slugify($to);
-    $upgradeFilename = Path::join($upgradeDirectory, $filenameSlug . '.php');
-    $notesFilename = Path::join($releaseNotesDirectory, $to . '-upgrade-notes-draft.md');
+    $upgradeFilename = Path::join($root, $filenameSlug . '.php');
+    $notesFilename = Path::join($root, $this->slugify($to) . '-upgrade-notes-draft.md');
 
-    if (!file_exists($upgradeFilename)) {
-      file_put_contents($upgradeFilename, $this->buildUpgradeEntryTemplate(
+    if (file_exists($upgradeFilename) || is_link($upgradeFilename) || file_exists($notesFilename) || is_link($notesFilename)) {
+      $output->writeln('<error>A draft target already exists. Please choose another output directory.</error>');
+      return Command::FAILURE;
+    }
+
+    $created = [];
+    try {
+      $entry = $this->buildUpgradeEntryTemplate(
         from: $from,
         to: $to,
         title: (string) ($input->getOption('title') ?: sprintf('Upgrade from %s to %s', $from, $to)),
@@ -65,20 +66,42 @@ class ScaffoldUpdateGuide extends Command
         statusLabel: (string) $input->getOption('status-label'),
         summary: (string) ($input->getOption('summary') ?: sprintf('%s introduces meaningful framework changes. Fill in the automatic and manual steps before publishing this release.', $to)),
         warning: (string) $input->getOption('warning'),
-      ));
-      $output->writeln(sprintf('<question>CREATE</question> %s', $upgradeFilename));
-    } else {
-      $output->writeln(sprintf('<comment>SKIP</comment> %s already exists', $upgradeFilename));
+      );
+      foreach ([$upgradeFilename => $entry, $notesFilename => $this->buildUpgradeNotesTemplate($from, $to)] as $filename => $contents) {
+        $handle = @fopen($filename, 'xb');
+        if ($handle === false) {
+          throw new RuntimeException('Failed to create a new draft target.');
+        }
+        $created[] = $filename;
+        try {
+          if (fwrite($handle, $contents) !== strlen($contents)) {
+            throw new RuntimeException('Failed to write a complete draft.');
+          }
+        } finally {
+          fclose($handle);
+        }
+      }
+    } catch (RuntimeException $error) {
+      foreach ($created as $filename) { unlink($filename); }
+      $output->writeln('<error>' . $error->getMessage() . '</error>');
+      return Command::FAILURE;
     }
-
-    if (!file_exists($notesFilename)) {
-      file_put_contents($notesFilename, $this->buildUpgradeNotesTemplate($from, $to));
-      $output->writeln(sprintf('<question>CREATE</question> %s', $notesFilename));
-    } else {
-      $output->writeln(sprintf('<comment>SKIP</comment> %s already exists', $notesFilename));
-    }
+    foreach ($created as $filename) { $output->writeln(sprintf('<question>CREATE</question> %s', $filename)); }
+    $output->writeln('<comment>These are incomplete drafts. The Website owner must review and admit them through the coordinated release workflow.</comment>');
 
     return Command::SUCCESS;
+  }
+
+  private function isDraftDirectory(string $directory): bool
+  {
+    do {
+      if (file_exists($directory . '/.git') || file_exists($directory . '/composer.json')) {
+        return false;
+      }
+      $parent = dirname($directory);
+      if ($parent === $directory) { return true; }
+      $directory = $parent;
+    } while (true);
   }
 
   private function slugify(string $value): string

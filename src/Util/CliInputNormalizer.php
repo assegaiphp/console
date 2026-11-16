@@ -11,7 +11,7 @@ final class CliInputNormalizer
    * `assegai new app -g` keep their existing meaning.
    *
    * @param string[] $argv
-   * @return string[]
+   * @return list<string>
    */
   public static function normalize(array $argv): array
   {

@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "releaseLine": "0.11",
+  "packages": {
+    "assegaiphp/attributes": {
+      "version": "1.0.3",
+      "installConstraint": "~1.0.3"
+    },
+    "assegaiphp/auth": {
+      "version": "0.11.0",
+      "installConstraint": "~0.11.0"
+    },
+    "assegaiphp/beanstalkd": {
+      "version": "1.2.0",
+      "installConstraint": "~1.2.0"
+    },
+    "assegaiphp/cms": {
+      "version": "0.11.0",
+      "installConstraint": "~0.11.0"
+    },
+    "assegaiphp/collections": {
+      "version": "0.11.0",
+      "installConstraint": "~0.11.0"
+    },
+    "assegaiphp/common": {
+      "version": "0.11.0",
+      "installConstraint": "~0.11.0"
+    },
+    "assegaiphp/console": {
+      "version": "0.11.1",
+      "installConstraint": "~0.11.1"
+    },
+    "assegaiphp/core": {
+      "version": "0.11.1",
+      "installConstraint": "~0.11.1"
+    },
+    "assegaiphp/events": {
+      "version": "0.11.0",
+      "installConstraint": "~0.11.0"
+    },
+    "assegaiphp/forms": {
+      "version": "0.11.0",
+      "installConstraint": "~0.11.0"
+    },
+    "assegaiphp/orm": {
+      "version": "0.11.0",
+      "installConstraint": "~0.11.0"
+    },
+    "assegaiphp/rabbitmq": {
+      "version": "1.2.0",
+      "installConstraint": "~1.2.0"
+    },
+    "assegaiphp/starter": {
+      "version": "0.11.1",
+      "installConstraint": "~0.11.1"
+    },
+    "assegaiphp/util": {
+      "version": "0.11.0",
+      "installConstraint": "~0.11.0"
+    },
+    "assegaiphp/validation": {
+      "version": "0.11.0",
+      "installConstraint": "~0.11.0"
+    }
+  },
+  "website": {
+    "documentationVersion": "0.11",
+    "previousDocumentationVersion": "0.10",
+    "articlePath": "releases/0.11.1/application-paths-and-coordinated-modules",
+    "upgradeFrom": "0.10.x",
+    "upgradeTo": "0.11.1",
+    "archives": {
+      "0.9": "sha256:54445722bc6d36a9e39bfcd692dcc94fdb71c67b2cf00fa056d3000dc04bdcf7",
+      "0.10": "sha256:bbb9bbee85015215fc0e4f1ee5149cf8cdf4544916cc016ec413d15171dcd1c2"
+    }
+  }
+}

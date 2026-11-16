@@ -1,39 +1,41 @@
 <?php
 
 use Assegai\Console\Core\Packages\FirstPartyPackageCatalog;
+use PHPUnit\Framework\Assert;
 
 describe('FirstPartyPackageCatalog', function () {
-  it('recommends published package lines independently of the Core release line', function () {
-    expect(FirstPartyPackageCatalog::recommendedConstraints())->toBe([
-      PACKAGE_NAME_CLI => '^0.11.0',
-      PACKAGE_NAME_CORE => '^0.11.0',
-      PACKAGE_NAME_ORM => '^0.10.0',
-      PACKAGE_NAME_EVENTS => '^0.10.0',
-      'assegaiphp/auth' => '^0.10.0',
-      'assegaiphp/collections' => '^0.10.0',
-      'assegaiphp/common' => '^0.10.1',
-      'assegaiphp/forms' => '^0.10.0',
-      'assegaiphp/util' => '^0.10.0',
-      'assegaiphp/validation' => '^0.10.0',
-    ]);
-    foreach (FirstPartyPackageCatalog::recommendedConstraints() as $package => $constraint) {
-      expect(FirstPartyPackageCatalog::resolve($package))->toBe([
-        'packageName' => $package, 'constraint' => $constraint,
+  it('preserves later patches on the reviewed line and rejects unresolvable or different lines', function () {
+    $inventory = Assegai\Console\Releases\BundledRelease::inventory();
+    expect($inventory->requirementIssues('assegaiphp/core', '~0.11.9'))->toBe([])
+      ->and($inventory->requirementIssues('assegaiphp/core', '^0.12'))->not->toBe([])
+      ->and($inventory->requirementIssues('assegaiphp/core', '>0.12 <0.12'))->not->toBe([])
+      ->and($inventory->requirementIssues('assegaiphp/core', 'dev-main'))->not->toBe([]);
+  });
+  it('uses every released canonical module and its reviewed minimum', function () {
+    $constraints = FirstPartyPackageCatalog::recommendedConstraints();
+    expect($constraints)->toHaveCount(14)
+      ->toMatchArray([
+        'assegaiphp/core' => '~0.11.1', 'assegaiphp/console' => '~0.11.1',
+        'assegaiphp/events' => '~0.11.0', 'assegaiphp/orm' => '~0.11.0',
+        'assegaiphp/attributes' => '~1.0.3', 'assegaiphp/rabbitmq' => '~1.2.0', 'assegaiphp/beanstalkd' => '~1.2.0',
       ]);
+    Assert::assertArrayNotHasKey('assegaiphp/cms', $constraints);
+    foreach ($constraints as $package => $constraint) {
+      expect(FirstPartyPackageCatalog::resolve($package))->toBe(['packageName' => $package, 'constraint' => $constraint]);
     }
   });
 
-  it('resolves first-party shortcuts without requiring an allowlist entry', function () {
+  it('resolves public queue shortcuts through the coordinated inventory', function () {
     expect(FirstPartyPackageCatalog::resolve('rabbitmq'))->toBe([
       'packageName' => 'assegaiphp/rabbitmq',
-      'constraint' => '*',
+      'constraint' => '~1.2.0',
     ]);
   });
 
   it('resolves full first-party Composer package names', function () {
     expect(FirstPartyPackageCatalog::resolve('AssegaiPHP/Beanstalkd'))->toBe([
       'packageName' => 'assegaiphp/beanstalkd',
-      'constraint' => '*',
+      'constraint' => '~1.2.0',
     ]);
   });
 
@@ -51,6 +53,9 @@ describe('FirstPartyPackageCatalog', function () {
   it('rejects packages outside the first-party namespace', function (string $package) {
     expect(FirstPartyPackageCatalog::resolve($package))->toBeNull();
   })->with([
+    'assegaiphp/cms',
+    'assegaiphp/cli',
+    'assegaiphp/unknown',
     'another-vendor/rabbitmq',
     'assegaiphp/',
     'assegaiphp/rabbit/mq',
