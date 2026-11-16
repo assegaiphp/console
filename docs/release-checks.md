@@ -6,6 +6,8 @@ Console distributes byte-identical copies under `meta/release`. `source.json` re
 
 Framework modules follow the target framework major/minor. Established separate streams use the exact canonical mapping. Every module requires a versioning mode and publication lifecycle. Unreleased modules remain planned and checked, but cannot become public recommendations or dependencies of released modules. First publication requires updating canonical lifecycle and completing the same checks.
 
+`version` identifies the exact planned release artifact. `installConstraint` defines its reviewed compatibility envelope and minimum; the artifact must be admitted by that envelope. Dependent requirements and preserved application ranges must be subsets of the complete envelope. An independent artifact patch does not raise that minimum. Candidate resolution, release/tag refs and publication observations still name the exact planned artifact.
+
 ## Standalone consumer contract
 
 Use a reviewed, pinned Console source checkout and an explicit autoloader supplying `composer/semver`. No Console installation, Common dependency, application bootstrap or network lookup is required by this entrypoint:
@@ -44,7 +46,7 @@ The same standalone entrypoint accepts `--mode=prepare|publish` and `--evidence=
 
 Prepare requires canonical membership reconciliation, exact source/dependency identities, package and release-note checks, complete candidate Composer resolution, observed CLI catalog/default/update plans and Website content/runtime/render receipts. Generated check receipts must name the actual checked candidates and inputs. A URL, planned status or hand-written success flag is insufficient evidence. Check production provenance and retain the receipts with the reviewed candidate.
 
-Publish additionally requires fresh stable-package observations matching reviewed versions and tag/source identities. It requires `--website-manifest=/website/composer.json --website-lock=/website/composer.lock`. The checker reads those actual files in a clean checkout, verifies their bytes against the recorded commit and lock digest, and checks every present first-party dependency against the plan. Rendering new documentation with an old lock cannot satisfy Publish.
+Publish additionally requires fresh stable-package observations matching reviewed versions and tag/source identities. It requires `--website-manifest=/website/composer.json --website-lock=/website/composer.lock`. The checker reads those actual files in a clean checkout and verifies their bytes against the recorded commit and lock digest. Present first-party locked versions must be stable and satisfy the reviewed envelope and actual manifest requirements. Their compatible patch versions may differ from the planned artifacts; source/lock/runtime/render receipts still bind the actual Website graph. An old minor or a version below an explicit floor cannot satisfy Publish.
 
 All hashes use `sha256:<64 lowercase hex digits>`; Git object identities are bare 40/64-digit lowercase hex. Every command emits JSON and exits nonzero when blocked. These checks read files and Git metadata; they do not install dependencies, write artifacts, publish refs or grant release authority.
 

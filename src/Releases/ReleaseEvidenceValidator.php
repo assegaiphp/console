@@ -82,7 +82,7 @@ final class ReleaseEvidenceValidator
             $issues[] = ReleaseInventoryValidator::issue('unreleased-dependency', 'evidence.modules.' . $name . '.' . $section . '.' . $dependencyName,
               'A released module cannot depend on an unreleased module.');
           }
-          foreach (ReleaseInventoryValidator::constraintIssues($dependencyPlan['version'], $constraint, $dependencyLine) as $message) {
+          foreach (ReleaseInventoryValidator::subsetIssues($constraint, $dependencyPlan['installConstraint']) as $message) {
             $issues[] = ReleaseInventoryValidator::issue('dependency-line', 'evidence.modules.' . $name . '.' . $section . '.' . $dependencyName, $message);
           }
         }
@@ -139,7 +139,7 @@ final class ReleaseEvidenceValidator
         if ($kind === 'catalog' && $constraint !== $plan['installConstraint']) {
           $issues[] = ReleaseInventoryValidator::issue('cli-recommendation', 'evidence.cli.catalog.' . $name, 'The catalog recommendation differs from the reviewed inventory.');
         }
-        foreach (ReleaseInventoryValidator::constraintIssues($plan['version'], $constraint, $line) as $message) {
+        foreach (ReleaseInventoryValidator::subsetIssues($constraint, $plan['installConstraint']) as $message) {
           $issues[] = ReleaseInventoryValidator::issue('cli-line', 'evidence.cli.' . $kind . '.' . $name, $message);
         }
       }

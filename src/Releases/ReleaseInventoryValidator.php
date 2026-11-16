@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Assegai\Console\Releases;
 
 use Composer\Semver\Constraint\Constraint;
+use Composer\Semver\Constraint\ConstraintInterface;
 use Composer\Semver\Intervals;
 use Composer\Semver\VersionParser;
 use JsonException;
@@ -52,8 +53,8 @@ final class ReleaseInventoryValidator
     }
     foreach ($observation->versions as $name => $version) {
       $plan = $inventory->releasedPackages()[$name] ?? null;
-      if ($plan === null || !self::versionsMatch($version, $plan['version'])) {
-        $issues[] = self::issue('website-dependencies', 'website.lock.' . $name, 'Actual Website locked versions must match the reviewed released-module plan.');
+      if ($plan === null || !self::versionAllowed($version, $plan['installConstraint'])) {
+        $issues[] = self::issue('website-dependencies', 'website.lock.' . $name, 'Actual Website locked stable versions must satisfy the reviewed compatibility envelope.');
       }
     }
     foreach (['require' => $observation->require, 'require-dev' => $observation->requireDev] as $section => $requirements) {
@@ -65,8 +66,11 @@ final class ReleaseInventoryValidator
           $issues[] = self::issue('website-dependencies', 'website.' . $section . '.' . $name, 'Website first-party requirements must identify released, actually locked modules.');
           continue;
         }
-        foreach (self::constraintIssues($plan['version'], $constraint, $line) as $message) {
+        foreach (self::subsetIssues($constraint, $plan['installConstraint']) as $message) {
           $issues[] = self::issue('website-dependencies', 'website.' . $section . '.' . $name, $message);
+        }
+        if (!self::versionAllowed($observation->versions[$name], $constraint)) {
+          $issues[] = self::issue('website-dependencies', 'website.' . $section . '.' . $name, 'The actual locked version must also satisfy its actual Website requirement.');
         }
       }
     }
@@ -130,7 +134,7 @@ final class ReleaseInventoryValidator
             $issues[] = self::issue('manifest-dependency', $section . '.' . $dependency, 'The dependency must identify an allowed canonical module and constraint.');
             continue;
           }
-          foreach (self::constraintIssues($plan['version'], $constraint, $line) as $message) {
+          foreach (self::subsetIssues($constraint, $plan['installConstraint']) as $message) {
             $issues[] = self::issue('manifest-dependency', $section . '.' . $dependency, $message);
           }
         }
@@ -339,7 +343,7 @@ final class ReleaseInventoryValidator
   /** Uses Composer's parser for both exact labels (including two-part tags) and complete constraint sets.
    * @return list<string>
    */
-  public static function constraintIssues(string $version, string $constraint, string $releaseLine, bool $requirePlannedVersion = true): array
+  public static function constraintIssues(string $version, string $constraint, string $releaseLine): array
   {
     if (preg_match(self::LINE, $releaseLine) !== 1) {
       return ['The release line is not a canonical major.minor value.'];
@@ -354,23 +358,54 @@ final class ReleaseInventoryValidator
       if (VersionParser::parseStability($version) !== 'stable' || !str_starts_with($normalized, $releaseLine . '.')) {
         return ['The planned stable version must share the agreed major.minor line.'];
       }
-      $range = $parser->parseConstraints($constraint);
-      $intervals = Intervals::get($range);
-      if ($intervals['numeric'] === [] || $intervals['branches']['names'] !== [] || $intervals['branches']['exclude']) {
-        return ['The constraint must describe a nonempty numeric release range.'];
-      }
-      if ($requirePlannedVersion && !$range->matches(new Constraint('==', $normalized))) {
+      $range = self::numericRange($constraint);
+      if (!$range->matches(new Constraint('==', $normalized))) {
         return ['The constraint does not accept the planned version.'];
       }
       $upper = $parts[0] . '.' . ((int) $parts[1] + 1) . '.0.0-dev';
-      $outside = $parser->parseConstraints('<' . $normalized . '-dev || >=' . $upper);
+      $outside = $parser->parseConstraints('<' . $releaseLine . '.0.0-dev || >=' . $upper);
       if (Intervals::haveIntersections($range, $outside)) {
-        return ['The constraint permits versions below the reviewed minimum or outside the canonical release line.'];
+        return ['The compatibility envelope permits another canonical release line.'];
       }
       return [];
     } catch (\UnexpectedValueException | \InvalidArgumentException $error) {
       return ['Composer could not validate the version or constraint: ' . $error->getMessage()];
     }
+  }
+
+  /** @return list<string> */
+  public static function subsetIssues(string $constraint, string $envelope): array
+  {
+    if (!class_exists(VersionParser::class) || !class_exists(Intervals::class)) {
+      return ['Composer semver support is unavailable.'];
+    }
+    try {
+      return Intervals::isSubsetOf(self::numericRange($constraint), self::numericRange($envelope))
+        ? [] : ['The requirement permits versions outside the reviewed compatibility envelope.'];
+    } catch (\UnexpectedValueException | \InvalidArgumentException $error) {
+      return ['Composer could not validate the requirement or envelope: ' . $error->getMessage()];
+    }
+  }
+
+  public static function versionAllowed(mixed $version, string $constraint): bool
+  {
+    if (!is_string($version) || !class_exists(VersionParser::class) || !class_exists(Intervals::class)) { return false; }
+    try {
+      return VersionParser::parseStability($version) === 'stable'
+        && self::numericRange($constraint)->matches(new Constraint('==', (new VersionParser())->normalize($version)));
+    } catch (\UnexpectedValueException | \InvalidArgumentException) {
+      return false;
+    }
+  }
+
+  private static function numericRange(string $constraint): ConstraintInterface
+  {
+    $range = (new VersionParser())->parseConstraints($constraint);
+    $intervals = Intervals::get($range);
+    if ($intervals['numeric'] === [] || $intervals['branches']['names'] !== [] || $intervals['branches']['exclude']) {
+      throw new \InvalidArgumentException('The constraint must describe a nonempty numeric release range.');
+    }
+    return $range;
   }
 
   public static function versionsMatch(mixed $left, mixed $right): bool

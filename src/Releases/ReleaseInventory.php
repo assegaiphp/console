@@ -33,7 +33,7 @@ final readonly class ReleaseInventory
     $package = $this->releasedPackages()[$name] ?? null;
     $line = $this->packageReleaseLines[$name] ?? null;
     return $package === null || $line === null ? ['The package is not a released module in this inventory.']
-      : ReleaseInventoryValidator::constraintIssues($package['version'], $constraint, $line, requirePlannedVersion: false);
+      : ReleaseInventoryValidator::subsetIssues($constraint, $package['installConstraint']);
   }
 
   /** @return array{schema: int, inventorySha256: string, canonicalModulesSha256: string, requirements: array<string, mixed>} */

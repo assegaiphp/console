@@ -266,8 +266,51 @@ final class ReleaseInventoryValidatorTest extends TestCase
 
   public function testRejectsRangesBelowReviewedMinimumsEvenWithinTheCorrectStream(): void
   {
-    expect(ReleaseInventoryValidator::constraintIssues('0.11.1', '~0.11.0', '0.11'))->not->toBe([])
-      ->and(ReleaseInventoryValidator::constraintIssues('0.11.1', '~0.11.1', '0.11'))->toBe([]);
+    self::assertNotSame([], ReleaseInventoryValidator::subsetIssues('~0.11.0', '~0.11.1'));
+    self::assertSame([], ReleaseInventoryValidator::subsetIssues('~0.11.1', '~0.11.1'));
+    self::assertFalse(ReleaseInventoryValidator::versionAllowed('0.11.0', '~0.11.1'));
+    self::assertSame([], ReleaseInventoryValidator::constraintIssues('0.11.2', '~0.11.1', '0.11'));
+  }
+
+  public function testIndependentArtifactPatchKeepsTheCompatibilityFloorAndExactPublicationIdentity(): void
+  {
+    $this->planCoreArtifact('1.2.1', '~1.2.0');
+    $this->releaseEvidence['modules']['assegaiphp/console']['require'] = (object) ['assegaiphp/core' => '~1.2.0'];
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    $validator = new ReleaseInventoryValidator();
+    self::assertTrue($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->isReady);
+    $manifest = $this->writeRelease('manifest', ['name' => 'assegaiphp/console', 'require' => (object) ['assegaiphp/core' => '~1.2.0']]);
+    self::assertSame('passed', $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest)['status']);
+    $inventory = $validator->loadInventory($this->inventoryFile, $this->modulesFile);
+    self::assertSame([], $inventory->requirementIssues('assegaiphp/core', '~1.2.9'));
+    self::assertSame(['require' => ['assegaiphp/core' => '~1.2.9']], \Assegai\Console\Util\ComposerManifest::ensureRecommendedRequirement(
+      ['require' => ['assegaiphp/core' => '~1.2.9']], 'assegaiphp/core', $inventory->recommendedConstraints()['assegaiphp/core']));
+    $core = $this->writeRelease('manifest', ['name' => 'assegaiphp/core']);
+    self::assertSame('passed', $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $core, 'refs/tags/1.2.1')['status']);
+    self::assertSame('blocked', $validator->validateManifestFiles($this->inventoryFile, $this->modulesFile, $core, 'refs/tags/1.2.0')['status']);
+    $this->releaseEvidence['publication']['assegaiphp/core']['version'] = '1.2.0';
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    self::assertContains('package-publication', array_column($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Publish, $this->evidenceFile)->issues, 'code'));
+    $this->releaseEvidence['composer']['versions']['assegaiphp/core'] = '1.2.0';
+    $this->writeRelease('evidence', $this->releaseEvidence);
+    self::assertContains('composer-versions', array_column($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Prepare, $this->evidenceFile)->issues, 'code'));
+  }
+
+  public function testIntentionalFloorAdvanceStillRejectsOlderDependentRequirements(): void
+  {
+    $this->planCoreArtifact('1.2.1', '~1.2.1');
+    $manifest = $this->writeRelease('manifest', ['name' => 'assegaiphp/console', 'require' => (object) ['assegaiphp/core' => '~1.2.0']]);
+    self::assertSame('blocked', (new ReleaseInventoryValidator())->validateManifestFiles($this->inventoryFile, $this->modulesFile, $manifest)['status']);
+  }
+
+  public function testContainmentUsesCompleteComposerSetsIncludingGapsAndUnions(): void
+  {
+    $envelope = '>=0.11.0 <0.11.2 || >=0.11.3 <0.12.0';
+    self::assertSame([], ReleaseInventoryValidator::constraintIssues('0.11.3', $envelope, '0.11'));
+    self::assertSame([], ReleaseInventoryValidator::subsetIssues('~0.11.3', $envelope));
+    self::assertNotSame([], ReleaseInventoryValidator::subsetIssues('~0.11.0', $envelope));
+    self::assertFalse(ReleaseInventoryValidator::versionAllowed('0.11.2', $envelope));
+    self::assertFalse(ReleaseInventoryValidator::versionAllowed('0.11.3-beta', $envelope));
   }
 
   public function testLoadsOfflineDataThroughTheSameReaderAndRejectsChangedBundleBytes(): void
@@ -327,12 +370,19 @@ final class ReleaseInventoryValidatorTest extends TestCase
       ->and(json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR)['status'])->toBe('blocked');
   }
 
-  public function testRequiresTheActualCleanWebsiteLockToConsumeTheReviewedVersionsBeforePublish(): void
+  #[DataProvider('websiteLockCompatibility')]
+  public function testRequiresTheActualCleanWebsiteLockToConsumeTheReviewedVersionsBeforePublish(string $version, string $requirement, string $envelope, bool $compatible): void
   {
+    $this->planCoreArtifact('1.2.2', $envelope);
     $website = $this->releaseDirectory . '/website';
     mkdir($website);
-    $git = static function (array $arguments) use ($website): string {
-      $process = new \Symfony\Component\Process\Process(['git', '-C', $website, ...$arguments], timeout: 5);
+    $names = new \Symfony\Component\Process\Process(['git', 'rev-parse', '--local-env-vars'], timeout: 5);
+    $names->mustRun();
+    $environment = [];
+    foreach (explode("\n", trim($names->getOutput())) as $name) { $environment[trim($name)] = false; }
+    // Fixture mutations must target their own repository when tests run in a hook.
+    $git = static function (array $arguments) use ($website, $environment): string {
+      $process = new \Symfony\Component\Process\Process(['git', '-C', $website, ...$arguments], env: $environment, timeout: 5);
       $process->mustRun();
       return trim($process->getOutput());
     };
@@ -351,8 +401,8 @@ final class ReleaseInventoryValidatorTest extends TestCase
       $this->releaseEvidence['website']['composerLockSha256'] = $lockHash;
       $this->writeRelease('evidence', $this->releaseEvidence);
     };
-    file_put_contents($website . '/composer.json', json_encode(['name' => 'assegaiphp/website', 'require' => ['assegaiphp/core' => '~1.2.0']], JSON_THROW_ON_ERROR));
-    $lock = ['packages' => [['name' => 'assegaiphp/core', 'version' => '1.2.0']], 'packages-dev' => []];
+    file_put_contents($website . '/composer.json', json_encode(['name' => 'assegaiphp/website', 'require' => ['assegaiphp/core' => $requirement]], JSON_THROW_ON_ERROR));
+    $lock = ['packages' => [['name' => 'assegaiphp/core', 'version' => $version]], 'packages-dev' => []];
     file_put_contents($website . '/composer.lock', json_encode($lock, JSON_THROW_ON_ERROR));
     $git(['init', '--initial-branch=fixture']);
     $commit();
@@ -366,7 +416,7 @@ final class ReleaseInventoryValidatorTest extends TestCase
     expect(fn() => $checkout->verifyFiles($git(['rev-parse', 'HEAD']), [$copy . '/composer.json'], $copy))
       ->toThrow(RuntimeException::class, 'pinned source');
     $validator = new ReleaseInventoryValidator();
-    expect($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Publish, $this->evidenceFile, $website . '/composer.json', $website . '/composer.lock')->isReady)->toBeTrue();
+    self::assertSame($compatible, $validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Publish, $this->evidenceFile, $website . '/composer.json', $website . '/composer.lock')->isReady);
     $lock['packages'][0]['version'] = '1.1.9';
     file_put_contents($website . '/composer.lock', json_encode($lock, JSON_THROW_ON_ERROR));
     expect($validator->validateFiles($this->inventoryFile, $this->modulesFile, ReleaseStage::Publish, $this->evidenceFile, $website . '/composer.json', $website . '/composer.lock')->isReady)->toBeFalse();
@@ -384,6 +434,33 @@ final class ReleaseInventoryValidatorTest extends TestCase
     file_put_contents($path, json_encode($value, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
     $this->releaseFiles[$name] = $path;
     return $path;
+  }
+
+  private function planCoreArtifact(string $version, string $envelope): void
+  {
+    $name = 'assegaiphp/core';
+    $this->releasePlan['packages'][$name] = ['version' => $version, 'installConstraint' => $envelope];
+    $this->releaseEvidence['composer']['versions'][$name] = $version;
+    $this->releaseEvidence['publication'][$name]['version'] = $version;
+    foreach (['catalog', 'defaults', 'update'] as $kind) { $this->releaseEvidence['cli'][$kind][$name] = $envelope; }
+    $this->writeRelease('inventory', $this->releasePlan);
+    $hash = 'sha256:' . self::hashFile($this->inventoryFile);
+    $this->releaseEvidence['inventorySha256'] = $this->releaseEvidence['website']['content']['inventorySha256'] = $hash;
+    $this->writeRelease('evidence', $this->releaseEvidence);
+  }
+
+  /** @return list<array{string, string, string, bool}> */
+  public static function websiteLockCompatibility(): array
+  {
+    return [
+      ['1.2.2', '~1.2.0', '~1.2.0', true],
+      ['1.2.0', '~1.2.0', '~1.2.0', true],
+      ['1.2.9', '~1.2.0', '~1.2.0', true],
+      ['1.1.0', '~1.2.0', '~1.2.0', false],
+      ['1.2.0', '~1.2.1', '~1.2.1', false],
+      ['1.2.1', '~1.2.2', '~1.2.0', false],
+      ['1.2.3-beta', '~1.2.0', '~1.2.0', false],
+    ];
   }
 
   public function testChecksActualReleaseAndTagVersionsWhenTheManifestOmitsVersion(): void
